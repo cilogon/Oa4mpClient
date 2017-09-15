@@ -106,7 +106,18 @@
         <?php print ($e ? $this->Form->label('secret', _txt('pl.oa4mp_client_co_admin_client.secret.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.secret.fd.name')); ?><span class="required">*</span>
       </td>
       <td>
-        <?php print ($e ? $this->Form->input('secret') : filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['secret'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
+        <?php 
+          if($e) { 
+            $args = array();
+            $args['type'] = 'password';
+            $args['maxlength'] = '96';
+            $args['style'] = 'width: 80%';
+            echo $this->Form->input('secret', $args);
+          } else {
+            echo filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['secret'],FILTER_SANITIZE_SPECIAL_CHARS); 
+          }
+        ?>
+
       </td>
     </tr>
     <tr>
