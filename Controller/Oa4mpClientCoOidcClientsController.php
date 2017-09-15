@@ -477,7 +477,6 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     $content['name']          = $data['Oa4mpClientCoOidcClient']['name'];
     $content['home_url']      = $data['Oa4mpClientCoOidcClient']['home_url'];
-    $content['error_url']     = $data['Oa4mpClientCoOidcClient']['error_url'];
 
     if($data['Oa4mpClientCoOidcClient']['proxy_limited']) {
       $content['proxy_limited'] = 'true';
@@ -688,7 +687,6 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $fields = array();
       $fields[] = 'name';
       $fields[] = 'home_url';
-      $fields[] = 'error_url';
 
       $args = array();
       $args['fieldList'] = $fields;

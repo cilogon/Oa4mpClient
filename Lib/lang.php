@@ -57,7 +57,6 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name' => 'Client ID',
   'pl.oa4mp_client_co_oidc_client.secret.fd.name' => 'Client Secret',
   'pl.oa4mp_client_co_oidc_client.home_url.fd.name' => 'Home URL',
-  'pl.oa4mp_client_co_oidc_client.error_url.fd.name' => 'Error URL',
 
   'pl.oa4mp_client_co_oidc_client.secret.title' => 'New OIDC Client',
   'pl.oa4mp_client_co_oidc_client.secret.text' => 'You MUST permanently record the client secret before continuing. The CILogon servers do not store the client secret.',

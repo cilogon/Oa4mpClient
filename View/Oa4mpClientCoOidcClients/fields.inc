@@ -122,14 +122,6 @@ function addSearchAttributeInput() {
                   <?php print ($e ? $this->Form->input('home_url') : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoOidcClient']['home_url'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
                 </td>
               </tr>
-              <tr class="line1">
-                <td>
-                  <?php print ($e ? $this->Form->label('error_url', _txt('pl.oa4mp_client_co_oidc_client.error_url.fd.name')) : _txt('pl.oa4mp_client_co_oidc_client.error_url.fd.name')); ?><span class="required">*</span>
-                </td>
-                <td>
-                  <?php print ($e ? $this->Form->input('error_url') : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoOidcClient']['error_url'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
-                </td>
-              </tr>
             </tbody>
           </table>
 

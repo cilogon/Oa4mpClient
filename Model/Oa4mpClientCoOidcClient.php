@@ -83,12 +83,6 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'allowEmpty' => false,
       'message' => 'Please supply a valid http:// or https:// URL'
     ),
-    'error_url' => array(
-      'rule' => 'url',
-      'required' => true,
-      'allowEmpty' => false,
-      'message' => 'Please supply a valid http:// or https:// URL'
-    ),
     'proxy_limited' => array(
       'rule' => 'boolean',
       'required' => true,
