@@ -676,6 +676,13 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
   private function validatePost() {
       $data = $this->request->data;
 
+      // Trim leading and trailing whitespace from user input.
+      array_walk_recursive($data, function (&$value,$key) { 
+        if (is_string($value)) { 
+          $value = trim($value); 
+        } 
+      });
+
       // We validate necessary fields here in the controller so that we can
       // leverage saveAssociated to save the data with validate set to false.
       // When it is set to true and there are multiple rows of associated data
