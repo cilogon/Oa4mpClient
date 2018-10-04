@@ -44,9 +44,19 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Plugin texts
   'pl.oa4mp_client_co_admin_client.admin_identifier.fd.name' => 'Admin ID',
+  'pl.oa4mp_client_co_admin_client.admin_identifier.fd.description' => 'ID of the admin client for the CO',
   'pl.oa4mp_client_co_admin_client.serverurl.fd.name' => 'Server URL',
+  'pl.oa4mp_client_co_admin_client.serverurl.fd.description' => 'OA4MP server URL (https://cilogon.org/oauth2/clients)',
   'pl.oa4mp_client_co_admin_client.secret.fd.name' => 'Secret',
+  'pl.oa4mp_client_co_admin_client.secret.fd.description' => 'Secret for the admin client for the CO',
   'pl.oa4mp_client_co_admin_client.co_id.fd.all_taken' => 'No COs without existing admin client',
+  'pl.oa4mp_client_co_admin_client.ldap.server.fd.description' => 'Default LDAP server URL to use with OIDC clients for this CO',
+  'pl.oa4mp_client_co_admin_client.ldap.binddn.fd.description' => 'Default bind DN to use with OIDC clients for this CO',
+  'pl.oa4mp_client_co_admin_client.ldap.bindpassword.fd.description' => 'Default bind password to use with OIDC clients for this CO',
+  'pl.oa4mp_client_co_admin_client.ldap.searchbase.fd.description' => 'Default search base for person records (ou=people,...)',
+  'pl.oa4mp_client_co_admin_client.save.dialog.title' => 'Edits to Admin Client',
+  'pl.oa4mp_client_co_admin_client.save.dialog.text' => 'Any changes to the default LDAP configuration do not propagate to existing OIDC clients!',
+  'pl.oa4mp_client_co_admin_client.save.dialog.understand' => 'I understand',
 
   'pl.oa4mp_client_co_admin_client.er.client_exists' => 'A CO may only have one Oa4mp Admin Client',
   'pl.oa4mp_client_co_admin_client.er.create_error' => 'Unable to create new OIDC client',
@@ -54,22 +64,37 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_admin_client.er.edit_error' => 'Unable to edit OIDC client',
 
   'pl.oa4mp_client_co_oidc_client.name.fd.name' => 'Name',
+  'pl.oa4mp_client_co_oidc_client.name.fd.description' => 'The client Name is displayed to end-users on the Identity Provider selection page',
   'pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name' => 'Client ID',
   'pl.oa4mp_client_co_oidc_client.secret.fd.name' => 'Client Secret',
   'pl.oa4mp_client_co_oidc_client.home_url.fd.name' => 'Home URL',
+  'pl.oa4mp_client_co_oidc_client.home_url.fd.description' => 'The Home URL is used as the hyperlink for the client Name',
+  'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'Callbacks',
+  'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The redirect_uri parameter must exactly match a callback URL',
+  'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
 
   'pl.oa4mp_client_co_oidc_client.secret.title' => 'New OIDC Client',
   'pl.oa4mp_client_co_oidc_client.secret.text' => 'You MUST permanently record the client secret before continuing. The CILogon servers do not store the client secret.',
+  'pl.oa4mp_client_co_oidc_client.secret.understand' => 'I understand',
 
   'pl.oa4mp_client_co_callback.url.fd.name' => 'URL',
 
-  'pl.oa4mp_client_co_scope.scope.fd.name' => 'Scope',
+  'pl.oa4mp_client_co_scope.scope.fd.name' => 'Scopes',
+  'pl.oa4mp_client_co_scope.scope.fd.description' => '<a href="https://www.cilogon.org/oidc">Information on scopes</a>',
+  'pl.oa4mp_client_co_scope.scope.openid.fd.name' => 'openid',
+  'pl.oa4mp_client_co_scope.scope.profile.fd.name' => 'profile',
+  'pl.oa4mp_client_co_scope.scope.email.fd.name' => 'email',
+  'pl.oa4mp_client_co_scope.scope.org.cilogon.userinfo.fd.name' => 'org.cilogon.userinfo',
 
   'pl.oa4mp_client_co_ldap_config.serverurl.fd.name' => 'LDAP Server URL',
   'pl.oa4mp_client_co_ldap_config.binddn.fd.name' => 'LDAP Bind DN',
   'pl.oa4mp_client_co_ldap_config.password.fd.name' => 'LDAP Bind Password',
   'pl.oa4mp_client_co_ldap_config.basedn.fd.name' => 'LDAP Search Base DN',
 
+  'pl.oa4mp_client_co_search_attribute.fd.title' => 'LDAP to Claim Mappings',
+  'pl.oa4mp_client_co_search_attribute.fd.add_first_button' => 'Add a LDAP to Claim Mapping',
+  'pl.oa4mp_client_co_search_attribute.fd.add_another_button' => 'Add another LDAP to Claim Mapping',
+  'pl.oa4mp_client_co_search_attribute.fd.description' => '<a href="https://www.cilogon.org/oidc">Information on LDAP to claim mappings</a>',
   'pl.oa4mp_client_co_search_attribute.name.fd.name' => 'LDAP Attribute Name',
   'pl.oa4mp_client_co_search_attribute.return_name.fd.name' => 'OIDC Claim Name',
   'pl.oa4mp_client_co_search_attribute.return_as_list.fd.name' => 'Multivalued?',
@@ -81,5 +106,4 @@ $cm_oa4mp_client_texts['en_US'] = array(
     Oa4mpClientScopeEnum::Email              => 'email',
     Oa4mpClientScopeEnum::OrgCilogonUserInfo => 'org.cilogon.userinfo'
   ),
-
 );

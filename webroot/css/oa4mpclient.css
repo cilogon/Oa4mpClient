@@ -28,4 +28,31 @@ body.oa4mp_client_co_oidc_clients main td:first-child {
     width: 140px;
 }
 
+ul.form-list .field-dynamic-actions input {
+    float: left;
+    width: 90%;
+    margin-right: 4px;
+}
 
+ul.form-list #callbacks-li input[type="text"] {
+    width: 80%;
+}
+
+ul.field-ldap-to-claim-mapping {
+    float: left;
+    width: 90%;
+}
+
+div.field-children-inline {
+    display: inline-block;
+    width: 100%;
+    line-height: 126px;
+}
+
+div.field-children-inline button {
+    vertical-align: middle;
+}
+
+#oa4mp_client_add_callback_input_button {
+    margin-top: 4px;
+}

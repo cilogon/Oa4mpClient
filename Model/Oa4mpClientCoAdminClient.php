@@ -38,7 +38,16 @@ class Oa4mpClientCoAdminClient extends AppModel {
     "Co"
   );
 
+  public $hasOne = array(
+    // An Oa4mp admin client has one default LDAP config
+    "DefaultLdapConfig" => array(
+      'className' => 'Oa4mpClient.Oa4mpClientCoLdapConfig',
+      'foreignKey' => 'admin_id'
+    )
+  );
+
   public $hasMany = array(
+    // An Oa4mp admin client manages many OIDC clients
     "Oa4mpClient.Oa4mpClientCoOidcClient" => array(
       'foreignKey' => 'admin_id'
     )
@@ -71,5 +80,4 @@ class Oa4mpClientCoAdminClient extends AppModel {
       'allowEmpty' => false,
     )
   );
-  
 }

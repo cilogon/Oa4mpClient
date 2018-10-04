@@ -43,6 +43,27 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
   // This controller does not need a CO to be set
   public $requires_co = false;
 
+
+  /**
+   * Add an admin client.
+   *
+   * @since COmanage Registry 3.1.1
+   */
+
+  function add() {
+    // Process POST data
+    if($this->request->is('post')) {
+
+      // We do not currently expose all of the LDAP configuration options
+      // in the form so add default values before validating the data. 
+      $this->request->data['DefaultLdapConfig']['enabled'] = true;
+      $this->request->data['DefaultLdapConfig']['authorization_type'] = 'simple';
+      $this->request->data['DefaultLdapConfig']['search_name'] = 'username';
+    }
+
+    parent::add();
+  }
+
   /**
    * Callback before other controller methods are invoked or views are rendered.
    * - precondition:
@@ -129,6 +150,26 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
     }
     
     return true;
+  }
+
+  /**
+   * Edit an admin client.
+   *
+   * @since COmanage Registry 3.1.1
+   */
+
+  function edit($id) {
+    // Process POST data
+    if($this->request->is(array('post', 'put'))) {
+
+      // We do not currently expose all of the LDAP configuration options
+      // in the form so add default values before validating the data. 
+      $this->request->data['DefaultLdapConfig']['enabled'] = true;
+      $this->request->data['DefaultLdapConfig']['authorization_type'] = 'simple';
+      $this->request->data['DefaultLdapConfig']['search_name'] = 'username';
+    }
+
+    parent::edit($id);
   }
 
 

@@ -94,6 +94,9 @@
         <field name="client_id" type="I">
             <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
         </field>
+        <field name="admin_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_admin_clients(id)</constraint>
+        </field>
         <field name="enabled" type="L" />
         <field name="authorization_type" type="C" size="32" />
         <field name="serverurl" type="C" size="256" />

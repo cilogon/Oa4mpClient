@@ -34,13 +34,19 @@ class Oa4mpClientCoLdapConfig extends AppModel {
 
   // Association rules from this model to other models
   public $belongsTo = array(
-    // An Oa4mp Client LDAP config is attached to an OIDC client
+    // An Oa4mp Client LDAP config may be attached to an OIDC client
     "Oa4mpClient.Oa4mpClientCoOidcClient" => array(
       'foreignKey' => 'client_id'
-    )
+    ),
+    // An Oa4mp Client LDAP config may be attached to an admin client
+    "Oa4mpClient.Oa4mpClientCoAdminClient" => array(
+      'foreignKey' => 'admin_id'
+    ),
+
   );
 
   public $hasMany = array(
+    // An Oa4mp Client LDAP config may have multiple search attribute mappings
     "Oa4mpClient.Oa4mpClientCoSearchAttribute" => array(
       'foreignKey' => 'ldap_id',
       'dependent' => true
@@ -54,8 +60,13 @@ class Oa4mpClientCoLdapConfig extends AppModel {
   public $validate = array(
     'client_id' => array(
       'rule' => 'numeric',
-      'required' => true,
-      'allowEmpty' => false,
+      'required' => false,
+      'allowEmpty' => true,
+    ),
+    'admin_id' => array(
+      'rule' => 'numeric',
+      'required' => false,
+      'allowEmpty' => true,
     ),
     'enabled' => array(
       'rule' => 'boolean',
@@ -71,7 +82,6 @@ class Oa4mpClientCoLdapConfig extends AppModel {
       'rule' => array('custom', '/^ldaps?:\/\/.*/'),
       'required' => true,
       'allowEmpty' => false,
-      'message' => 'Please enter a valid ldap or ldaps URL'
     ),
     'binddn' => array(
       'rule' => 'notBlank',
@@ -94,5 +104,4 @@ class Oa4mpClientCoLdapConfig extends AppModel {
       'allowEmpty' => false
     )
   );
-  
 }

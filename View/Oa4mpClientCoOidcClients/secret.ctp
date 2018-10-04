@@ -27,7 +27,18 @@
 
   // Add breadcrumbs
   print $this->element("coCrumb");
-  $this->Html->addCrumb(_txt('ct.oa4mp_client_co_oidc_clients.pl'));
+  $args = array();
+  $args['plugin'] = 'oa4mp_client';
+  $args['controller'] = 'oa4mp_client_co_oidc_clients';
+  $args['action'] = 'index';
+
+  $this->Html->addCrumb(_txt('ct.oa4mp_client_co_oidc_clients.pl'), $args);
+  $crumbTxt = _txt('op.' . $this->action . '-a', array(_txt('ct.oa4mp_client_co_oidc_clients.1')));
+  $this->Html->addCrumb($crumbTxt);
+
+  print $this->Html->css("Oa4mpClient.oa4mpclient");
+
+  $l = 1;
 
   // Add page title
   $params = array();
@@ -39,34 +50,54 @@
   print $this->element("pageTitleAndButtons", $params);
 
 ?>
+<script type="text/javascript">
+  <!-- JS specific to these fields -->
 
-<p>
-  <em><?php print _txt('pl.oa4mp_client_co_oidc_client.secret.text'); ?></em>
-</p>
+function js_local_onload() {
+    $("#client-secret-dialog").dialog({
+      autoOpen: true,
+      buttons: {
+        "<?php print _txt('pl.oa4mp_client_co_oidc_client.secret.understand'); ?>": function() {
+          $(this).dialog("close");
+        }
+      },
+      modal: true,
+      show: {
+        effect: "fade"
+      },
+      hide: {
+        effect: "fade"
+      }
+    });
 
-<table id="oa4mp_client_co_oidc_clients_secret" class="ui-widget">
-  <tbody>
-    <tr class="line1">
-      <td>
+}
+
+</script>
+
+<ul id="<?php print $this->action; ?>_oa4mp_client_co_oidc_client" class="fields form-list form-list-admin">
+  <li>
+    <div class="field-name">
+      <div class="field-title">
         <?php print _txt('pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name'); ?>
-      </td>
-      <td>
+      </div>
+    </div>
+    <div class="field-info">
         <?php print $vv_client_id; ?>
-      </td>
-    </tr>
-    <tr class="line2">
-      <td>
-        <?php print _txt('pl.oa4mp_client_co_oidc_client.secret.fd.name'); ?>
-      </td>
-      <td>
-        <?php print $vv_client_secret; ?>
-      </td>
-    </tr>
-  </tbody>
-  
-</table>
+    </div>
+  </li>
 
-<?php 
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print _txt('pl.oa4mp_client_co_oidc_client.secret.fd.name'); ?>
+      </div>
+    </div>
+    <div class="field-info">
+        <?php print $vv_client_secret; ?>
+    </div>
+  </li>
+
+  <?php 
 
   $args = array();
   $args['plugin'] = 'oa4mp_client';
@@ -76,4 +107,11 @@
     $args['co'] = $cur_co['Co']['id'];
   }
   
-  print $this->Html->link(_txt('op.cont'), $args, array('class' => 'forwardbutton')); ?>
+  print $this->Html->link(_txt('op.cont'), $args, array('class' => 'forwardbutton'));
+  ?>
+
+</ul>
+
+<div id="client-secret-dialog" title="<?php print _txt('pl.oa4mp_client_co_oidc_client.secret.title'); ?>" style="display:none">
+  <p><?php print _txt('pl.oa4mp_client_co_oidc_client.secret.text'); ?></p>
+</div>
