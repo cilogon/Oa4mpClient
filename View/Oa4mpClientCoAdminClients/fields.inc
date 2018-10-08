@@ -74,7 +74,7 @@
   }
 
   function js_local_onload() {
-    // Define the dialog box used when save button is clicked.
+    // Define the dialog box used when save button is clicked for edit action.
     $("#on-save-dialog").dialog({
         autoOpen: false,
         buttons: {
@@ -259,12 +259,16 @@
       <div class="field-name"></div>
       <div class="field-info">
         <?php 
-          $args = array();
-          $args['type'] = 'button';
-          $args['class'] = 'submit-button';
-          $args['onClick'] = 'on_submit()';
-          $args['id'] = 'oa4mpadminclientsavebutton';
-          print $this->Form->button($submit_label, $args);
+          if($this->action == "add") {
+            print $this->Form->submit($submit_label);
+          } elseif ($this->action =="edit") {
+            $args = array();
+            $args['type'] = 'button';
+            $args['class'] = 'submit-button';
+            $args['onClick'] = 'on_submit()';
+            $args['id'] = 'oa4mpadminclientsavebutton';
+            print $this->Form->button($submit_label, $args);
+          }
         ?>
       </div>
     </li>
