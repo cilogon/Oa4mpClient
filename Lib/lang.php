@@ -106,4 +106,13 @@ $cm_oa4mp_client_texts['en_US'] = array(
     Oa4mpClientScopeEnum::Email              => 'email',
     Oa4mpClientScopeEnum::OrgCilogonUserInfo => 'org.cilogon.userinfo'
   ),
+
+  // Text flag to signal OIDC client created by COmanage Registry Oa4mpClient Plugin.
+  'pl.oa4mp_client_co_oidc_client.signature' => 'Created by COmanage Oa4mpClient Plugin',
+
+  // Exceptions
+  'pl.oa4mp_client_co_oidc_client.er.bad_signature' => 'Client object from Oa4mp server failed signature check',
+  'pl.oa4mp_client_co_oidc_client.er.unmarshall' => 'Error unmarshalling OIDC client object from Oa4mp server',
+  'pl.oa4mp_client_co_oidc_client.er.preprocessing' => 'Found bad preProcessing block from Oa4mp server',
+  'pl.oa4mp_client_co_oidc_client.er.bad_client' => 'This client has been modified outside of the Registry. Please email help@cilogon.org for assistance.',
 );

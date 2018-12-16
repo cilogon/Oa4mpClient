@@ -235,6 +235,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     }
   }
 
+
   /**
    * Edit an OIDC client.
    *
@@ -278,8 +279,15 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       } 
 
       // Call out to oa4mp server.
-      if(!$this->oa4mpEditClient($curdata, $curdata, $data)) {
+      // Return value of 0 indicates an error saving the edit.
+      // Return value of 2 indicates the plugin representation of the client
+      // and the Oa4mp server representation of the client are out of sync.
+      $ret = $this->oa4mpEditClient($curdata, $curdata, $data);
+      if($ret == 0) {
         $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+        return;
+      } elseif($ret == 2) {
+        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
         return;
       }
 
@@ -479,6 +487,175 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
   }
 
   /**
+   * Determine if our representation of the client and the Oa4mp server
+   * representation of the client is synchronized, in order to detect
+   * if the client has been changed outside of this plugin.
+   *
+   * @since COmanage Registry 3.1.1
+   */
+
+  function isClientDataSynchronized($curData, $oa4mpServerData) {
+
+    // Compare basic client details.
+    $curClient = $curData['Oa4mpClientCoOidcClient'];
+    $oa4mpClient = $oa4mpServerData['Oa4mpClientCoOidcClient'];
+
+    if($curClient['oa4mp_identifier'] !== $oa4mpClient['oa4mp_identifier']) {
+      $this->log("Oa4mpClientCoOidcClient oa4mp_identifier is out of sync");
+      return false;
+    }
+
+    if($curClient['name'] !== $oa4mpClient['name']) {
+      $this->log("Oa4mpClientCoOidcClient name is out of sync");
+      return false;
+    }
+
+    if($curClient['proxy_limited'] != $oa4mpClient['proxy_limited']) {
+      $this->log("Oa4mpClientCoOidcClient proxy_limited is out of sync");
+      return false;
+    }
+
+    // Compare callbacks.
+    $curCallbacks = array();
+    $oa4mpCallbacks = array();
+
+    foreach($curData['Oa4mpClientCoCallback'] as $key => $cb) {
+      $curCallbacks[] = $cb['url'];
+    }
+
+    foreach($oa4mpServerData['Oa4mpClientCoCallback'] as $key => $cb) {
+      $oa4mpCallbacks[] = $cb['url'];
+    }
+
+    sort($curCallbacks);
+    sort($oa4mpCallbacks);
+
+    if($curCallbacks != $oa4mpCallbacks) {
+      $this->log("Oa4mpClientCoCallback callbacks are out of sync");
+      return false;
+    }
+
+    // Compare scopes.
+    $curScopes = array();
+    $oa4mpScopes = array();
+
+    foreach($curData['Oa4mpClientCoScope'] as $key => $s) {
+      $curScopes[] = $s['scope'];
+    }
+
+    foreach($oa4mpServerData['Oa4mpClientCoScope'] as $key => $s) {
+      $oa4mpScopes[] = $s['scope'];
+    }
+
+    sort($curScopes);
+    sort($oa4mpScopes);
+
+    if($curScopes != $oa4mpScopes) {
+      $this->log("Oa4mpClientCoScope scopes are out of sync");
+      return false;
+    }
+
+    // Compare LDAP configurations.
+    if($curData['Oa4mpClientCoLdapConfig'] && !$oa4mpServerData['Oa4mpClientCoLdapConfig']) {
+      $this->log("Oa4mpClientCoLdapConfig plugin has LDAP configuration but Oa4mp server does not");
+      return false;
+    }
+
+    if(!$curData['Oa4mpClientCoLdapConfig'] && $oa4mpServerData['Oa4mpClientCoLdapConfig']) {
+      $this->log("Oa4mpClientCoLdapConfig Oa4mp server has LDAP configuration but plugin does not");
+      return false;
+    }
+
+    if($curData['Oa4mpClientCoLdapConfig'] && $oa4mpServerData['Oa4mpClientCoLdapConfig']) {
+      if(count($curData['Oa4mpClientCoLdapConfig']) > 1) {
+        $this->log("Oa4mpClientCoLdapConfig plugin has more than one LDAP configuration");
+        return false;
+      }
+      if(count($oa4mpServerData['Oa4mpClientCoLdapConfig']) > 1) {
+        $this->log("Oa4mpClientCoLdapConfig Oa4mp server has more than one LDAP configuration");
+        return false;
+      }
+
+      $curLdap = $curData['Oa4mpClientCoLdapConfig'][0];
+      $serLdap = $oa4mpServerData['Oa4mpClientCoLdapConfig'][0];
+
+      if($curLdap['serverurl'] !== $serLdap['serverurl']) {
+        $this->log("Oa4mpClientCoLdapConfig serverurl is out of sync");
+        return false;
+      }
+      if($curLdap['binddn'] !== $serLdap['binddn']) {
+        $this->log("Oa4mpClientCoLdapConfig binddn is out of sync");
+        return false;
+      }
+      if($curLdap['password'] !== $serLdap['password']) {
+        $this->log("Oa4mpClientCoLdapConfig password is out of sync");
+        return false;
+      }
+      if($curLdap['basedn'] !== $serLdap['basedn']) {
+        $this->log("Oa4mpClientCoLdapConfig basedn is out of sync");
+        return false;
+      }
+      if($curLdap['search_name'] !== $serLdap['search_name']) {
+        $this->log("Oa4mpClientCoLdapConfig search_name is out of sync");
+        return false;
+      }
+      if($curLdap['authorization_type'] !== $serLdap['authorization_type']) {
+        $this->log("Oa4mpClientCoLdapConfig authorization_type is out of sync");
+        return false;
+      }
+      if($curLdap['enabled'] != $serLdap['enabled']) {
+        $this->log("Oa4mpClientCoLdapConfig enabled is out of sync");
+        return false;
+      }
+
+      // Compare search attribute configurations, making sure each of
+      // the search attributes in the current data can be found in
+      // the search atttributes returned by the Oam4mp server.
+
+      foreach($curLdap['Oa4mpClientCoSearchAttribute'] as $cursa) {
+        $found = false;
+        foreach($serLdap['Oa4mpClientCoSearchAttribute'] as $sersa) {
+          if($sersa['name'] == $cursa['name']) {
+            if(($cursa['return_name'] == $sersa['return_name']) && ($cursa['return_as_list'] == $sersa['return_as_list'])) {
+              $found = true;
+              break;
+            }
+          }
+        }
+        if(!$found) {
+          $name = $cursa['name'];
+          $this->log("Oa4mpClientCoSearchAttribute search attribute $name is out of sync");
+          return false;
+        }
+      }
+
+      // Compare search attribute configurations, making sure each of
+      // the search attributes returned by the Oa4mp server
+      // can be found in the current data.
+
+      foreach($serLdap['Oa4mpClientCoSearchAttribute'] as $key => $sersa) {
+        $found = false;
+        foreach($curLdap['Oa4mpClientCoSearchAttribute'] as $key => $cursa) {
+          if($sersa['name'] == $cursa['name']) {
+            if(($cursa['return_name'] == $sersa['return_name']) && ($cursa['return_as_list'] == $sersa['return_as_list'])) {
+              $found = true;
+              break;
+            }
+          }
+        }
+
+        if(!$found) {
+          $name = $sersa['name'];
+          $this->log("Oa4mpClientCoSearchAttribute search attribute $name is out of sync");
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /**
    * Delete an existing OIDC client from the oa4mp server.
    *
    * @since COmanage Registry 2.0.1
@@ -527,16 +704,18 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    * Edit an existing OIDC client from the oa4mp server.
    *
    * @since COmanage Registry 2.0.1
-   * @return Boolean true if edit is successful or false otherwise
+   * @return 1 if edit is successful, 0 if not, and 2 if detect client
+   *         modified outside of this plugin
    */
 
   function oa4mpEditClient($adminClient, $curData, $data) {
-    $ret = false;
+    $ret = 0;
 
     $http = new HttpSocket();
 
     $request = $this->oa4mpInitializeRequest($adminClient);
 
+    // Query the Oa4mp server for the current configuration of the client.
     $request['body']['api']['action']['type']   = 'attribute';
     $request['body']['api']['action']['method'] = 'get';
 
@@ -549,11 +728,30 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $content[] = "callback_uri";
 
     $request['body']['api']['content'] = $content;
-
     $request['body'] = json_encode($request['body']);
 
     $response = $http->request($request);
 
+    $oa4mpObject = json_decode($response->body(), true);
+
+    try {
+      // Unmarshall the Oa4mp server representation of the client
+      // and compare it to the current data to detect if the client
+      // has been changed outside of this plugin.
+      $oa4mpServerData = $this->oa4mpUnMarshallContent($oa4mpObject);
+      $synchronized = $this->isClientDataSynchronized($curData, $oa4mpServerData);
+      if(!$synchronized) {
+        return 2;
+      }
+    }
+    catch(Exception $e) {
+      $this->log("Caught exception during unmarshall of Oa4mp server object: " . $e->getMessage());
+      return 2;
+    }
+
+    // The current data before edit and the current Oa4mp server respresentation
+    // of the client agree so marshall the edited data and submit to
+    // the Oa4mp server.
     $request = $this->oa4mpInitializeRequest($adminClient);
 
     $request['body']['api']['action']['type']   = 'attribute';
@@ -570,7 +768,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $response = $http->request($request);
 
     if($response->isOk()) {
-      $ret = true;
+      $ret = 1;
     }
 
     return $ret;
@@ -638,10 +836,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
     }
 
-
     if(!empty($data['Oa4mpClientCoLdapConfig'])) {
       $content['cfg'] = array();
-      $content['cfg']['config'] = 'Created by COmanage Oa4mpClient Plugin';
+      $content['cfg']['config'] = _txt('pl.oa4mp_client_co_oidc_client.signature');
       $content['cfg']['claims'] = array();
       $content['cfg']['claims']['sourceConfig'] = array();
 
@@ -765,6 +962,146 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     }
 
     return $ret;
+  }
+
+  /**
+   * Unmarshall oa4mp server object to Oa4mpClientCoOidcClient object.
+   *
+   * @since COmanage Registry 3.1.1
+   * @return Array
+   */
+  function oa4mpUnMarshallContent($oa4mpObject) {
+
+    // The input oa4mpObject should already be converted from the
+    // JSON returned by the Oa4mp server to an associative array
+    // using the call json_decode($json, true).
+
+    $oa4mpClient = array();
+    $oa4mpClient['Oa4mpClientCoOidcClient']  = array();
+    $oa4mpClient['Oa4mpClientCoAdminClient'] = array();
+    $oa4mpClient['Oa4mpClientCoCallback']    = array();
+    $oa4mpClient['Oa4mpClientCoLdapConfig']  = array();
+    $oa4mpClient['Oa4mpClientCoScope']       = array();
+
+    try {
+      // Try to unmarshall the server object and throw exception
+      // for any errors.
+
+      $clientObject = $oa4mpObject['content']['client'];
+
+      // Unmarshall basic client details.
+      $oa4mpClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'] = $clientObject['client_id'];
+      $oa4mpClient['Oa4mpClientCoOidcClient']['name'] = $clientObject['name'];
+      $oa4mpClient['Oa4mpClientCoOidcClient']['proxy_limited'] = $clientObject['proxy_limited'];
+
+      // Unmarshall the calback URIs.
+      foreach ($clientObject['callback_uri'] as $key => $uri) {
+        $oa4mpClient['Oa4mpClientCoCallback'][]['url'] = $uri;
+      }
+
+      // Unmarshall the scope details.
+      foreach ($clientObject['scopes'] as $key => $scope) {
+        switch ($scope) {
+          case Oa4mpClientScopeEnum::OpenId:
+            $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::OpenId;
+            break;
+          case Oa4mpClientScopeEnum::Profile:
+            $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::Profile;
+            break;
+          case Oa4mpClientScopeEnum::Email:
+            $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::Email;
+            break;
+          case Oa4mpClientScopeEnum::OrgCilogonUserInfo:
+            $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::OrgCilogonUserInfo;
+            break;
+        }
+      }
+
+      // Unmarshall the cfg object to obtain the LDAP and search attribute details.
+      if(isset($oa4mpObject['content']['cfg'])){
+        $cfg = $oa4mpObject['content']['cfg'];
+
+        // If the client signature does not match what we expect throw exception.
+        if(isset($cfg['config'])) {
+          if($cfg['config'] != _txt('pl.oa4mp_client_co_oidc_client.signature')) {
+            throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.bad_signature'));
+          }
+        }
+
+        if(isset($cfg['claims']['sourceConfig'])) {
+          foreach($cfg['claims']['sourceConfig'] as $key => $sourceConfig) {
+            $ldapConfig = array();
+
+            if(isset($sourceConfig['ldap'])) {
+              $ldap = $sourceConfig['ldap'];
+
+              $ldapConfig['authorization_type'] = $ldap['authorizationType'];
+              $ldapConfig['enabled'] = $ldap['enabled'];
+
+              $address = $ldap['address'];
+              $port = $ldap['port'];
+              if($port == 636) {
+                $ldapConfig['serverurl'] = 'ldaps://' . $address;
+              } else {
+                $ldapConfig['serverurl'] = 'ldap://' . $address;
+              }
+
+              $ldapConfig['binddn'] = $ldap['principal'];
+              $ldapConfig['password'] = $ldap['password'];
+              $ldapConfig['basedn'] = $ldap['searchBase'];
+              $ldapConfig['search_name'] = $ldap['searchName'];
+
+              if(isset($ldap['searchAttributes'])) {
+                $ldapConfig['Oa4mpClientCoSearchAttribute'] = array();
+
+                foreach($ldap['searchAttributes'] as $key => $mapping) {
+                  $sa = array();
+                  $sa['name'] = $mapping['name'];
+                  $sa['return_name'] = $mapping['returnName'];
+
+                  // The Oa4mp server currently returns a string value of
+                  // 'true' or 'false'. That should probably be fixed to
+                  // return a JSON boolean so detect both here.
+                  if(($mapping['returnAsList'] == 'true') || ($mapping['returnAsList'] === true)){
+                    $sa['return_as_list'] = true;
+                  } else {
+                    $sa['return_as_list'] = null;
+                  }
+
+                  $ldapConfig['Oa4mpClientCoSearchAttribute'][] = $sa;
+                }
+              }
+            }
+
+            if(!empty($ldapConfig)) {
+              $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
+            }
+
+          }
+        }
+
+        // Check the preProcessing block. Currently we should find a sincle claim source
+        // of type 'LDAP' and its config identifier should be consistent with the cfg
+        // object.
+        if(isset($cfg['claims']['preProcessing'])) {
+          $preProcessing = $cfg['claims']['preProcessing'];
+          if(isset($preProcessing[0]['$then'][0]['$set_claim_source'])) {
+            $claim_source = $preProcessing[0]['$then'][0]['$set_claim_source'];
+            if($claim_source[0] != 'LDAP') {
+              throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
+            }
+            if($claim_source[1] != $cfg['claims']['sourceConfig'][0]['ldap']['id']) {
+              throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
+            }
+          }
+        }
+      }
+    }
+    catch(Exception $e) {
+      throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.unmarshall'));
+    }
+
+    return $oa4mpClient;
   }
 
   /**
