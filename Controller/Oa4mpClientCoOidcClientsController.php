@@ -1098,7 +1098,8 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
     }
     catch(Exception $e) {
-      throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.unmarshall'));
+      $this->log("oa4mpObject: " . print_r($oa4mpObject, true));
+      throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.unmarshall') . ': ' . $e->getMessage());
     }
 
     return $oa4mpClient;
