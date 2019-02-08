@@ -408,11 +408,12 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // then add the default LDAP config in case the user
     // wants to add LDAP search attributes. 
     if(empty($curdata['Oa4mpClientCoLdapConfig'])) {
+      // Use the CO ID to find the admin client and the default LDAP configuration.
       $args = array();
-      $args['contain'] = array();
-      $args['contain'] = 'Oa4mpClientCoAdminClient.co_id = "' . $this->cur_co['Co']['id'] . '"';
+      $args['conditions'] = array('co_id' => $this->cur_co['Co']['id']);
+      $args['contain'] = array('DefaultLdapConfig');
 
-      $ret = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->DefaultLdapConfig->find('first', $args);
+      $ret = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
       $defaultLdapConfig = $ret['DefaultLdapConfig'];
 
       $ldapConfig = array();
