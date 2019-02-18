@@ -1015,6 +1015,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
           case Oa4mpClientScopeEnum::OrgCilogonUserInfo:
             $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::OrgCilogonUserInfo;
             break;
+          default:
+            $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = $scope;
+            break;
         }
       }
 
