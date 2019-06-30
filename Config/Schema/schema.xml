@@ -82,7 +82,6 @@
         <index name="oa4mp_client_co_callbacks_i1">
             <col>client_id</col>
             <col>url</col>
-            <unique />
         </index>
     </table>
 
