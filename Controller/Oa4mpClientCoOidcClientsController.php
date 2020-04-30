@@ -958,8 +958,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
             $ret['clientId'] = $clientId;
             $ret['secret'] = $clientSecret;
           }
+        } else {
+            $this->log("Request was " . print_r($request['body'], true));
+            $this->log("Response was " . print_r($response, true));
         }
       }
+    } else {
+      $this->log("Request was " . print_r($request['body'], true));
+      $this->log("Response was " . print_r($response, true));
     }
 
     return $ret;
