@@ -959,12 +959,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
             $ret['secret'] = $clientSecret;
           }
         } else {
-            $this->log("Request was " . print_r($request['body'], true));
+            $this->log("Request URI was " . print_r($request['uri'], true));
+            $this->log("Request body " . print_r($request['body'], true));
             $this->log("Response was " . print_r($response, true));
         }
       }
     } else {
-      $this->log("Request was " . print_r($request['body'], true));
+      $this->log("Request URI was " . print_r($request['uri'], true));
+      $this->log("Request body was " . print_r($request['body'], true));
       $this->log("Response was " . print_r($response, true));
     }
 
