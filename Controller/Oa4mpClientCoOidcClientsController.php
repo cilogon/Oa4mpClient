@@ -667,34 +667,21 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     $http = new HttpSocket();
 
-    $request = array();
-    $request['method'] = 'POST';
+    $request = $this->oa4mpInitializeRequest($adminClient);
+    $request['method'] = 'DELETE';
 
-    $parsedUrl = parse_url($adminClient['Oa4mpClientCoAdminClient']['serverurl']);
-    $request['uri']['scheme'] = $parsedUrl['scheme'];
-    $request['uri']['host']   = $parsedUrl['host'];
-    $request['uri']['path']   = $parsedUrl['path'];
+    $client_id = $oidcClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
+    $request['uri']['query'] = array('client_id' => $client_id);
 
-    $request['header']['Content-Type'] = 'application/json; charset=UTF-8';
-
-    $api = array();
-
-    $api['subject']['admin']['admin_id'] = $adminClient['Oa4mpClientCoAdminClient']['admin_identifier'];
-    $api['subject']['admin']['secret']   = $adminClient['Oa4mpClientCoAdminClient']['secret'];
-
-    $api['action']['type']   = 'client';
-    $api['action']['method'] = 'remove';
-
-    $api['object']['client']['client_id'] = $oidcClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
-
-    $body = array();
-    $body['api'] = $api;
-
-    $request['body'] = json_encode($body);
+    $this->log("Request URI is " . print_r($request['uri'], true));
+    $this->log("Request method is " . print_r($request['method'], true));
+    $this->log("Request body is " . print_r(null, true));
 
     $response = $http->request($request);
 
-    if($response->isOk()) {
+    $this->log("Response is " . print_r($response, true));
+
+    if($response->code == 204) {
       $ret = true;
     }
 
@@ -716,22 +703,16 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     $request = $this->oa4mpInitializeRequest($adminClient);
 
-    // Query the Oa4mp server for the current configuration of the client.
-    $request['body']['api']['action']['type']   = 'attribute';
-    $request['body']['api']['action']['method'] = 'get';
+    $client_id = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
+    $request['uri']['query'] = array('client_id' => $client_id);
 
-    $request['body']['api']['object']['client']['client_id'] = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
-
-    $content = array();
-    $content[] = "name";
-    $content[] = "cfg";
-    $content[] = "scopes";
-    $content[] = "callback_uri";
-
-    $request['body']['api']['content'] = $content;
-    $request['body'] = json_encode($request['body']);
+    $this->log("Request URI is " . print_r($request['uri'], true));
+    $this->log("Request method is " . print_r($request['method'], true));
+    $this->log("Request body is " . print_r(null, true));
 
     $response = $http->request($request);
+
+    $this->log("Response is " . print_r($response, true));
 
     $oa4mpObject = json_decode($response->body(), true);
 
@@ -754,21 +735,22 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // of the client agree so marshall the edited data and submit to
     // the Oa4mp server.
     $request = $this->oa4mpInitializeRequest($adminClient);
+    $request['method'] = 'PUT';
+    $request['uri']['query'] = array('client_id' => $client_id);
 
-    $request['body']['api']['action']['type']   = 'attribute';
-    $request['body']['api']['action']['method'] = 'set';
+    $body = $this->oa4mpMarshallContent($data);
 
-    $request['body']['api']['object']['client']['client_id'] = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
+    $request['body'] = json_encode($body);
 
-    $content = $this->oa4mpMarshallContent($data);
-
-    $request['body']['api']['content'] = $content;
-
-    $request['body'] = json_encode($request['body']);
+    $this->log("Request URI is " . print_r($request['uri'], true));
+    $this->log("Request method is " . print_r($request['method'], true));
+    $this->log("Request body is " . print_r($request['body'], true));
 
     $response = $http->request($request);
 
-    if($response->isOk()) {
+    $this->log("Response is " . print_r($response, true));
+
+    if($response->code == 200) {
       $ret = 1;
     }
 
@@ -783,7 +765,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    */
   function oa4mpInitializeRequest($adminClient) {
     $request = array();
-    $request['method'] = 'POST';
+    $request['method'] = 'GET';
 
     $parsedUrl = parse_url($adminClient['Oa4mpClientCoAdminClient']['serverurl']);
     $request['uri']['scheme'] = $parsedUrl['scheme'];
@@ -792,15 +774,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     $request['header']['Content-Type'] = 'application/json; charset=UTF-8';
 
-    $api = array();
+    $aclientId = $adminClient['Oa4mpClientCoAdminClient']['admin_identifier'];
+    $aclientSecret = $adminClient['Oa4mpClientCoAdminClient']['secret'];
+    $bearerToken = base64_encode($aclientId . ":" . $aclientSecret);
 
-    $api['subject']['admin']['admin_id'] = $adminClient['Oa4mpClientCoAdminClient']['admin_identifier'];
-    $api['subject']['admin']['secret']   = $adminClient['Oa4mpClientCoAdminClient']['secret'];
-
-    $body = array();
-    $body['api'] = $api;
-
-    $request['body'] = $body;
+    $request['header']['Authorization'] = "Bearer $bearerToken";
 
     return $request;
   }
@@ -814,28 +792,35 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
   function oa4mpMarshallContent($data) {
     $content = array();
 
-    $content['name']          = $data['Oa4mpClientCoOidcClient']['name'];
-    $content['home_url']      = $data['Oa4mpClientCoOidcClient']['home_url'];
-
-    if($data['Oa4mpClientCoOidcClient']['proxy_limited']) {
-      $content['proxy_limited'] = 'true';
-    } else {
-      $content['proxy_limited'] = 'false';
-    }
-
+    // Client metadata per RFC 7591.
+    // https://tools.ietf.org/html/rfc7591#section-2
     if(!empty($data['Oa4mpClientCoCallback'])) {
-      $content['callback_uri'] = array();
+      $content['redirect_uris'] = array();
       foreach($data['Oa4mpClientCoCallback'] as $cb) {
-        $content['callback_uri'][] = $cb['url'];
+        $content['redirect_uris'][] = $cb['url'];
       }
     }
+
+    $content['token_endpoint_auth_method'] = 'client_secret_basic';
+    $content['grant_types'] = array();
+    $content['grant_types'][] = 'authorization_code';
+    $content['response_types'] = 'code';
+    $content['client_name'] = $data['Oa4mpClientCoOidcClient']['name'];
+    $content['client_uri']  = $data['Oa4mpClientCoOidcClient']['home_url'];
 
     if(!empty($data['Oa4mpClientCoScope'])) {
-      $content['scopes'] = array();
+      $scopeString = "";
+
       foreach($data['Oa4mpClientCoScope'] as $s) {
-        $content['scopes'][] = $s['scope'];
+        $scopeString = $scopeString . " " . $s['scope'];
       }
+
+      $scopeString = trim($scopeString);
+      $content['scope'] = $scopeString;
     }
+
+    // OA4MP extensions to the metadata not part of RFC 7591.
+    $content['comment'] = _txt('pl.oa4mp_client_co_oidc_client.signature');
 
     if(!empty($data['Oa4mpClientCoLdapConfig'])) {
       $content['cfg'] = array();
@@ -918,56 +903,25 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $http = new HttpSocket();
 
     $request = $this->oa4mpInitializeRequest($adminClient);
+    $request['method'] = 'POST';
 
-    $request['body']['api']['action']['type']   = 'client';
-    $request['body']['api']['action']['method'] = 'create';
+    $body = $this->oa4mpMarshallContent($data);
 
-    $content = $this->oa4mpMarshallContent($data);
+    $request['body'] = json_encode($body);
 
-    $request['body']['api']['content'] = $content;
-
-    $request['body'] = json_encode($request['body']);
+    $this->log("Request URI is " . print_r($request['uri'], true));
+    $this->log("Request method is " . print_r($request['method'], true));
+    $this->log("Request body is " . print_r($request['body'], true));
 
     $response = $http->request($request);
 
-    if($response->isOk()) {
+    $this->log("Response is " . print_r($response, true));
+
+    if($response->code == 200) {
       $body = json_decode($response->body(), true);
-      if($body['status'] == 0) {
-        $clientId = $body['content']['client']['client_id'];
-        $clientSecret = $body['secret'];
-
-        $api = array();
-        $api['subject']['admin']['admin_id'] = $adminClient['Oa4mpClientCoAdminClient']['admin_identifier'];
-        $api['subject']['admin']['secret']   = $adminClient['Oa4mpClientCoAdminClient']['secret'];
-
-        $api['action']['type']   = 'client';
-        $api['action']['method'] = 'approve';
-
-        $api['object']['client']['client_id'] = $clientId;
-
-        $body = array();
-        $body['api'] = $api;
-
-        $request['body'] = json_encode($body);
-
-        $response = $http->request($request);
-
-        if($response->isOk()) {
-          $body = json_decode($response->body(), true);
-          if($body['status'] == 0) {
-            $ret['clientId'] = $clientId;
-            $ret['secret'] = $clientSecret;
-          }
-        } else {
-            $this->log("Request URI was " . print_r($request['uri'], true));
-            $this->log("Request body " . print_r($request['body'], true));
-            $this->log("Response was " . print_r($response, true));
-        }
-      }
-    } else {
-      $this->log("Request URI was " . print_r($request['uri'], true));
-      $this->log("Request body was " . print_r($request['body'], true));
-      $this->log("Response was " . print_r($response, true));
+      
+      $ret['clientId'] = $body['client_id'];
+      $ret['secret']   = $body['client_secret'];
     }
 
     return $ret;
@@ -996,20 +950,25 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       // Try to unmarshall the server object and throw exception
       // for any errors.
 
-      $clientObject = $oa4mpObject['content']['client'];
-
       // Unmarshall basic client details.
-      $oa4mpClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'] = $clientObject['client_id'];
-      $oa4mpClient['Oa4mpClientCoOidcClient']['name'] = $clientObject['name'];
-      $oa4mpClient['Oa4mpClientCoOidcClient']['proxy_limited'] = $clientObject['proxy_limited'];
+      $oa4mpClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'] = $oa4mpObject['client_id'];
+      $oa4mpClient['Oa4mpClientCoOidcClient']['name'] = $oa4mpObject['client_name'];
+
+      // For now we set proxy_limited to always be false.
+      $oa4mpClient['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
 
       // Unmarshall the calback URIs.
-      foreach ($clientObject['callback_uri'] as $key => $uri) {
+      foreach ($oa4mpObject['redirect_uris'] as $key => $uri) {
         $oa4mpClient['Oa4mpClientCoCallback'][]['url'] = $uri;
       }
 
       // Unmarshall the scope details.
-      foreach ($clientObject['scopes'] as $key => $scope) {
+      $scopeObject = $oa4mpObject['scope'];
+      if(is_string($scopeObject)) {
+        $scopeObject = explode(" ", $scopeObject);
+      }
+
+      foreach ($scopeObject as $key => $scope) {
         switch ($scope) {
           case Oa4mpClientScopeEnum::OpenId:
             $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::OpenId;
@@ -1030,8 +989,8 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
 
       // Unmarshall the cfg object to obtain the LDAP and search attribute details.
-      if(isset($oa4mpObject['content']['cfg'])){
-        $cfg = $oa4mpObject['content']['cfg'];
+      if(isset($oa4mpObject['cfg'])){
+        $cfg = $oa4mpObject['cfg'];
 
         // If the client signature does not match what we expect throw exception.
         if(isset($cfg['config'])) {
