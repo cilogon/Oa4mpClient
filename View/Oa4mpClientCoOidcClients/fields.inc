@@ -293,11 +293,14 @@ function js_local_onload() {
     if($e) {
       $args = array();
       $args['hidden'] = true;
+      $passwdArgs = array();
+      $passwdArgs['type'] = 'text';
+      $passwdArgs['autocomplete'] = 'new-password';
       print $this->Form->input('Oa4mpClientCoLdapConfig.0.enabled', $args);
       print $this->Form->input('Oa4mpClientCoLdapConfig.0.authorization_type', $args);
       print $this->Form->input('Oa4mpClientCoLdapConfig.0.serverurl', $args);
       print $this->Form->input('Oa4mpClientCoLdapConfig.0.binddn', $args);
-      print $this->Form->input('Oa4mpClientCoLdapConfig.0.password', $args);
+      print $this->Form->input('Oa4mpClientCoLdapConfig.0.password', array_merge($args, $passwdArgs));
       print $this->Form->input('Oa4mpClientCoLdapConfig.0.basedn', $args);
       print $this->Form->input('Oa4mpClientCoLdapConfig.0.search_name', $args);
       if(!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['id'])) {
