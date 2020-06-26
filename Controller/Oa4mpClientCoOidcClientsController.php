@@ -258,6 +258,17 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $this->redirect($args);
     }
 
+    // Verify that this plugin and the OA4MP server representations
+    // of the current client before the edit are synchronized.
+    $synchronized = $this->oa4mpVerifyClient($curdata, $curdata);
+    if(!$synchronized) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      $args = array();
+      $args['action'] = 'index';
+      $args['co'] = $this->cur_co['Co']['id'];
+      $this->redirect($args);
+    }
+
     // Set the title for the view.
     $this->set('title_for_layout', _txt('op.edit-a', array(filter_var($curdata['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
 
@@ -699,43 +710,21 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
   function oa4mpEditClient($adminClient, $curData, $data) {
     $ret = 0;
 
-    $http = new HttpSocket();
-
-    $request = $this->oa4mpInitializeRequest($adminClient);
-
-    $client_id = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
-    $request['uri']['query'] = array('client_id' => $client_id);
-
-    $this->log("Request URI is " . print_r($request['uri'], true));
-    $this->log("Request method is " . print_r($request['method'], true));
-    $this->log("Request body is " . print_r(null, true));
-
-    $response = $http->request($request);
-
-    $this->log("Response is " . print_r($response, true));
-
-    $oa4mpObject = json_decode($response->body(), true);
-
-    try {
-      // Unmarshall the Oa4mp server representation of the client
-      // and compare it to the current data to detect if the client
-      // has been changed outside of this plugin.
-      $oa4mpServerData = $this->oa4mpUnMarshallContent($oa4mpObject);
-      $synchronized = $this->isClientDataSynchronized($curData, $oa4mpServerData);
-      if(!$synchronized) {
-        return 2;
-      }
-    }
-    catch(Exception $e) {
-      $this->log("Caught exception during unmarshall of Oa4mp server object: " . $e->getMessage());
+    // Check that the current client data is synchronized with the
+    // server.
+    $synchronized = $this->oa4mpVerifyClient($adminClient, $curData);
+    if(!$synchronized) {
       return 2;
     }
 
     // The current data before edit and the current Oa4mp server respresentation
     // of the client agree so marshall the edited data and submit to
     // the Oa4mp server.
+    $http = new HttpSocket();
+
     $request = $this->oa4mpInitializeRequest($adminClient);
     $request['method'] = 'PUT';
+    $client_id = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
     $request['uri']['query'] = array('client_id' => $client_id);
 
     $body = $this->oa4mpMarshallContent($data);
@@ -1074,6 +1063,49 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     }
 
     return $oa4mpClient;
+  }
+
+  /**
+   * Verify existing OIDC client data is synchronized with the oa4mp server.
+   *
+   * @since COmanage Registry 3.2.5
+   * @param  Array $adminClient admin client
+   * @param  Array $curClient current client
+   * @return Boolean True if synchronized, else False
+   */
+
+  function oa4mpVerifyClient($adminClient, $curClient) {
+    $synchronized = False;
+
+    $http = new HttpSocket();
+
+    $request = $this->oa4mpInitializeRequest($adminClient);
+
+    $client_id = $curClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
+    $request['uri']['query'] = array('client_id' => $client_id);
+
+    $this->log("Request URI is " . print_r($request['uri'], true));
+    $this->log("Request method is " . print_r($request['method'], true));
+    $this->log("Request body is " . print_r(null, true));
+
+    $response = $http->request($request);
+
+    $this->log("Response is " . print_r($response, true));
+
+    $oa4mpObject = json_decode($response->body(), true);
+
+    try {
+      // Unmarshall the Oa4mp server representation of the client
+      // and compare it to the current client to detect if the client
+      // has been changed outside of this plugin.
+      $oa4mpServerData = $this->oa4mpUnMarshallContent($oa4mpObject);
+      $synchronized = $this->isClientDataSynchronized($curClient, $oa4mpServerData);
+    }
+    catch(Exception $e) {
+      $this->log("Caught exception during unmarshall of Oa4mp server object: " . $e->getMessage());
+    }
+
+    return $synchronized;
   }
 
   /**
