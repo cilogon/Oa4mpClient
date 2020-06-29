@@ -1212,6 +1212,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       // Validate the callback fields and remove empty values submitted
       // by any hidden input fields from the view.
+      $validationErrors = array();
+      $validationErrors['url'] = array();
+
       for ($i = 0; $i < 10; $i++) {
         $cb = $data['Oa4mpClientCoCallback'][$i];
         if(empty($cb['url'])) {
@@ -1229,9 +1232,15 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $args['fieldList'] = $fields;
 
         if(!$this->Oa4mpClientCoOidcClient->Oa4mpClientCoCallback->validates($args)) {
-          $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
-          return false;
+          $errors = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoCallback->invalidFields();
+          $validationErrors['url'][$i] = $errors['url'][0];
         }
+      }
+
+      if($validationErrors['url']) {
+        $this->Oa4mpClientCoOidcClient->Oa4mpClientCoCallback->validationErrors = $validationErrors;
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
+        return false;
       }
 
       // Validate the scope field and remove empty values submitted

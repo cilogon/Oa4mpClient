@@ -159,6 +159,9 @@ function js_local_onload() {
 
           $params = array();
           $params['required'] = $required;
+          if(isset($this->validationErrors['Oa4mpClientCoCallback']['url'][$i])) {
+            $params['class'] = 'form-error';
+          }
           print '<li ' . 'style="' . $display . '">';
           print '  <div class="field-name">';
           print '    <div class="field-title">';
