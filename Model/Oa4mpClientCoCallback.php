@@ -51,11 +51,68 @@ class Oa4mpClientCoCallback extends AppModel {
       'allowEmpty' => false,
     ),
     'url' => array(
-      'rule' => 'url',
+      'rule' => 'validCallbackUri',
       'required' => true,
       'allowEmpty' => false,
-      'message' => 'Please supply a valid http:// or https:// URL'
+      'message' => 'Please supply a valid callback'
     )
   );
+
+  public function validCallbackUri($check) {
+    $url = $check['url'];
+
+    $invalid_schemes = array();
+    $invalid_schemes[] = 'file';
+    $invalid_schemes[] = 'ftp';
+    $invalid_schemes[] = 'gopher';
+    $invalid_schemes[] = 'ldap';
+    $invalid_schemes[] = 'ldaps';
+    $invalid_schemes[] = 'mailto';
+    $invalid_schemes[] = 'news';
+    $invalid_schemes[] = 'telnet';
+    $invalid_schemes[] = 'ssh';
+
+    // Try to have the PHP filter_var with FILTER_VALIDATE_URL do
+    // most of the checking, but do not allow some otherwise valid
+    // schemes.
+    if(filter_var($check['url'], FILTER_VALIDATE_URL)) {
+      $scheme = parse_url($url, PHP_URL_SCHEME);
+
+      if(in_array($scheme, $invalid_schemes)) {
+        return false;
+      } else {
+        return true;
+      }
+    }
+
+    // See https://tools.ietf.org/html/rfc8252#section-7
+    // regarding private-use URI schemes.
+    //
+    // "When choosing a URI scheme to associate with the app, apps MUST use a
+    // URI scheme based on a domain name under their control, expressed in
+    // reverse order, as recommended by Section 3.8 of [RFC7595] for
+    // private-use URI schemes."
+    $exploded = explode(':/', $check['url'], 2);
+    if(count($exploded) != 2) {
+      return false;
+    }
+
+    $reverseDomain = $exploded[0];
+    $path = $exploded[1];
+
+    $reverseDomainPattern = "/^([a-z\d](-*[a-z\d])*)(\.([a-z\d](-*[a-z\d])*))*$/";
+    if(!preg_match($reverseDomainPattern, $reverseDomain)) {
+      return false;
+    }
+
+    // If the path prefixed with http://localhost/ otherwise is valid
+    // then accept the URL with the private-use URI scheme.
+    if(filter_var('http://localhost/' . $path, FILTER_VALIDATE_URL)) {
+      return true;
+    }
+
+    // Default invalid.
+    return false;
+  }
   
 }
