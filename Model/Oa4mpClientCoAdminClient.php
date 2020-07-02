@@ -35,7 +35,11 @@ class Oa4mpClientCoAdminClient extends AppModel {
   // Association rules from this model to other models
   public $belongsTo = array(
     // An Oa4mp admin client is attached to a CO
-    "Co"
+    "Co",
+    "ManageCoGroup" => array(
+      'className' => 'CoGroup',
+      'foreignKey' => 'manage_co_group_id'
+    )
   );
 
   public $hasOne = array(
@@ -62,6 +66,11 @@ class Oa4mpClientCoAdminClient extends AppModel {
       'rule' => 'numeric',
       'required' => true,
       'message' => 'A CO ID must be provided'
+    ),
+    'manage_co_group_id' => array(
+      'rule' => 'numeric',
+      'required' => false,
+      'allowEmpty' => true
     ),
     'serverurl' => array(
       'rule' => 'url',

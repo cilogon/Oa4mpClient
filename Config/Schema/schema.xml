@@ -32,6 +32,9 @@
         <field name="co_id" type="I">
             <constraint>REFERENCES cm_cos(id)</constraint>
         </field>
+        <field name="manage_co_group_id" type="I">
+            <constraint>REFERENCES cm_co_groups(id)</constraint>
+        </field>
         <field name="serverurl" type="C" size="256" />
         <field name="admin_identifier" type="C" size="96" />
         <field name="secret" type="C" size="96" />

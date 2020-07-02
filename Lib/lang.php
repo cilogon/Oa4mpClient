@@ -45,6 +45,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   // Plugin texts
   'pl.oa4mp_client_co_admin_client.admin_identifier.fd.name' => 'Admin ID',
   'pl.oa4mp_client_co_admin_client.admin_identifier.fd.description' => 'ID of the admin client for the CO',
+  'pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.name' => 'Delegated Management Group',
+  'pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.description' => 'If set, members of this group may create and manage OIDC clients',
   'pl.oa4mp_client_co_admin_client.serverurl.fd.name' => 'Server URL',
   'pl.oa4mp_client_co_admin_client.serverurl.fd.description' => 'OA4MP server URL (https://cilogon.org/oauth2/clients)',
   'pl.oa4mp_client_co_admin_client.secret.fd.name' => 'Secret',

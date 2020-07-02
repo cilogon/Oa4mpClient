@@ -477,22 +477,39 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // Construct the permission set for this user, which will also be passed to the view.
     $p = array();
     
-    // All operations require platform or CO administrator.
-    
+    // All operations require platform or CO administrator, or
+    // membership in the delegated management group if set.
+    $manager = false;
+    if(!empty($this->cur_co['Co']['id'])) {
+      $args = array();
+      $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $this->cur_co['Co']['id'];
+      $args['contain'] = false;
+      $adminClient = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
+      $manageGroupId = $adminClient['Oa4mpClientCoAdminClient']['manage_co_group_id'];
+
+      $coPersonId = $this->Session->read('Auth.User.co_person_id');
+
+      if(!empty($coPersonId)){
+        if($this->Role->isCoGroupMember($coPersonId, $manageGroupId)){
+          $manager = true;
+        }
+      }
+    }
+
     // Add a new OIDC client?
-    $p['add'] = ($roles['cmadmin'] || $roles['coadmin']);
+    $p['add'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
 
     // Delete an existing OIDC client?
-    $p['delete'] = ($roles['cmadmin'] || $roles['coadmin']);
+    $p['delete'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
     
     // Edit an existing OIDC client?
-    $p['edit'] = ($roles['cmadmin'] || $roles['coadmin']);
+    $p['edit'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
 
     // View all existing OIDC clients?
-    $p['index'] = ($roles['cmadmin'] || $roles['coadmin']);
+    $p['index'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
     
     // View an existing OIDC client?
-    $p['view'] = ($roles['cmadmin'] || $roles['coadmin']); 
+    $p['view'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager); 
     
     $this->set('permissions', $p);
     return $p[$this->action];
