@@ -127,21 +127,23 @@
     </div>
   </li>
 
-  <li>
-    <div class="field-name">
-      <div class="field-title">
-        <?php print ($e
-                     ? $this->Form->label('manage_co_group_id', _txt('pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.name'))
-                     : _txt('pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.name')); ?>
+  <?php if($this->action != 'add'): ?>
+    <li>
+      <div class="field-name">
+        <div class="field-title">
+          <?php print ($e
+                       ? $this->Form->label('manage_co_group_id', _txt('pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.name'))
+                       : _txt('pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.name')); ?>
+        </div>
+        <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.description'); ?></div>
       </div>
-      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.description'); ?></div>
-    </div>
-    <div class="field-info">
-        <?php print ($e
-                     ? $this->Form->select('manage_co_group_id', $this->viewVars['vv_available_groups'])
-                     : filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['manage_co_group_id'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
-    </div>
-  </li>
+      <div class="field-info">
+          <?php print ($e
+                       ? $this->Form->select('manage_co_group_id', $this->viewVars['vv_available_groups'])
+                       : filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['manage_co_group_id'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
+      </div>
+    </li>
+  <?php endif; ?>
 
   <li>
     <div class="field-name">
