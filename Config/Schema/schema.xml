@@ -60,6 +60,7 @@
         <field name="home_url" type="C" size="256" />
         <field name="error_url" type="C" size="256" />
         <field name="proxy_limited" type="L" />
+        <field name="refresh_token_lifetime" type="I" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 

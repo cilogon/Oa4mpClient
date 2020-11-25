@@ -61,6 +61,19 @@ function addCallbackInput() {
   hideCallbackDeleteButtons();
 }
 
+function disableRefreshTokens() {
+  $("#oa4mp_client_refresh_token_lifetime").hide();
+  $("#Oa4mpClientCoOidcClientRefreshTokenLifetime").val("");
+  $("#enable_refresh_tokens").show();
+  $("#disable_refresh_tokens").hide();
+}
+
+function enableRefreshTokens() {
+  $("#oa4mp_client_refresh_token_lifetime").show();
+  $("#enable_refresh_tokens").hide();
+  $("#disable_refresh_tokens").show();
+}
+
 function removeCallbackInput(e) {
   $(e).prev('input').val("").removeAttr("required");
   $(e).closest('li').hide();
@@ -312,6 +325,81 @@ function js_local_onload() {
 
     }
   ?>
+
+  <li>
+    <?php
+      $rt_set = false;
+      if(!empty($this->request->data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'])) {
+        if(!is_null($this->request->data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'])) {
+          $rt_set = true;
+        }
+      }
+    ?>
+
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e
+                     ? $this->Form->label('refresh_token_lifetime', _txt('pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.name'))
+                     : _txt('pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.name')); ?>
+      </div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          print '<div>';
+          $params = array();
+          $params['class'] = 'addbutton';
+          $params['onclick'] = 'enableRefreshTokens()';
+          $params['id'] = 'enable_refresh_tokens';
+
+          // If a refresh token lifetime is already set then hide the button
+          // to enable refresh tokens.
+          if($rt_set) {
+            $params['style'] = 'display:none';
+          }
+
+          print $this->Html->tag('a', _txt('pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.enable_button'), $params);
+          print '</div>';
+
+          print '<div>';
+          $params = array();
+          $params['class'] = 'addbutton';
+          $params['onclick'] = 'disableRefreshTokens()';
+          $params['id'] = 'disable_refresh_tokens';
+
+          // If a refresh token lifetime is not already set then hide the button
+          // to disable refresh tokens.
+          if(!$rt_set) {
+            $params['style'] = 'display:none';
+          }
+
+          print $this->Html->tag('a', _txt('pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.disable_button'), $params);
+          print '</div>';
+        }
+      ?>
+    </div>
+    <ul id="oa4mp_client_refresh_token_lifetime" class="field-children" style="<?php print ($rt_set ? '' : 'display:none')?>">
+      <li>
+        <div class="field-name">
+          <div class="field-title">
+            <?php print ($e
+                         ? $this->Form->label('refresh_token_lifetime', _txt('pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name'))
+                         : _txt('pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name')); ?>
+          </div>
+          <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description'); ?></div>
+        </div>
+        <div class="field-info">
+            <?php
+              $args = array();
+              $args['required'] = false;
+              print ($e
+                     ? $this->Form->input('refresh_token_lifetime', $args)
+                     : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoOidcClient']['refresh_token_lifetime'],FILTER_SANITIZE_SPECIAL_CHARS));
+            ?>
+        </div>
+      </li>
+    </ul>
+  </li>
 
   <li id="oa4mp_client_ldap_to_claim_mappings">
     <div class="field-name">

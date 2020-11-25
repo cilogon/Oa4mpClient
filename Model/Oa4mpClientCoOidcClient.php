@@ -87,6 +87,18 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'rule' => 'boolean',
       'required' => true,
       'allowEmpty' => false
+    ),
+    'refresh_token_lifetime' => array(
+      'rule1' => array(
+        'rule' => array('naturalNumber', true),
+        'message' => 'Please supply a value greater than or equal to zero',
+        'required' => false,
+        'allowEmpty' => true
+      ),
+      'rule2' => array(
+        'rule' => array('range', -1, 31536000),
+        'message' => 'Please supply a value less than one year (31536000)'
+      )
     )
   );
   

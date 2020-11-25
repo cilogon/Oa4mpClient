@@ -544,6 +544,16 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       return false;
     }
 
+    // The state where the OA4MP server has a refresh token lifetime of exactly
+    // zero and our representation does not have a value is considered to be
+    // synchronized.
+    if($curClient['refresh_token_lifetime'] !== $oa4mpClient['refresh_token_lifetime']) {
+      if(!(is_null($curClient['refresh_token_lifetime']) && ($oa4mpClient['refresh_token_lifetime'] === 0))) {
+        $this->log("Oa4mpClientCoOidcClient refresh_token_lifetime is out of sync");
+        return false;
+      }
+    }
+
     // Compare callbacks.
     $curCallbacks = array();
     $oa4mpCallbacks = array();
@@ -814,6 +824,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $content['client_name'] = $data['Oa4mpClientCoOidcClient']['name'];
     $content['client_uri']  = $data['Oa4mpClientCoOidcClient']['home_url'];
 
+    // The model validation code will have already run so here
+    // we can just use is_numeric() to test if we need to send
+    // the refresh_token metadata.
+    if(is_numeric($data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'])) {
+      $content['grant_types'][] = 'refresh_token';
+      $content['rt_lifetime'] = $data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'];
+    }
+
     if(!empty($data['Oa4mpClientCoScope'])) {
       $scopeString = "";
 
@@ -959,6 +977,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       // Unmarshall basic client details.
       $oa4mpClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'] = $oa4mpObject['client_id'];
       $oa4mpClient['Oa4mpClientCoOidcClient']['name'] = $oa4mpObject['client_name'];
+
+      if(array_key_exists('rt_lifetime', $oa4mpObject)) {
+        $oa4mpClient['Oa4mpClientCoOidcClient']['refresh_token_lifetime'] = $oa4mpObject['rt_lifetime'];
+      }
 
       // For now we set proxy_limited to always be false.
       $oa4mpClient['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
@@ -1215,6 +1237,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $fields = array();
       $fields[] = 'name';
       $fields[] = 'home_url';
+      $fields[] = 'refresh_token_lifetime';
 
       $args = array();
       $args['fieldList'] = $fields;
