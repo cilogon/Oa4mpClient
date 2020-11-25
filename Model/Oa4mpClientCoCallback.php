@@ -72,17 +72,22 @@ class Oa4mpClientCoCallback extends AppModel {
     $invalid_schemes[] = 'telnet';
     $invalid_schemes[] = 'ssh';
 
-    // Try to have the PHP filter_var with FILTER_VALIDATE_URL do
-    // most of the checking, but do not allow some otherwise valid
-    // schemes.
-    if(filter_var($check['url'], FILTER_VALIDATE_URL)) {
-      $scheme = parse_url($url, PHP_URL_SCHEME);
+    // Wildcards are never allowed.
+    if(preg_match('/\*/', $url)) {
+      return "Wildcards are not allowed";
+    }
 
+    // Try to have the PHP filter_var with FILTER_VALIDATE_URL do
+    // most of the checking, but continue with other constraints.
+    if(filter_var($check['url'], FILTER_VALIDATE_URL)) {
+
+      // Do not all invalid schemes.
+      $scheme = parse_url($url, PHP_URL_SCHEME);
       if(in_array($scheme, $invalid_schemes)) {
-        return false;
-      } else {
-        return true;
+        return "Please provide a valid URL scheme";
       }
+
+      return true;
     }
 
     // See https://tools.ietf.org/html/rfc8252#section-7
@@ -94,7 +99,7 @@ class Oa4mpClientCoCallback extends AppModel {
     // private-use URI schemes."
     $exploded = explode(':/', $check['url'], 2);
     if(count($exploded) != 2) {
-      return false;
+      return "Private-use URI schemes require a valid domain";
     }
 
     $reverseDomain = $exploded[0];
@@ -102,7 +107,7 @@ class Oa4mpClientCoCallback extends AppModel {
 
     $reverseDomainPattern = "/^([a-z\d](-*[a-z\d])*)(\.([a-z\d](-*[a-z\d])*))*$/";
     if(!preg_match($reverseDomainPattern, $reverseDomain)) {
-      return false;
+      return "Private-use URI schemes require a valid domain";
     }
 
     // If the path prefixed with http://localhost/ otherwise is valid
