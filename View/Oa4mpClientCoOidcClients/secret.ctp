@@ -53,6 +53,7 @@
 <script type="text/javascript">
   <!-- JS specific to these fields -->
 
+<?php if(!empty($vv_client_secret)): ?>
 function js_local_onload() {
     $("#client-secret-dialog").dialog({
       autoOpen: true,
@@ -71,6 +72,26 @@ function js_local_onload() {
     });
 
 }
+<?php else: ?>
+function js_local_onload() {
+    $("#client-public-dialog").dialog({
+      autoOpen: true,
+      buttons: {
+        "<?php print _txt('pl.oa4mp_client_co_oidc_client.public.understand'); ?>": function() {
+          $(this).dialog("close");
+        }
+      },
+      modal: true,
+      show: {
+        effect: "fade"
+      },
+      hide: {
+        effect: "fade"
+      }
+    });
+
+}
+<?php endif; ?>
 
 </script>
 
@@ -86,6 +107,7 @@ function js_local_onload() {
     </div>
   </li>
 
+  <?php if(!empty($vv_client_secret)): ?>
   <li>
     <div class="field-name">
       <div class="field-title">
@@ -96,6 +118,7 @@ function js_local_onload() {
         <?php print $vv_client_secret; ?>
     </div>
   </li>
+  <?php endif; ?>
 
   <?php 
 
@@ -112,6 +135,13 @@ function js_local_onload() {
 
 </ul>
 
+<?php if(!empty($vv_client_secret)): ?>
 <div id="client-secret-dialog" title="<?php print _txt('pl.oa4mp_client_co_oidc_client.secret.title'); ?>" style="display:none">
   <p><?php print _txt('pl.oa4mp_client_co_oidc_client.secret.text'); ?></p>
 </div>
+<?php else: ?>
+<div id="client-public-dialog" title="<?php print _txt('pl.oa4mp_client_co_oidc_client.public.title'); ?>" style="display:none">
+  <p><?php print _txt('pl.oa4mp_client_co_oidc_client.public.text'); ?></p>
+</div>
+<?php endif; ?>
+

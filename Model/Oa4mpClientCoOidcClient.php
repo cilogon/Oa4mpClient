@@ -99,6 +99,11 @@ class Oa4mpClientCoOidcClient extends AppModel {
         'rule' => array('range', -1, 31536000),
         'message' => 'Please supply a value less than one year (31536000)'
       )
+    ),
+    'public_client' => array(
+      'rule' => 'boolean',
+      'required' => false,
+      'allowEmpty' => true
     )
   );
   

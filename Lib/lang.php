@@ -83,6 +83,13 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'Callbacks',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The redirect_uri parameter must exactly match a callback URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
+  'pl.oa4mp_client_co_oidc_client.public_client.fd.name' => 'Public Client',
+  'pl.oa4mp_client_co_oidc_client.public_client.fd.description.add' => 'Public clients have no client secret and only the openid scope is allowed. <a href="https://oauth.net/2/client-types/">See OAuth 2.0 Client Types</a>',
+  'pl.oa4mp_client_co_oidc_client.public_client.fd.description.edit' => 'The client type cannot be changed after the client is created',
+
+  'pl.oa4mp_client_co_oidc_client.public.title' => 'New OIDC Client',
+  'pl.oa4mp_client_co_oidc_client.public.text' => 'This is a public OIDC client and therefore it has no client secret.',
+  'pl.oa4mp_client_co_oidc_client.public.understand' => 'I understand',
 
   'pl.oa4mp_client_co_oidc_client.secret.title' => 'New OIDC Client',
   'pl.oa4mp_client_co_oidc_client.secret.text' => 'You MUST permanently record the client secret before continuing. The CILogon servers do not store the client secret.',
@@ -92,7 +99,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_scope.scope.fd.name' => 'Scopes',
   'pl.oa4mp_client_co_scope.scope.fd.description' => '<a href="https://www.cilogon.org/oidc">Information on scopes</a>',
-
+  'pl.oa4mp_client_co_scope.scope.fd.description.public' => 'Public clients may only use the openid scope',
   'pl.oa4mp_client_co_scope.scope.openid.fd.name' => 'openid',
 
   'pl.oa4mp_client_co_scope.scope.profile.fd.name' => 'profile',

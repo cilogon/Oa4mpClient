@@ -63,6 +63,7 @@
         <field name="error_url" type="C" size="256" />
         <field name="proxy_limited" type="L" />
         <field name="refresh_token_lifetime" type="I" />
+        <field name="public_client" type="L" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 

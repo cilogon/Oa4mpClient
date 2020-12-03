@@ -65,6 +65,14 @@
       print $this->Form->hidden('admin_id');
     }
   }
+
+  // Is this a public client?
+  if(($this->action == "edit") && $this->request->data['Oa4mpClientCoOidcClient']['public_client']) {
+    $is_public_client = true;
+  } else {
+    $is_public_client = false;
+  }
+
 ?>
 <script type="text/javascript">
   <!-- JS specific to these fields -->
@@ -126,6 +134,34 @@ function removeLdapToClaimMappingInput(e) {
   if (visible == 0) {
     $("#add_first_ldap_to_claim_mapping").show();
     $("#add_another_ldap_to_claim_mapping").hide();
+  }
+}
+
+function publicClientClicked() {
+  if($("#Oa4mpClientCoOidcClientPublicClient").is(":checked")) {
+    $("#Oa4mpClientCoScope1Scope").prop("checked", false);
+    $("#Oa4mpClientCoScope1Scope").prop("disabled", true);
+    $("#Oa4mpClientCoScope2Scope").prop("checked", false);
+    $("#Oa4mpClientCoScope2Scope").prop("disabled", true);
+    $("#Oa4mpClientCoScope3Scope").prop("checked", false);
+    $("#Oa4mpClientCoScope3Scope").prop("disabled", true);
+    $("#Oa4mpClientCoScope4Scope").prop("checked", false);
+    $("#Oa4mpClientCoScope4Scope").prop("disabled", true);
+    $("#oa4mp_client_ldap_to_claim_mappings").hide();
+
+    for (let i=0; i < 10; i++) {
+      let name_id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}Name`;
+      let return_name_id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}ReturnName`;
+      let return_as_list_id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}ReturnAsList`;
+      $(name_id).val("");
+      $(return_name_id).val("");
+      $(return_as_list_id).prop("checked", false);
+    }
+  } else {
+    $("#Oa4mpClientCoScope1Scope").prop("disabled", false);
+    $("#Oa4mpClientCoScope2Scope").prop("disabled", false);
+    $("#Oa4mpClientCoScope3Scope").prop("disabled", false);
+    $("#oa4mp_client_ldap_to_claim_mappings").show();
   }
 }
 
@@ -369,7 +405,12 @@ function js_local_onload() {
           print '    </div>';
           print '  </div>';
           print '  <div class="field-info field-dynamic-actions">';
-          print ($e ? $this->Form->input('Oa4mpClientCoCallback.' . $i . '.url', $params) : filter_var($oa4mp_client_co_callbacks[$i+1]['Oa4mpClientCoCallback']['url'],FILTER_SANITIZE_SPECIAL_CHARS)); 
+          print ($e ? $this->Form->input('Oa4mpClientCoCallback.' . $i . '.url', $params) : filter_var($oa4mp_client_co_callbacks[$i+1]['Oa4mpClientCoCallback']['url'],FILTER_SANITIZE_SPECIAL_CHARS));
+          if(isset($this->validationErrors['Oa4mpClientCoCallback']['url'][$i])) {
+            print '<div class="error-message">';
+            print $this->validationErrors['Oa4mpClientCoCallback']['url'][$i];
+            print '</div>';
+          }
           $params = array();
           $params['class'] = "deletebutton";
           $params['type'] = "button";
@@ -407,6 +448,36 @@ function js_local_onload() {
     </ul>
   </li>
 
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e
+                     ? $this->Form->label('public_client', _txt('pl.oa4mp_client_co_oidc_client.public_client.fd.name'))
+                     : _txt('pl.oa4mp_client_co_oidc_client.public_client.fd.name')); ?>
+      </div>
+      <div class="field-desc">
+      <?php
+        if($this->action == 'add') {
+          print _txt('pl.oa4mp_client_co_oidc_client.public_client.fd.description.add');
+        } else {
+          print _txt('pl.oa4mp_client_co_oidc_client.public_client.fd.description.edit');
+        }
+      ?>
+      </div>
+    </div>
+    <div class="field-info">
+      <?php
+        $params = array();
+        if($this->action == "add") {
+          $params['onclick'] = 'publicClientClicked()';
+        } else {
+          $params['disabled'] = 'disabled';
+        }
+        print ($e
+                   ? $this->Form->input('public_client', $params)
+                   : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoOidcClient']['public_client'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
+    </div>
+  </li>
 
   <li>
     <div class="field-name">
@@ -414,7 +485,15 @@ function js_local_onload() {
         <?php print _txt('pl.oa4mp_client_co_scope.scope.fd.name'); ?>
         <span class="required">*</span>
       </div>
-      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_scope.scope.fd.description'); ?></div>
+      <div class="field-desc">
+        <?php
+          if($is_public_client) {
+            print _txt('pl.oa4mp_client_co_scope.scope.fd.description.public');
+          } else {
+            print _txt('pl.oa4mp_client_co_scope.scope.fd.description');
+          }
+        ?>
+      </div>
     </div>
     <ul class="field-children" id="oa4mp_client_co_scope">
       <li>
@@ -443,7 +522,11 @@ function js_local_onload() {
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              $args['disabled'] = false;
+              if($is_public_client) {
+                $args['disabled'] = true;
+              } else {
+                $args['disabled'] = false;
+              }
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.profile.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::Profile;
               $args['class'] = "form-check-input";
@@ -463,7 +546,11 @@ function js_local_onload() {
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              $args['disabled'] = false;
+              if($is_public_client) {
+                $args['disabled'] = true;
+              } else {
+                $args['disabled'] = false;
+              }
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.email.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::Email;
               $args['class'] = "form-check-input";
@@ -483,7 +570,11 @@ function js_local_onload() {
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              $args['disabled'] = false;
+              if($is_public_client) {
+                $args['disabled'] = true;
+              } else {
+                $args['disabled'] = false;
+              }
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.org.cilogon.userinfo.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::OrgCilogonUserInfo;
               $args['class'] = "form-check-input";
@@ -618,7 +709,11 @@ function js_local_onload() {
     </ul>
   </li>
 
+  <?php if($is_public_client): ?>
+  <li id="oa4mp_client_ldap_to_claim_mappings" style="display: none;">
+  <?php else: ?>
   <li id="oa4mp_client_ldap_to_claim_mappings">
+  <?php endif; ?>
     <div class="field-name">
       <div class="field-title">
         <?php print _txt('pl.oa4mp_client_co_search_attribute.fd.title'); ?>
@@ -772,6 +867,7 @@ function js_local_onload() {
       </div>
     </li>
   <?php endif; ?>
+
 </ul>
 
 <div id="confirm-email-scope-dialog" title="<?php print _txt('pl.oa4mp_client_co_scope.scope.email.dialog.title'); ?>">

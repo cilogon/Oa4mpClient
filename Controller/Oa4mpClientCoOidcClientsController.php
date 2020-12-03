@@ -105,11 +105,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
       
       // Set the client ID returned by the oa4mp server so it is saved and also
-      // set a view variable so it can be displayed. The client secret is also
+      // set a view variable so it can be displayed. The client secret, if provided, is also
       // set as a view variable so it can be displayed but it is NOT saved.
       $data['Oa4mpClientCoOidcClient']['oa4mp_identifier'] = $newClient['clientId'];
       $this->set('vv_client_id', $newClient['clientId']);
-      $this->set('vv_client_secret', $newClient['secret']);
+
+      if(!empty($newClient['secret'])) {
+        $this->set('vv_client_secret', $newClient['secret']);
+      }
       
       // Save the client and associated data.
       $args = array();
@@ -122,7 +125,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
           return;
       }
 
-      // Render the view to show the new client ID and secret.
+      // Render the view to show the new client ID and secret (if available).
       $this->render('secret');
 
     } else {
@@ -288,6 +291,13 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       if(empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
         unset($data['Oa4mpClientCoLdapConfig'][0]);
       } 
+
+      // If the client was a public client before this edit operation we need to
+      // add back that field because the POST/PUT of the form will not have sent
+      // up the field because we disable the checkbox.
+      if($curdata['Oa4mpClientCoOidcClient']['public_client']) {
+        $data['Oa4mpClientCoOidcClient']['public_client'] = true;
+      }
 
       // Call out to oa4mp server.
       // Return value of 0 indicates an error saving the edit.
@@ -544,6 +554,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     if($curClient['proxy_limited'] != $oa4mpClient['proxy_limited']) {
       $this->log("Oa4mpClientCoOidcClient proxy_limited is out of sync");
+      return false;
+    }
+
+    if($curClient['public_client'] != $oa4mpClient['public_client']) {
+      $this->log("Oa4mpClientCoOidcClient public_client is out of sync");
       return false;
     }
 
@@ -1044,7 +1059,15 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
     }
 
+    // Default is a non-public client.
     $content['token_endpoint_auth_method'] = 'client_secret_basic';
+
+    if(!empty($data['Oa4mpClientCoOidcClient']['public_client'])) {
+      if($data['Oa4mpClientCoOidcClient']['public_client']) {
+        $content['token_endpoint_auth_method'] = 'none';
+      }
+    }
+
     $content['grant_types'] = array();
     $content['grant_types'][] = 'authorization_code';
     $content['response_types'] = 'code';
@@ -1111,7 +1134,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $body = json_decode($response->body(), true);
       
       $ret['clientId'] = $body['client_id'];
-      $ret['secret']   = $body['client_secret'];
+
+      if(!empty($body['client_secret'])) {
+        $ret['secret']   = $body['client_secret'];
+      }
     }
 
     return $ret;
@@ -1189,7 +1215,18 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         }
       }
 
-      // Unmarshall the cfg object if present to obtain the LDAP and search attribute details.
+      // If and only if the server object has token_endpoint_auth_method value none
+      // and the single scope openid then this is a public client.
+      $oa4mpClient['Oa4mpClientCoOidcClient']['public_client'] = false;
+      if(!empty($oa4mpObject['token_endpoint_auth_method'])) {
+        if($oa4mpObject['token_endpoint_auth_method'] == 'none') {
+          if((count($oa4mpClient['Oa4mpClientCoScope']) == 1) && ($oa4mpClient['Oa4mpClientCoScope'][0]['scope'] == Oa4mpClientScopeEnum::OpenId)) {
+            $oa4mpClient['Oa4mpClientCoOidcClient']['public_client'] = true;
+          }
+        }
+      }
+
+      // Unmarshall the cfg object to obtain the LDAP and search attribute details.
       if(isset($oa4mpObject['cfg'])){
         $cfg = $oa4mpObject['cfg'];
 
@@ -1519,6 +1556,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $fields[] = 'name';
       $fields[] = 'home_url';
       $fields[] = 'refresh_token_lifetime';
+      $fields[] = 'public_client';
 
       $args = array();
       $args['fieldList'] = $fields;
@@ -1587,6 +1625,16 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
           $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
           return false;
         }
+
+        // A public client can only have openid scope.
+        if(!empty($data['Oa4mpClientCoOidcClient']['public_client'])) {
+          if($data['Oa4mpClientCoOidcClient']['public_client']) {
+            if($scope['scope'] != Oa4mpClientScopeEnum::OpenId) {
+              $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
+              return false;
+            }
+          }
+        }
       }
 
       // Validate the LDAP configs.
@@ -1624,6 +1672,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
               && empty($data['Oa4mpClientCoLdapConfig'][$i]['Oa4mpClientCoSearchAttribute'][$j]['return_name'])) {
               unset($data['Oa4mpClientCoLdapConfig'][$i]['Oa4mpClientCoSearchAttribute'][$j]);
               continue;
+          }
+
+          // If this is a public client we do not allow any LDAP to claim mappings.
+          if(!empty($data['Oa4mpClientCoOidcClient']['public_client'])) {
+            if($data['Oa4mpClientCoOidcClient']['public_client']) {
+                $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
+                return false;
+            }
           }
 
           $d = array();
