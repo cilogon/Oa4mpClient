@@ -92,6 +92,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_scope.scope.profile.fd.name' => 'profile',
   'pl.oa4mp_client_co_scope.scope.email.fd.name' => 'email',
   'pl.oa4mp_client_co_scope.scope.org.cilogon.userinfo.fd.name' => 'org.cilogon.userinfo',
+  'pl.oa4mp_client_co_scope.scope.getcert.fd.name' => 'edu.uiuc.ncsa.myproxy.getcert',
 
   'pl.oa4mp_client_co_ldap_config.serverurl.fd.name' => 'LDAP Server URL',
   'pl.oa4mp_client_co_ldap_config.binddn.fd.name' => 'LDAP Bind DN',
@@ -111,7 +112,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
     Oa4mpClientScopeEnum::OpenId             => 'openid',
     Oa4mpClientScopeEnum::Profile            => 'profile',
     Oa4mpClientScopeEnum::Email              => 'email',
-    Oa4mpClientScopeEnum::OrgCilogonUserInfo => 'org.cilogon.userinfo'
+    Oa4mpClientScopeEnum::OrgCilogonUserInfo => 'org.cilogon.userinfo',
+    Oa4mpClientScopeEnum::Getcert            => 'edu.uiuc.ncsa.myproxy.getcert'
   ),
 
   // Text flag to signal OIDC client created by COmanage Registry Oa4mpClient Plugin.

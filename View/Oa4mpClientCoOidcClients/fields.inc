@@ -248,8 +248,6 @@ function js_local_onload() {
             ?>
         </div>
       </li>
-
-
       <li>
         <div class="field-info">
             <?php
@@ -302,6 +300,25 @@ function js_local_onload() {
               if($e) {
                 if(!empty($this->request->data['Oa4mpClientCoScope'][3])) {
                   print $this->Form->hidden('Oa4mpClientCoScope.3.id');
+                }
+              }
+            ?>
+        </div>
+      </li>
+      <li>
+        <div class="field-info">
+            <?php
+              $args = array();
+              $args['type'] = 'checkbox';
+              $args['disabled'] = false;
+              $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.getcert.fd.name');
+              $args['value'] = Oa4mpClientScopeEnum::Getcert;
+              print ($e
+                     ? $this->Form->input('Oa4mpClientCoScope.4.scope', $args)
+                     : filter_var($oa4mp_client_co_scopes[4]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
+              if($e) {
+                if(!empty($this->request->data['Oa4mpClientCoScope'][4])) {
+                  print $this->Form->hidden('Oa4mpClientCoScope.4.id');
                 }
               }
             ?>

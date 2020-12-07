@@ -456,6 +456,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         case Oa4mpClientScopeEnum::OrgCilogonUserInfo:
           $newScopes[3] = $s;
           break;
+        case Oa4mpClientScopeEnum::Getcert:
+          $newScopes[4] = $s;
+          break;
       }
     }
 
@@ -1010,6 +1013,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
           case Oa4mpClientScopeEnum::OrgCilogonUserInfo:
             $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::OrgCilogonUserInfo;
             break;
+          case Oa4mpClientScopeEnum::Getcert:
+            $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::Getcert;
+            break;
           default:
             $oa4mpClient['Oa4mpClientCoScope'][]['scope'] = $scope;
             break;
@@ -1285,7 +1291,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       // Validate the scope field and remove empty values submitted
       // by any hidden input fields from the view.
-      for ($i = 0; $i < 4; $i++) {
+      for ($i = 0; $i < 5; $i++) {
         $scope = $data['Oa4mpClientCoScope'][$i];
         if(empty($scope['scope'])) {
           unset($data['Oa4mpClientCoScope'][$i]);

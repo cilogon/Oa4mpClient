@@ -53,7 +53,8 @@ class Oa4mpClientCoScope extends AppModel {
                       array(Oa4mpClientScopeEnum::OpenId,
                             Oa4mpClientScopeEnum::Profile,
                             Oa4mpClientScopeEnum::Email,
-                            Oa4mpClientScopeEnum::OrgCilogonUserInfo)),
+                            Oa4mpClientScopeEnum::OrgCilogonUserInfo,
+                            Oa4mpClientScopeEnum::Getcert)),
       'required' => true,
       'allowEmpty' => false
     )

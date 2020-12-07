@@ -31,4 +31,5 @@ class Oa4mpClientScopeEnum
   const Profile = 'profile';
   const Email = 'email';
   const OrgCilogonUserInfo = 'org.cilogon.userinfo';
+  const Getcert = 'edu.uiuc.ncsa.myproxy.getcert';
 }
