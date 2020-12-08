@@ -93,6 +93,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_scope.scope.email.fd.name' => 'email',
   'pl.oa4mp_client_co_scope.scope.org.cilogon.userinfo.fd.name' => 'org.cilogon.userinfo',
   'pl.oa4mp_client_co_scope.scope.getcert.fd.name' => 'edu.uiuc.ncsa.myproxy.getcert',
+  'pl.oa4mp_client_co_scope.scope.getcert.dialog.title' => 'Confirm edu.uiuc.ncsa.myproxy.getcert Scope',
+  'pl.oa4mp_client_co_scope.scope.getcert.dialog.text' => 'The edu.uiuc.ncsa.myprox.getcert scope is only necessary if your client will request X.509 certificates on behalf of users. Are you sure your client needs the edu.uiuc.ncsa.myprox.getcert scope?',
+  'pl.oa4mp_client_co_scope.scope.getcert.dialog.button.yes' => 'Yes',
+  'pl.oa4mp_client_co_scope.scope.getcert.dialog.button.no' => 'No, cancel scope',
 
   'pl.oa4mp_client_co_ldap_config.serverurl.fd.name' => 'LDAP Server URL',
   'pl.oa4mp_client_co_ldap_config.binddn.fd.name' => 'LDAP Bind DN',

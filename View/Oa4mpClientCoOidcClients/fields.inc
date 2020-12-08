@@ -97,6 +97,12 @@ function addLdapToClaimMappingInput() {
   $("#oa4mp_client_ldap_to_claim_mappings").find("div:hidden:first").show();
 }
 
+function showConfirmGetcert() {
+  if($("#Oa4mpClientCoScope4Scope").is(':checked')) {
+    $("#confirm-getcert-scope-dialog").dialog("open");
+  }
+}
+
 function removeLdapToClaimMappingInput(e) {
   $(e).parent('div.field-children-inline').find(':text').val("").removeAttr("required");
   $(e).parent('div.field-children-inline').find(':checkbox').prop("checked", false);
@@ -111,6 +117,26 @@ function removeLdapToClaimMappingInput(e) {
 
 function js_local_onload() {
   hideCallbackDeleteButtons();
+
+  $("#confirm-getcert-scope-dialog").dialog({
+      autoOpen: false,
+      buttons: {
+        "<?php print _txt('pl.oa4mp_client_co_scope.scope.getcert.dialog.button.yes'); ?>": function() {
+          $(this).dialog("close");
+        },
+        "<?php print _txt('pl.oa4mp_client_co_scope.scope.getcert.dialog.button.no'); ?>": function() {
+          $("#Oa4mpClientCoScope4Scope").prop("checked", false);
+          $(this).dialog("close");
+        }
+      },
+      modal: true,
+      show: {
+        effect: "fade"
+      },
+      hide: {
+        effect: "fade"
+      }
+  });
 }
 
 </script>
@@ -311,6 +337,7 @@ function js_local_onload() {
               $args = array();
               $args['type'] = 'checkbox';
               $args['disabled'] = false;
+              $args['onclick'] = 'showConfirmGetcert()';
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.getcert.fd.name');
               $args['value'] = Oa4mpClientScopeEnum::Getcert;
               print ($e
@@ -572,3 +599,7 @@ function js_local_onload() {
     </li>
   <?php endif; ?>
 </ul>
+
+<div id="confirm-getcert-scope-dialog" title="<?php print _txt('pl.oa4mp_client_co_scope.scope.getcert.dialog.title'); ?>">
+  <p><?php print _txt('pl.oa4mp_client_co_scope.scope.getcert.dialog.text'); ?></p>
+</div>
