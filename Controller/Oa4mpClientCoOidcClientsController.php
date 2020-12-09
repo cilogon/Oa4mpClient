@@ -1278,14 +1278,15 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $args['fieldList'] = $fields;
 
         if(!$this->Oa4mpClientCoOidcClient->Oa4mpClientCoCallback->validates($args)) {
-          $errors = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoCallback->invalidFields();
+          $errors = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoCallback->validationErrors;
           $validationErrors['url'][$i] = $errors['url'][0];
         }
       }
 
       if($validationErrors['url']) {
         $this->Oa4mpClientCoOidcClient->Oa4mpClientCoCallback->validationErrors = $validationErrors;
-        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
+        $i = min(array_keys($validationErrors['url']));
+        $this->Flash->set($validationErrors['url'][$i], array('key' => 'error'));
         return false;
       }
 

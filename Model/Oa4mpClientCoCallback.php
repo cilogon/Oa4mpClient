@@ -53,8 +53,7 @@ class Oa4mpClientCoCallback extends AppModel {
     'url' => array(
       'rule' => 'validCallbackUri',
       'required' => true,
-      'allowEmpty' => false,
-      'message' => 'Please supply a valid callback'
+      'allowEmpty' => false
     )
   );
 
@@ -74,17 +73,17 @@ class Oa4mpClientCoCallback extends AppModel {
 
     // Wildcards are never allowed.
     if(preg_match('/\*/', $url)) {
-      return "Wildcards are not allowed";
+      return _txt('pl.oa4mp_client_co_oidc_client.er.wildcards');
     }
 
     // Try to have the PHP filter_var with FILTER_VALIDATE_URL do
     // most of the checking, but continue with other constraints.
     if(filter_var($check['url'], FILTER_VALIDATE_URL)) {
 
-      // Do not all invalid schemes.
+      // Do not allow invalid schemes.
       $scheme = parse_url($url, PHP_URL_SCHEME);
       if(in_array($scheme, $invalid_schemes)) {
-        return "Please provide a valid URL scheme";
+        return _txt('pl.oa4mp_client_co_oidc_client.er.invalid_scheme');
       }
 
       return true;
@@ -99,7 +98,7 @@ class Oa4mpClientCoCallback extends AppModel {
     // private-use URI schemes."
     $exploded = explode(':/', $check['url'], 2);
     if(count($exploded) != 2) {
-      return "Private-use URI schemes require a valid domain";
+      return _txt('pl.oa4mp_client_co_oidc_client.er.valid_domain');
     }
 
     $reverseDomain = $exploded[0];
@@ -107,7 +106,7 @@ class Oa4mpClientCoCallback extends AppModel {
 
     $reverseDomainPattern = "/^([a-z\d](-*[a-z\d])*)(\.([a-z\d](-*[a-z\d])*))*$/";
     if(!preg_match($reverseDomainPattern, $reverseDomain)) {
-      return "Private-use URI schemes require a valid domain";
+      return _txt('pl.oa4mp_client_co_oidc_client.er.valid_domain');
     }
 
     // If the path prefixed with http://localhost/ otherwise is valid
@@ -117,7 +116,6 @@ class Oa4mpClientCoCallback extends AppModel {
     }
 
     // Default invalid.
-    return false;
+    return _txt('pl.oa4mp_client_co_oidc_client.er.callback_default');
   }
-  
 }

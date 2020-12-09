@@ -128,4 +128,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.er.unmarshall' => 'Error unmarshalling OIDC client object from Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.preprocessing' => 'Found bad preProcessing block from Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.bad_client' => 'This client has been modified outside of the Registry. Please email help@cilogon.org for assistance.',
+  'pl.oa4mp_client_co_oidc_client.er.wildcards' => 'Wildcards are not allowed in callback URLs',
+  'pl.oa4mp_client_co_oidc_client.er.invalid_scheme' => 'Please use a valid scheme for callback URLs',
+  'pl.oa4mp_client_co_oidc_client.er.valid_domain' => 'Private-use URI schemes require a valid domain',
+  'pl.oa4mp_client_co_oidc_client.er.callback_default' => 'Please provide a valid callback URL',
 );

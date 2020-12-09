@@ -205,11 +205,6 @@ function js_local_onload() {
           print '  <div class="field-name">';
           print '    <div class="field-title">';
           print ($e ? $this->Form->label('Oa4mpClientCoCallback.' . $i . '.url', _txt('pl.oa4mp_client_co_callback.url.fd.name')) : _txt('pl.oa4mp_client_co_callback.url.fd.name')); 
-          if(isset($this->validationErrors['Oa4mpClientCoCallback']['url'][$i])) {
-            print '<div class="error-message">';
-            print $this->validationErrors['Oa4mpClientCoCallback']['url'][$i];
-            print '</div>';
-          }
           print '    </div>';
           print '  </div>';
           print '  <div class="field-info field-dynamic-actions">';
