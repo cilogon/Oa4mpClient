@@ -88,15 +88,34 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_scope.scope.fd.name' => 'Scopes',
   'pl.oa4mp_client_co_scope.scope.fd.description' => '<a href="https://www.cilogon.org/oidc">Information on scopes</a>',
+
   'pl.oa4mp_client_co_scope.scope.openid.fd.name' => 'openid',
+
   'pl.oa4mp_client_co_scope.scope.profile.fd.name' => 'profile',
+  'pl.oa4mp_client_co_scope.scope.profile.dialog.title' => 'Confirm profile scope',
+  'pl.oa4mp_client_co_scope.scope.profile.dialog.text' => 'The claim you entered is only released with the profile scope but you have not requested the profile scope. Do you want to check the box for the profile scope?',
+  'pl.oa4mp_client_co_scope.scope.profile.dialog.button.yes' => 'Yes',
+  'pl.oa4mp_client_co_scope.scope.profile.dialog.button.no' => 'No',
+
   'pl.oa4mp_client_co_scope.scope.email.fd.name' => 'email',
+  'pl.oa4mp_client_co_scope.scope.email.dialog.title' => 'Confirm email scope',
+  'pl.oa4mp_client_co_scope.scope.email.dialog.text' => 'The claim you entered is only released with the email scope but you have not requested the email scope. Do you want to check the box for the email scope?',
+  'pl.oa4mp_client_co_scope.scope.email.dialog.button.yes' => 'Yes',
+  'pl.oa4mp_client_co_scope.scope.email.dialog.button.no' => 'No',
+
   'pl.oa4mp_client_co_scope.scope.org.cilogon.userinfo.fd.name' => 'org.cilogon.userinfo',
+  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.title' => 'Confirm org.cilogon.userinfo scope',
+  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.text' => 'The claim you entered is only released with the org.cilogon.userinfo scope but you have not requested the org.cilogon.userinfo scope. Do you want to check the box for the org.cilogon.userinfo scope?',
+  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.button.yes' => 'Yes',
+  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.button.no' => 'No',
+
   'pl.oa4mp_client_co_scope.scope.getcert.fd.name' => 'edu.uiuc.ncsa.myproxy.getcert',
   'pl.oa4mp_client_co_scope.scope.getcert.dialog.title' => 'Confirm edu.uiuc.ncsa.myproxy.getcert Scope',
   'pl.oa4mp_client_co_scope.scope.getcert.dialog.text' => 'The edu.uiuc.ncsa.myprox.getcert scope is only necessary if your client will request X.509 certificates on behalf of users. Are you sure your client needs the edu.uiuc.ncsa.myprox.getcert scope?',
   'pl.oa4mp_client_co_scope.scope.getcert.dialog.button.yes' => 'Yes',
   'pl.oa4mp_client_co_scope.scope.getcert.dialog.button.no' => 'No, cancel scope',
+
+  'pl.oa4mp_client_co_scope.scope.override' => ' Be aware this name overrides a standard claim',
 
   'pl.oa4mp_client_co_ldap_config.serverurl.fd.name' => 'LDAP Server URL',
   'pl.oa4mp_client_co_ldap_config.binddn.fd.name' => 'LDAP Bind DN',

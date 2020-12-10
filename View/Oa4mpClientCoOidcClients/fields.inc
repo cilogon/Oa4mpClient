@@ -94,7 +94,7 @@ function addFirstLdapToClaimMapping() {
 }
 
 function addLdapToClaimMappingInput() {
-  $("#oa4mp_client_ldap_to_claim_mappings").find("div:hidden:first").show();
+  $("#oa4mp_client_ldap_to_claim_mappings").find("div.field-children-inline:hidden:first").show();
 }
 
 function showConfirmGetcert() {
@@ -137,6 +137,138 @@ function js_local_onload() {
         effect: "fade"
       }
   });
+
+  $("#confirm-profile-scope-dialog").dialog({
+      autoOpen: false,
+      buttons: {
+        "<?php print _txt('pl.oa4mp_client_co_scope.scope.profile.dialog.button.yes'); ?>": function() {
+          $("#Oa4mpClientCoScope1Scope").prop("checked", true);
+          $(this).dialog("close");
+        },
+        "<?php print _txt('pl.oa4mp_client_co_scope.scope.profile.dialog.button.no'); ?>": function() {
+          $("#Oa4mpClientCoScope1Scope").prop("checked", false);
+          $(this).dialog("close");
+        }
+      },
+      modal: true,
+      show: {
+        effect: "fade"
+      },
+      hide: {
+        effect: "fade"
+      }
+  });
+
+  $("#confirm-email-scope-dialog").dialog({
+      autoOpen: false,
+      buttons: {
+        "<?php print _txt('pl.oa4mp_client_co_scope.scope.email.dialog.button.yes'); ?>": function() {
+          $("#Oa4mpClientCoScope2Scope").prop("checked", true);
+          $(this).dialog("close");
+        },
+        "<?php print _txt('pl.oa4mp_client_co_scope.scope.email.dialog.button.no'); ?>": function() {
+          $("#Oa4mpClientCoScope2Scope").prop("checked", false);
+          $(this).dialog("close");
+        }
+      },
+      modal: true,
+      show: {
+        effect: "fade"
+      },
+      hide: {
+        effect: "fade"
+      }
+  });
+
+  $("#confirm-userinfo-scope-dialog").dialog({
+      autoOpen: false,
+      buttons: {
+        "<?php print _txt('pl.oa4mp_client_co_scope.scope.userinfo.dialog.button.yes'); ?>": function() {
+          $("#Oa4mpClientCoScope3Scope").prop("checked", true);
+          $(this).dialog("close");
+        },
+        "<?php print _txt('pl.oa4mp_client_co_scope.scope.userinfo.dialog.button.no'); ?>": function() {
+          $("#Oa4mpClientCoScope3Scope").prop("checked", false);
+          $(this).dialog("close");
+        }
+      },
+      modal: true,
+      show: {
+        effect: "fade"
+      },
+      hide: {
+        effect: "fade"
+      }
+  });
+
+  window.cilogon_standard_claims = [
+    "sub",
+    "iss",
+    "aud",
+    "token_id",
+    "email",
+    "given_name",
+    "family_name",
+    "name",
+    "idp",
+    "idp_name",
+    "eppn",
+    "eptid",
+    "affiliation",
+    "ou",
+    "oidc",
+    "cert_subject_dn"
+  ];
+
+  window.email_claims = [
+    "email"
+    ];
+
+  window.profile_claims = [
+    "given_name",
+    "family_name",
+    "name"
+  ];
+
+  window.userinfo_claims = [
+    "idp",
+    "idp_name",
+    "eppn",
+    "eptid",
+    "affiliation",
+    "ou",
+    "oidc"
+  ];
+
+  var i;
+  for (i=0; i < 10; i++) {
+    let id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}ReturnName`;
+    $(id).on("change keyup", function() {
+      let claim_name = $(id).val();
+      if (cilogon_standard_claims.includes(claim_name)) {
+        $(id).closest('div.field-info').next('.standard-claim-warning').show().delay(5000).fadeOut();
+      }
+
+      if (profile_claims.includes(claim_name)) {
+        if(!$("#Oa4mpClientCoScope1Scope").is(':checked')) {
+          $("#confirm-profile-scope-dialog").dialog("open");
+        }
+      }
+
+      if (email_claims.includes(claim_name)) {
+        if(!$("#Oa4mpClientCoScope2Scope").is(':checked')) {
+          $("#confirm-email-scope-dialog").dialog("open");
+        }
+      }
+
+      if (userinfo_claims.includes(claim_name)) {
+        if(!$("#Oa4mpClientCoScope3Scope").is(':checked')) {
+          $("#confirm-userinfo-scope-dialog").dialog("open");
+        }
+      }
+    });
+  }
+
 }
 
 </script>
@@ -511,7 +643,6 @@ function js_local_onload() {
         } 
 
         print '<div class="field-children-inline" style="' . $display . '" id="oa4mp_client_co_search_attribute_' . "$i" . '">';
-    
         print '<ul class="field-children field-ldap-to-claim-mapping">';
         print '  <li>';
         print '    <div class="field-name">';
@@ -538,6 +669,14 @@ function js_local_onload() {
         $args['required'] = !empty($return_name) ? true : false;
         print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_name', $args) : filter_var($oa4mp_client_co_search_attributes[$i]['Oa4mpClientCoSearchAttribute']['return_name'],FILTER_SANITIZE_SPECIAL_CHARS));
         print '    </div>';
+        print '    <div class="standard-claim-warning" style="display: none;">';
+        print  '   <div class="field-name">';
+        print  '   </div>';
+        print '    <div class="field-info">';
+        print '<em class="material-icons" aria-hidden="true">info</em>';
+        print _txt('pl.oa4mp_client_co_scope.scope.override');
+        print '    </div>';
+        print '    </div>';
         print '  </li>';
         print '  <li>';
         print '    <div class="field-name">';
@@ -560,7 +699,6 @@ function js_local_onload() {
         $params['type'] = "button";
         $params['onclick'] = 'removeLdapToClaimMappingInput(this)';
         print $this->Html->tag('button', _txt('op.delete'), $params);
-
         print '</div>';
 
         if($e) {
@@ -595,6 +733,18 @@ function js_local_onload() {
   <?php endif; ?>
 </ul>
 
+<div id="confirm-email-scope-dialog" title="<?php print _txt('pl.oa4mp_client_co_scope.scope.email.dialog.title'); ?>">
+  <p><?php print _txt('pl.oa4mp_client_co_scope.scope.email.dialog.text'); ?></p>
+</div>
+
 <div id="confirm-getcert-scope-dialog" title="<?php print _txt('pl.oa4mp_client_co_scope.scope.getcert.dialog.title'); ?>">
   <p><?php print _txt('pl.oa4mp_client_co_scope.scope.getcert.dialog.text'); ?></p>
+</div>
+
+<div id="confirm-profile-scope-dialog" title="<?php print _txt('pl.oa4mp_client_co_scope.scope.profile.dialog.title'); ?>">
+  <p><?php print _txt('pl.oa4mp_client_co_scope.scope.profile.dialog.text'); ?></p>
+</div>
+
+<div id="confirm-userinfo-scope-dialog" title="<?php print _txt('pl.oa4mp_client_co_scope.scope.userinfo.dialog.title'); ?>">
+  <p><?php print _txt('pl.oa4mp_client_co_scope.scope.userinfo.dialog.text'); ?></p>
 </div>
