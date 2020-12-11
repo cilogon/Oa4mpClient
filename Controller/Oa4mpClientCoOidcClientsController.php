@@ -550,7 +550,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // The state where the OA4MP server has a refresh token lifetime of exactly
     // zero and our representation does not have a value is considered to be
     // synchronized.
-    if($curClient['refresh_token_lifetime'] !== $oa4mpClient['refresh_token_lifetime']) {
+    if($curClient['refresh_token_lifetime'] != $oa4mpClient['refresh_token_lifetime']) {
       if(!(is_null($curClient['refresh_token_lifetime']) && ($oa4mpClient['refresh_token_lifetime'] === 0))) {
         $this->log("Oa4mpClientCoOidcClient refresh_token_lifetime is out of sync");
         return false;
