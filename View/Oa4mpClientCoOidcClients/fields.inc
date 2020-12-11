@@ -269,6 +269,21 @@ function js_local_onload() {
     });
   }
 
+  var j;
+  for (j=0; j < 10; j++) {
+    let id = `#Oa4mpClientCoCallback${j}Url`;
+    $(id).on("change keyup", function() {
+      let url = $(id).val();
+      if (url.includes("*")) {
+        $(id).closest('li').find('.callback-error').show();
+        $(id).addClass('form-error');
+      } else {
+        $(id).closest('li').find('.callback-error').hide();
+        $(id).removeClass('form-error');
+      }
+    });
+  }
+
 }
 
 </script>
@@ -346,6 +361,13 @@ function js_local_onload() {
           $params['type'] = "button";
           $params['onclick'] = 'removeCallbackInput(this)';
           print $this->Html->tag('button', _txt('op.delete'), $params);
+          print '  </div>';
+          print '  <div class="field-name callback-error" style="display: none;">';
+          print '  </div>';
+          print '  <div class="field-info field-dynamic-actions callback-error" style="display: none;">';
+          print '    <div class="error-message callback-error" style="display: none;">';
+          print _txt('pl.oa4mp_client_co_oidc_client.er.wildcards');
+          print '    </div>';
           print '  </div>';
           print '</li>';
 
