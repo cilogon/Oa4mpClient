@@ -694,6 +694,20 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
     }
 
+    // Compare the comment.
+    if(empty($oa4mpClient['comment'])) {
+      $this->log("The OA4MP server representation of the client does not include a comment");
+      return false;
+    }
+
+    if(strcmp($oa4mpClient['comment'], _txt('pl.oa4mp_client_co_oidc_client.signature')) !==0) {
+      $this->log("The OA4MP server respresentation of the client has comment");
+      $this->log($oa4mpClient['comment']);
+      $this->log("but the comment should be");
+      $this->log(_txt('pl.oa4mp_client_co_oidc_client.signature'));
+      return false;
+    }
+
     return true;
   }
 
@@ -983,6 +997,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       if(array_key_exists('rt_lifetime', $oa4mpObject)) {
         $oa4mpClient['Oa4mpClientCoOidcClient']['refresh_token_lifetime'] = $oa4mpObject['rt_lifetime'];
+      }
+
+      if(array_key_exists('comment', $oa4mpObject)) {
+        $oa4mpClient['Oa4mpClientCoOidcClient']['comment'] = $oa4mpObject['comment'];
       }
 
       // For now we set proxy_limited to always be false.
