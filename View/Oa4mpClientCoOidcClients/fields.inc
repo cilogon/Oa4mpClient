@@ -243,7 +243,7 @@ function js_local_onload() {
   var i;
   for (i=0; i < 10; i++) {
     let id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}ReturnName`;
-    $(id).on("change keyup", function() {
+    $(id).on("input", function() {
       let claim_name = $(id).val();
       if (cilogon_standard_claims.includes(claim_name)) {
         $(id).closest('div.field-info').next('.standard-claim-warning').show().delay(5000).fadeOut();
@@ -272,7 +272,7 @@ function js_local_onload() {
   var j;
   for (j=0; j < 10; j++) {
     let id = `#Oa4mpClientCoCallback${j}Url`;
-    $(id).on("change keyup", function() {
+    $(id).on("input", function() {
       let url = $(id).val();
       if (url.includes("*")) {
         $(id).closest('li').find('.callback-error').show();
