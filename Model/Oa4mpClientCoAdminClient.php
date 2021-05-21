@@ -65,12 +65,15 @@ class Oa4mpClientCoAdminClient extends AppModel {
     'co_id' => array(
       'rule' => 'numeric',
       'required' => true,
-      'message' => 'A CO ID must be provided'
+      'message' => 'A CO ID must be provided',
     ),
     'manage_co_group_id' => array(
-      'rule' => 'numeric',
-      'required' => false,
-      'allowEmpty' => true
+      'content' => array(
+        'rule' => 'numeric',
+        'required' => false,
+        'allowEmpty' => true,
+        'unfreeze' => 'CO'
+      )
     ),
     'serverurl' => array(
       'rule' => 'url',
