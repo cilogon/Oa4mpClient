@@ -159,6 +159,32 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
    */
 
   function edit($id) {
+    // Pull the current data.
+    $args = array();
+    $args['conditions']['Oa4mpClientCoAdminClient.id'] = $id;
+    $args['contain'] = $this->edit_contains;
+
+    $curdata = $this->Oa4mpClientCoAdminClient->find('first', $args);
+
+    if(empty($curdata)) {
+      $this->Flash->set(_txt('er.notfound', array(_txt('ct.oa4mp_client_co_admin_clients.1'), $id)), array('key' => 'error'));
+      $args = array();
+      $args['action'] = 'index';
+      $args['co'] = $this->cur_co['Co']['id'];
+      $this->redirect($args);
+    }
+
+    $co_id = $curdata['Oa4mpClientCoAdminClient']['co_id'];
+
+    // Pull the available groups.
+    $args = array();
+    $args['conditions']['ManageCoGroup.co_id'] = $co_id;
+    $args['conditions']['ManageCoGroup.status'] = SuspendableStatusEnum::Active;
+    $args['order'] = array('ManageCoGroup.name ASC');
+    $args['contain'] = false;
+
+    $this->set('vv_available_groups', $this->Oa4mpClientCoAdminClient->ManageCoGroup->find("list", $args));
+
     // Process POST data
     if($this->request->is(array('post', 'put'))) {
 
@@ -167,33 +193,7 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
       $this->request->data['DefaultLdapConfig']['enabled'] = true;
       $this->request->data['DefaultLdapConfig']['authorization_type'] = 'simple';
       $this->request->data['DefaultLdapConfig']['search_name'] = 'username';
-    } else {
-      // Pull the current data.
-      $args = array();
-      $args['conditions']['Oa4mpClientCoAdminClient.id'] = $id;
-      $args['contain'] = $this->edit_contains;
-
-      $curdata = $this->Oa4mpClientCoAdminClient->find('first', $args);
-
-      if(empty($curdata)) {
-        $this->Flash->set(_txt('er.notfound', array(_txt('ct.oa4mp_client_co_admin_clients.1'), $id)), array('key' => 'error'));
-        $args = array();
-        $args['action'] = 'index';
-        $args['co'] = $this->cur_co['Co']['id'];
-        $this->redirect($args);
-      }
-
-      $co_id = $curdata['Oa4mpClientCoAdminClient']['co_id'];
-
-      // Pull the available groups.
-      $args = array();
-      $args['conditions']['ManageCoGroup.co_id'] = $co_id;
-      $args['conditions']['ManageCoGroup.status'] = SuspendableStatusEnum::Active;
-      $args['order'] = array('ManageCoGroup.name ASC');
-      $args['contain'] = false;
-
-      $this->set('vv_available_groups', $this->Oa4mpClientCoAdminClient->ManageCoGroup->find("list", $args));
-    }
+    } 
 
     parent::edit($id);
   }
