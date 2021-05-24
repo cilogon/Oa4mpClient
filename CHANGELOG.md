@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.0.1 (2021-05-24)
+
+- Update validation of the field used to track the CoGroup to which
+client management privileges are delegated to support COmanage Registry
+release 3.3.3.
+
 ## 3.0.0 (2020-12-11)
 
 - Enable management of refresh tokens.
