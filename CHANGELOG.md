@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.0 (2021-10-14)
+
+- Stylistic changes necessary for use with COmanage Registry version 4.0.0.
+
 ## 3.0.1 (2021-05-24)
 
 - Update validation of the field used to track the CoGroup to which

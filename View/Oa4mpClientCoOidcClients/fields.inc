@@ -404,7 +404,7 @@ function js_local_onload() {
     </div>
     <ul class="field-children" id="oa4mp_client_co_scope">
       <li>
-        <div class="field-info">
+        <div class="field-info form-check">
             <?php
               $args = array();
               $args['type'] = 'checkbox';
@@ -412,6 +412,7 @@ function js_local_onload() {
               $args['onclick'] = 'event.preventDefault();';
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.openid.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::OpenId;
+              $args['class'] = "form-check-input";
               print ($e
                      ? $this->Form->input('Oa4mpClientCoScope.0.scope', $args)
                      : filter_var($oa4mp_client_co_scopes[0]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
@@ -424,13 +425,14 @@ function js_local_onload() {
         </div>
       </li>
       <li>
-        <div class="field-info">
+        <div class="field-info form-check">
             <?php
               $args = array();
               $args['type'] = 'checkbox';
               $args['disabled'] = false;
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.profile.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::Profile;
+              $args['class'] = "form-check-input";
               print ($e
                      ? $this->Form->input('Oa4mpClientCoScope.1.scope', $args)
                      : filter_var($oa4mp_client_co_scopes[1]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
@@ -443,13 +445,14 @@ function js_local_onload() {
         </div>
       </li>
       <li>
-        <div class="field-info">
+        <div class="field-info form-check">
             <?php
               $args = array();
               $args['type'] = 'checkbox';
               $args['disabled'] = false;
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.email.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::Email;
+              $args['class'] = "form-check-input";
               print ($e
                      ? $this->Form->input('Oa4mpClientCoScope.2.scope', $args)
                      : filter_var($oa4mp_client_co_scopes[2]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
@@ -462,13 +465,14 @@ function js_local_onload() {
         </div>
       </li>
       <li>
-        <div class="field-info">
+        <div class="field-info form-check">
             <?php
               $args = array();
               $args['type'] = 'checkbox';
               $args['disabled'] = false;
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.org.cilogon.userinfo.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::OrgCilogonUserInfo;
+              $args['class'] = "form-check-input";
               print ($e
                      ? $this->Form->input('Oa4mpClientCoScope.3.scope', $args)
                      : filter_var($oa4mp_client_co_scopes[3]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
@@ -481,7 +485,7 @@ function js_local_onload() {
         </div>
       </li>
       <li>
-        <div class="field-info">
+        <div class="field-info form-check">
             <?php
               $args = array();
               $args['type'] = 'checkbox';
@@ -489,6 +493,7 @@ function js_local_onload() {
               $args['onclick'] = 'showConfirmGetcert()';
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.getcert.fd.name');
               $args['value'] = Oa4mpClientScopeEnum::Getcert;
+              $args['class'] = "form-check-input";
               print ($e
                      ? $this->Form->input('Oa4mpClientCoScope.4.scope', $args)
                      : filter_var($oa4mp_client_co_scopes[4]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));

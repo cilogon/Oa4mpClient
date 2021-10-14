@@ -56,7 +56,7 @@
     <tr class="ui-widget-header">
       <th><?php print $this->Paginator->sort('name', _txt('co'), array('model' => 'Co')); ?></th>
       <th><?php print $this->Paginator->sort('admin_identifier', _txt('pl.oa4mp_client_co_admin_client.admin_identifier.fd.name')); ?></th>
-      <th><?php print _txt('fd.actions'); ?></th>
+      <th class="thinActionButtonsCol"><?php print _txt('fd.actions'); ?></th>
     </tr>
   </thead>
   
@@ -132,7 +132,7 @@
   
   <tfoot>
     <tr class="ui-widget-header">
-      <th colspan="4">
+      <th colspan="3">
         <?php print $this->element("pagination"); ?>
       </th>
     </tr>
