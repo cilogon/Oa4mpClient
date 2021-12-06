@@ -119,6 +119,15 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
     }
 
     $this->set('co_options', $co_options);
+
+    // Read the default paths for QDL configuration and set a view
+    // variable so that the defaults can be supplied in the form
+    // if there is no existing value.
+    $qdlClaimSourceDefault = Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_source.default');
+    $qdlClaimProcessDefault =Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_source.process');
+
+    $this->set('qdlClaimSourceDefault', $qdlClaimSourceDefault);
+    $this->set('qdlClaimProcessDefault', $qdlClaimProcessDefault);
     
     parent::beforeRender();
   }
@@ -209,29 +218,35 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
    */
   
   function isAuthorized() {
-    $roles = $this->Role->calculateCMRoles();
+    // Only configured usernames may invoke this controller.
+    $allowedUsernames = Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.allowedUsernames');
 
-    // Construct the permission set for this user, which will also be passed to the view.
-    $p = array();
-    
-    // All operations require platform administrator.
-    
-    // Add a new admin client?
-    $p['add'] = $roles['cmadmin'];
+    if($this->Session->check('Auth.User.username')) {
+      $username = $this->Session->read('Auth.User.username');
+    } else {
+      return false;
+    }
 
-    // Delete an existing admin client?
-    $p['delete'] = $roles['cmadmin'];
-    
-    // Edit an existing admin client?
-    $p['edit'] = $roles['cmadmin'];
+    if(in_array($username, $allowedUsernames)) {
+      // Add a new admin client?
+      $p['add'] = true;
 
-    // View all existing admin clients?
-    $p['index'] = $roles['cmadmin'];
+      // Delete an existing admin client?
+      $p['delete'] = true;
     
-    // View an existing admin client?
-    $p['view'] = $roles['cmadmin'];
+      // Edit an existing admin client?
+      $p['edit'] = true;
+
+      // View all existing admin clients?
+      $p['index'] = true;
     
-    $this->set('permissions', $p);
-    return $p[$this->action];
+      // View an existing admin client?
+      $p['view'] = true;
+
+      $this->set('permissions', $p);
+      return $p[$this->action];
+    } else {
+      return false;
+    }
   }
 }

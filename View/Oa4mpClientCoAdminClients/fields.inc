@@ -92,11 +92,6 @@
           effect: "fade"
         }
       });
-
-    // Decorate the save button. This is a copy of Javascript taken out of the view element file 
-    // View/Elements/javascript.ctp which applies for all submit buttons. We need it since our save
-    // button is not of type submit.
-    $("#oa4mpadminclientsavebutton").addClass("spin submit-button mdl-button mdl-js-button mdl-button--raised mdl-button--colored mdl-js-ripple-effect");
   }
   
 </script>
@@ -208,6 +203,56 @@
     <div class="field-name">
       <div class="field-title">
         <?php print ($e
+                     ? $this->Form->label('qdl_claim_source', _txt('pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.name'))
+                     : _txt('pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+        <?php 
+          if($e) { 
+            $args = array();
+            if(empty($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_source'])) {
+              $args['default'] = $qdlClaimSourceDefault;
+            }
+            echo $this->Form->input('qdl_claim_source', $args);
+          } else {
+            echo filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_source'],FILTER_SANITIZE_SPECIAL_CHARS); 
+          }
+        ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e
+                     ? $this->Form->label('qdl_claim_process', _txt('pl.oa4mp_client_co_admin_client.qdl_claim_process.fd.name'))
+                     : _txt('pl.oa4mp_client_co_admin_client.qdl_claim_process.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.qdl_claim_process.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+        <?php 
+          if($e) { 
+            $args = array();
+            if(empty($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_process'])) {
+              $args['default'] = $qdlClaimProcessDefault;
+            }
+            echo $this->Form->input('qdl_claim_process', $args);
+          } else {
+            echo filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_process'],FILTER_SANITIZE_SPECIAL_CHARS); 
+          }
+        ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e
                      ? $this->Form->label('DefaultLdapConfig.serverurl', _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name'))
                      : _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name')); ?>
         <span class="required">*</span>
@@ -275,20 +320,18 @@
   <?php if($e): ?>
     <li class="fields-submit">
       <div class="field-name"></div>
-      <div class="field-info">
         <?php 
           if($this->action == "add") {
             print $this->Form->submit($submit_label);
           } elseif ($this->action =="edit") {
             $args = array();
             $args['type'] = 'button';
-            $args['class'] = 'submit-button';
+            $args['class'] = 'btn btn-primary';
             $args['onClick'] = 'on_submit()';
             $args['id'] = 'oa4mpadminclientsavebutton';
             print $this->Form->button($submit_label, $args);
           }
         ?>
-      </div>
     </li>
   <?php endif; ?>
 </ul>

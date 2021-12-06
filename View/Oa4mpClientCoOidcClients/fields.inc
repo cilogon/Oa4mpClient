@@ -58,6 +58,13 @@
       print $this->Form->hidden('oa4mp_identifier');
     }
   }
+
+  // Include the admin client ID if it is available.
+  if($e) {
+    if(!empty($this->request->data['Oa4mpClientCoOidcClient']['admin_id'])) {
+      print $this->Form->hidden('admin_id');
+    }
+  }
 ?>
 <script type="text/javascript">
   <!-- JS specific to these fields -->

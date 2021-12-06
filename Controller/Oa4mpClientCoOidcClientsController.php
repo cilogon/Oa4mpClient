@@ -638,8 +638,20 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         return false;
       }
       if($curLdap['search_name'] !== $serLdap['search_name']) {
-        $this->log("Oa4mpClientCoLdapConfig search_name is out of sync");
-        return false;
+        // We accept 'username' is the same as 'uid' so normalize and
+        // then compare again.
+        $cur = $curLdap['search_name'];
+        $ser = $serLdap['search_name'];
+        if($cur == 'username') {
+          $cur = 'uid';
+        }
+        if($ser == 'username') {
+          $ser = 'uid';
+        }
+        if($cur !== $ser) {
+          $this->log("Oa4mpClientCoLdapConfig search_name is out of sync");
+          return false;
+        }
       }
       if($curLdap['authorization_type'] !== $serLdap['authorization_type']) {
         $this->log("Oa4mpClientCoLdapConfig authorization_type is out of sync");
@@ -817,10 +829,208 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
   }
 
   /**
+   * Marshall Oa4mpClientCoLdapConfig object for oa4mp server using deprecated syntax.
+   *
+   * @since COmanage Registry 4.0.0
+   * @param array $data Posted client data after validation
+   * @return array cfg object to be sent to oa4mp server
+   */
+  function oa4mpMarshallCfgDeprecated($data) {
+    $cfg = array();
+
+    $cfg['config'] = _txt('pl.oa4mp_client_co_oidc_client.signature');
+    $cfg['claims'] = array();
+    $cfg['claims']['sourceConfig'] = array();
+
+    $ldap = array();
+
+    // Concatenate the LDAP config server URL, the bind DN, and the
+    // base DN and then SHA1 hash it to compute a name for the LDAP
+    // configuration to be used with the Oa4mp server.
+    $id = $data['Oa4mpClientCoLdapConfig'][0]['serverurl'];
+    $id = $id . $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
+    $id = $id . $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
+    $id = sha1($id);
+
+    $ldap['id'] = $id;
+    
+    if($data['Oa4mpClientCoLdapConfig'][0]['enabled']) {
+      $ldap['enabled'] = 'true';
+    } else {
+      $ldap['enabled'] = 'false';
+    }
+    $ldap['authorizationType'] = $data['Oa4mpClientCoLdapConfig'][0]['authorization_type'];
+
+    $parsedUrl = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl']);
+    $ldap['address'] = $parsedUrl['host'];
+    if(!empty($parsedUrl['port'])) {
+      $ldap['port'] = $parsedUrl['port'];
+    } 
+    else if($parsedUrl['scheme'] == 'ldaps') {
+      $ldap['port'] = 636;
+    } else {
+      $ldap['port'] = 389;
+    }
+
+    $ldap['principal'] = $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
+    $ldap['password'] = $data['Oa4mpClientCoLdapConfig'][0]['password'];
+    $ldap['searchBase'] = $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
+    $ldap['searchName'] = $data['Oa4mpClientCoLdapConfig'][0]['search_name'];
+
+    $ldap['searchAttributes'] = array();
+    foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
+      $a = array();
+      $a['name'] = $sa['name'];
+      $a['returnName'] = $sa['return_name'];
+      if($sa['return_as_list']) {
+        $a['returnAsList'] = 'true';
+      } else {
+        $a['returnAsList'] = 'false';
+      }
+
+      $ldap['searchAttributes'][] = $a;
+    }
+
+    $cfg['claims']['sourceConfig'][] = array('ldap' => $ldap);
+
+    $preProcessing = array();
+    $preProcessing['$if'] = array('$true');
+    $preProcessing['$then'] = array(array('$set_claim_source' => array('LDAP', $id)));
+
+    $cfg['claims']['preProcessing'] = array();
+    $cfg['claims']['preProcessing'][] = $preProcessing;
+
+    return $cfg;
+  }
+
+  /**
+   * Marshall Oa4mpClientCoLdapConfig object for oa4mp server using QDL syntax.
+   *
+   * @since COmanage Registry 4.0.0
+   * @param array $data Posted client data after validation
+   * @return array cfg object to be sent to oa4mp server
+   */
+  function oa4mpMarshallCfgQdl($data) {
+    // Use the admin_id passed in with the client data to find the Oa4mpCoAdminClient model
+    // object and from it the QDL paths to use. 
+    $adminClientId = $data['Oa4mpClientCoOidcClient']['admin_id'];
+
+    $args = array();
+    $args['conditions'] = array();
+    $args['conditions']['Oa4mpClientCoAdminClient.id'] = $adminClientId;
+    $args['contain'] = false;
+
+    $ret = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
+
+    // Older admin clients may not have the QDL path set so use the configured
+    // default, or a hard-coded default as a last resort.
+    if(!empty($ret['Oa4mpClientCoAdminClient']['qdl_claim_source'])) {
+      $qdlClaimSourcePath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_source'];
+    } elseif(!empty(Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_source.default'))) {
+      $qdlClaimSourcePath = Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_source.default');
+    } else{
+      $qdlClaimSourcePath = 'COmanageRegistry/default/identity_token_ldap_claim_source.qdl';
+    }
+
+    if(!empty($ret['Oa4mpClientCoAdminClient']['qdl_claim_process'])) {
+      $qdlClaimProcessPath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_process'];
+    } elseif(!empty(Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_process.default'))) {
+      $qdlClaimProcessPath = Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_process.default');
+    } else{
+      $qdlClaimProcessPath = 'COmanageRegistry/default/identity_token_ldap_claim_process.qdl';
+    }
+
+    $qdlClaimProcessPath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_process'];
+
+    // Now construct the OA4MP cfg object.
+    $cfg = array();
+    
+    // Identity token configuration.
+    $cfg['tokens']['identity']['type'] = 'identity';
+
+    // The QDL value is a list.
+    $cfg['tokens']['identity']['qdl'] = array();
+
+    // The first QDL value is the claims source object.
+    $qdl = array();
+
+    $qdl['load'] = $qdlClaimSourcePath;
+
+    $qdl['xmd'] = array();
+    $qdl['xmd']['exec_phase'] = 'pre_auth';
+
+    $qdl['args'] = array();
+    $qdl['args']['server_fqdn'] = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_HOST);
+
+    $server_port = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_PORT);
+
+    if(empty($server_port)) {
+      $scheme = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_SCHEME);
+      if($scheme == 'ldap') {
+        $server_port = 389;
+      } elseif($scheme == 'ldaps') {
+        $server_port = 636;
+      }
+    }
+
+    if(empty($server_port)) {
+      throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.marshall'));
+    }
+
+    $qdl['args']['server_port'] = $server_port;
+
+    $qdl['args']['bind_dn'] = $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
+    $qdl['args']['bind_password'] = $data['Oa4mpClientCoLdapConfig'][0]['password'];
+    $qdl['args']['search_base'] = $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
+
+    // TODO This should not be hard-coded.
+    $qdl['args']['search_attribute'] = 'uid';
+
+    $qdl['args']['return_attributes'] = array();
+
+    $qdl['args']['list_attributes'] = array();
+
+    if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
+      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
+        $qdl['args']['return_attributes'][] = $sa['name'];
+
+        if($sa['return_as_list']) {
+          $qdl['args']['list_attributes'][] = $sa['name'];
+        }
+      }
+    }
+
+    $cfg['tokens']['identity']['qdl'][] = $qdl;
+
+    // The second QDL value is the claims process object.
+    $qdl = array();
+
+    $qdl['load'] = $qdlClaimProcessPath;
+
+    $qdl['xmd'] = array();
+    $qdl['xmd']['exec_phase'] = array();
+    $qdl['xmd']['exec_phase'][] = 'post_refresh';
+    $qdl['xmd']['exec_phase'][] = 'post_token';
+    $qdl['xmd']['exec_phase'][] = 'post_user_info';
+
+    $qdl['args'] = array();
+    if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
+      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
+        $qdl['args'][$sa['name']] = $sa['return_name'];
+      }
+    }
+
+    $cfg['tokens']['identity']['qdl'][] = $qdl;
+
+    return $cfg;
+  }
+
+  /**
    * Marshall Oa4mpClientCoOidcClient object for oa4mp server.
    *
    * @since COmanage Registry 2.0.1
-   * @return Array
+   * @param array $data Posted client data after validation
+   * @return array Content to be sent to Oa4mp server after JSON encoding
    */
   function oa4mpMarshallContent($data) {
     $content = array();
@@ -864,68 +1074,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $content['comment'] = _txt('pl.oa4mp_client_co_oidc_client.signature');
 
     if(!empty($data['Oa4mpClientCoLdapConfig'])) {
-      $content['cfg'] = array();
-      $content['cfg']['config'] = _txt('pl.oa4mp_client_co_oidc_client.signature');
-      $content['cfg']['claims'] = array();
-      $content['cfg']['claims']['sourceConfig'] = array();
-
-      $ldap = array();
-
-      // Concatenate the LDAP config server URL, the bind DN, and the
-      // base DN and then SHA1 hash it to compute a name for the LDAP
-      // configuration to be used with the Oa4mp server.
-      $id = $data['Oa4mpClientCoLdapConfig'][0]['serverurl'];
-      $id = $id . $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
-      $id = $id . $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
-      $id = sha1($id);
-
-      $ldap['id'] = $id;
-      
-      if($data['Oa4mpClientCoLdapConfig'][0]['enabled']) {
-        $ldap['enabled'] = 'true';
-      } else {
-        $ldap['enabled'] = 'false';
-      }
-      $ldap['authorizationType'] = $data['Oa4mpClientCoLdapConfig'][0]['authorization_type'];
-
-      $parsedUrl = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl']);
-      $ldap['address'] = $parsedUrl['host'];
-      if(!empty($parsedUrl['port'])) {
-        $ldap['port'] = $parsedUrl['port'];
-      } 
-      else if($parsedUrl['scheme'] == 'ldaps') {
-        $ldap['port'] = 636;
-      } else {
-        $ldap['port'] = 389;
-      }
-
-      $ldap['principal'] = $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
-      $ldap['password'] = $data['Oa4mpClientCoLdapConfig'][0]['password'];
-      $ldap['searchBase'] = $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
-      $ldap['searchName'] = $data['Oa4mpClientCoLdapConfig'][0]['search_name'];
-
-      $ldap['searchAttributes'] = array();
-      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
-        $a = array();
-        $a['name'] = $sa['name'];
-        $a['returnName'] = $sa['return_name'];
-        if($sa['return_as_list']) {
-          $a['returnAsList'] = 'true';
-        } else {
-          $a['returnAsList'] = 'false';
-        }
-
-        $ldap['searchAttributes'][] = $a;
-      }
-
-      $content['cfg']['claims']['sourceConfig'][] = array('ldap' => $ldap);
-
-      $preProcessing = array();
-      $preProcessing['$if'] = array('$true');
-      $preProcessing['$then'] = array(array('$set_claim_source' => array('LDAP', $id)));
-
-      $content['cfg']['claims']['preProcessing'] = array();
-      $content['cfg']['claims']['preProcessing'][] = $preProcessing;
+      $content['cfg'] = $this->oa4mpMarshallCfgQdl($data);
     }
 
     return $content;
@@ -1040,83 +1189,50 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         }
       }
 
-      // Unmarshall the cfg object to obtain the LDAP and search attribute details.
+      // Unmarshall the cfg object if present to obtain the LDAP and search attribute details.
       if(isset($oa4mpObject['cfg'])){
         $cfg = $oa4mpObject['cfg'];
 
-        // If the client signature does not match what we expect throw exception.
-        if(isset($cfg['config'])) {
-          if($cfg['config'] != _txt('pl.oa4mp_client_co_oidc_client.signature')) {
-            throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.bad_signature'));
+        // Assume QDL syntax and try to unmarshall.
+        $ldapConfigs = $this->oa4mpUnMarshallCfgQdl($cfg);
+
+        if(!empty($ldapConfigs)) {
+          $this->log("Unmarshalled cfg QDL syntax to " . print_r($ldapConfigs, true));
+          foreach($ldapConfigs as $ldapConfig) {
+            $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
           }
-        }
+        } else {
+          // If QDL syntax did not work try assuming older deprecated syntax.
+          $ldapConfigs = $this->oa4mpUnMarshallCfgDeprecated($cfg);
 
-        if(isset($cfg['claims']['sourceConfig'])) {
-          foreach($cfg['claims']['sourceConfig'] as $key => $sourceConfig) {
-            $ldapConfig = array();
-
-            if(isset($sourceConfig['ldap'])) {
-              $ldap = $sourceConfig['ldap'];
-
-              $ldapConfig['authorization_type'] = $ldap['authorizationType'];
-              $ldapConfig['enabled'] = $ldap['enabled'];
-
-              $address = $ldap['address'];
-              $port = $ldap['port'];
-              if($port == 636) {
-                $ldapConfig['serverurl'] = 'ldaps://' . $address;
-              } else {
-                $ldapConfig['serverurl'] = 'ldap://' . $address;
-              }
-
-              $ldapConfig['binddn'] = $ldap['principal'];
-              $ldapConfig['password'] = $ldap['password'];
-              $ldapConfig['basedn'] = $ldap['searchBase'];
-              $ldapConfig['search_name'] = $ldap['searchName'];
-
-              if(isset($ldap['searchAttributes'])) {
-                $ldapConfig['Oa4mpClientCoSearchAttribute'] = array();
-
-                foreach($ldap['searchAttributes'] as $key => $mapping) {
-                  $sa = array();
-                  $sa['name'] = $mapping['name'];
-                  $sa['return_name'] = $mapping['returnName'];
-
-                  // The Oa4mp server currently returns a string value of
-                  // 'true' or 'false'. That should probably be fixed to
-                  // return a JSON boolean so detect both here.
-                  if(($mapping['returnAsList'] == 'true') || ($mapping['returnAsList'] === true)){
-                    $sa['return_as_list'] = true;
-                  } else {
-                    $sa['return_as_list'] = null;
-                  }
-
-                  $ldapConfig['Oa4mpClientCoSearchAttribute'][] = $sa;
-                }
-              }
-            }
-
-            if(!empty($ldapConfig)) {
+          if(!empty($ldapConfigs)) {
+            $this->log("Unmarshalled deprecated cfg to " . print_r($ldapConfigs, true));
+            foreach($ldapConfigs as $ldapConfig) {
               $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
             }
 
+            // Check the preProcessing block. Currently we should find a sincle claim source
+            // of type 'LDAP' and its config identifier should be consistent with the cfg
+            // object.
+            if(isset($cfg['claims']['preProcessing'])) {
+              $preProcessing = $cfg['claims']['preProcessing'];
+              if(isset($preProcessing[0]['$then'][0]['$set_claim_source'])) {
+                $claim_source = $preProcessing[0]['$then'][0]['$set_claim_source'];
+                if($claim_source[0] != 'LDAP') {
+                  throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
+                }
+                if($claim_source[1] != $cfg['claims']['sourceConfig'][0]['ldap']['id']) {
+                  throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
+                }
+              }
+            }
           }
         }
 
-        // Check the preProcessing block. Currently we should find a sincle claim source
-        // of type 'LDAP' and its config identifier should be consistent with the cfg
-        // object.
-        if(isset($cfg['claims']['preProcessing'])) {
-          $preProcessing = $cfg['claims']['preProcessing'];
-          if(isset($preProcessing[0]['$then'][0]['$set_claim_source'])) {
-            $claim_source = $preProcessing[0]['$then'][0]['$set_claim_source'];
-            if($claim_source[0] != 'LDAP') {
-              throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
-            }
-            if($claim_source[1] != $cfg['claims']['sourceConfig'][0]['ldap']['id']) {
-              throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
-            }
-          }
+        if(empty($ldapConfigs)) {
+          // Throw exception here because $cfg is set but we not not been able
+          // to unmarshall it using either QDL syntax or deprecated syntax.
+          throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.unmarshall.cfg'));
         }
       }
     }
@@ -1126,6 +1242,147 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     }
 
     return $oa4mpClient;
+  }
+
+  /**
+   * Unmarshall oa4mp cfg object to oa4mpClient['Oa4mpClientCoLdapConfig'] objects
+   * assuming the deprecated cfg syntax.
+   *
+   * @since COmanage Registry 4.0.0
+   * @param array $cfg oa4mp cfg object
+   * @return array of oa4mpClient['Oa4mpClientCoLdapConfig'] objects
+   */
+  function oa4mpUnMarshallCfgDeprecated($cfg) {
+    if(isset($cfg['config'])) {
+      if($cfg['config'] != _txt('pl.oa4mp_client_co_oidc_client.signature')) {
+        throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.bad_signature'));
+      }
+    }
+
+    // Initialize empty array. We return an empty array if the oa4mp cfg object
+    // does not contain the deprecated syntax.
+    $ldapConfigs = array();
+
+    if(isset($cfg['claims']['sourceConfig'])) {
+      foreach($cfg['claims']['sourceConfig'] as $key => $sourceConfig) {
+        $ldapConfig = array();
+
+        if(isset($sourceConfig['ldap'])) {
+          $ldap = $sourceConfig['ldap'];
+
+          $ldapConfig['authorization_type'] = $ldap['authorizationType'];
+          $ldapConfig['enabled'] = $ldap['enabled'];
+
+          $address = $ldap['address'];
+          $port = $ldap['port'];
+          if($port == 636) {
+            $ldapConfig['serverurl'] = 'ldaps://' . $address;
+          } else {
+            $ldapConfig['serverurl'] = 'ldap://' . $address;
+          }
+
+          $ldapConfig['binddn'] = $ldap['principal'];
+          $ldapConfig['password'] = $ldap['password'];
+          $ldapConfig['basedn'] = $ldap['searchBase'];
+          $ldapConfig['search_name'] = $ldap['searchName'];
+
+          if(isset($ldap['searchAttributes'])) {
+            $ldapConfig['Oa4mpClientCoSearchAttribute'] = array();
+
+            foreach($ldap['searchAttributes'] as $key => $mapping) {
+              $sa = array();
+              $sa['name'] = $mapping['name'];
+              $sa['return_name'] = $mapping['returnName'];
+
+              // The Oa4mp server currently returns a string value of
+              // 'true' or 'false'. That should probably be fixed to
+              // return a JSON boolean so detect both here.
+              if(($mapping['returnAsList'] == 'true') || ($mapping['returnAsList'] === true)){
+                $sa['return_as_list'] = true;
+              } else {
+                $sa['return_as_list'] = null;
+              }
+
+              $ldapConfig['Oa4mpClientCoSearchAttribute'][] = $sa;
+            }
+          }
+        }
+
+        if(!empty($ldapConfig)) {
+          $ldapConfigs[] = $ldapConfig;
+        }
+      }
+    }
+
+    return $ldapConfigs;
+  }
+
+  /**
+   * Unmarshall oa4mp cfg object to oa4mpClient['Oa4mpClientCoLdapConfig'] objects
+   * assuming QDL syntax.
+   *
+   * @since COmanage Registry 4.0.0
+   * @param array $cfg oa4mp cfg object
+   * @return array of oa4mpClient['Oa4mpClientCoLdapConfig'] objects
+   */
+  function oa4mpUnMarshallCfgQdl($cfg) {
+    // TODO add code to try and verify that the cfg we retrieved
+    // is what we expected.
+
+    // Initialize empty array. We return an empty array if the oa4mp cfg object
+    // does not contain the expected QDL syntax.
+    $ldapConfigs = array();
+
+    if(!empty($cfg['tokens']['identity']['qdl'])) {
+      $qdl_pre_auth = $cfg['tokens']['identity']['qdl'][0];
+      $qdl_args = $qdl_pre_auth['args'];
+
+      $ldapConfig = array();
+
+      // This is required by the current schema but is deprecated after
+      // the transition to QDL.
+      $ldapConfig['authorization_type'] = 'simple';
+      $ldapConfig['enabled'] = true;
+
+      $address = $qdl_args['server_fqdn'];
+      $port = $qdl_args['server_port'];
+      if($port == 636) {
+        $ldapConfig['serverurl'] = 'ldaps://' . $address;
+      } else {
+        $ldapConfig['serverurl'] = 'ldap://' . $address;
+      }
+
+      $ldapConfig['binddn'] = $qdl_args['bind_dn'];
+      $ldapConfig['password'] = $qdl_args['bind_password'];
+      $ldapConfig['basedn'] = $qdl_args['search_base'];
+      $ldapConfig['search_name'] = $qdl_args['search_attribute'];
+
+      $listAttributes = $qdl_args['list_attributes'];
+
+      $qdl_post_user_info = $cfg['tokens']['identity']['qdl'][1];
+      $qdl_args = $qdl_post_user_info['args'];
+
+      $ldapConfig['Oa4mpClientCoSearchAttribute'] = array();
+
+      foreach($qdl_args as $key => $mapping) {
+        $sa = array();
+        $sa['name'] = $key;
+        $sa['return_name'] = $mapping;
+
+        if(in_array($key, $listAttributes)) {
+          $sa['return_as_list'] = true;
+        } else {
+          $sa['return_as_list'] = false;
+        }
+
+        $ldapConfig['Oa4mpClientCoSearchAttribute'][] = $sa;
+      }
+
+      // At this time we assume a single LDAP configuration in the QDL.
+      $ldapConfigs[] = $ldapConfig;
+    }
+
+    return $ldapConfigs;
   }
 
   /**

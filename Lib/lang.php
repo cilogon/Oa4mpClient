@@ -51,13 +51,17 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_admin_client.serverurl.fd.description' => 'OA4MP server URL (https://cilogon.org/oauth2/clients)',
   'pl.oa4mp_client_co_admin_client.secret.fd.name' => 'Secret',
   'pl.oa4mp_client_co_admin_client.secret.fd.description' => 'Secret for the admin client for the CO',
+  'pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.name' => 'Claim Source QDL Path',
+  'pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.description' => 'Path to QDL file for setting claim source',
+  'pl.oa4mp_client_co_admin_client.qdl_claim_process.fd.name' => 'Claim Processing QDL Path',
+  'pl.oa4mp_client_co_admin_client.qdl_claim_process.fd.description' => 'Path to QDL file for further processing claims',
   'pl.oa4mp_client_co_admin_client.co_id.fd.all_taken' => 'No COs without existing admin client',
   'pl.oa4mp_client_co_admin_client.ldap.server.fd.description' => 'Default LDAP server URL to use with OIDC clients for this CO',
   'pl.oa4mp_client_co_admin_client.ldap.binddn.fd.description' => 'Default bind DN to use with OIDC clients for this CO',
   'pl.oa4mp_client_co_admin_client.ldap.bindpassword.fd.description' => 'Default bind password to use with OIDC clients for this CO',
   'pl.oa4mp_client_co_admin_client.ldap.searchbase.fd.description' => 'Default search base for person records (ou=people,...)',
   'pl.oa4mp_client_co_admin_client.save.dialog.title' => 'Edits to Admin Client',
-  'pl.oa4mp_client_co_admin_client.save.dialog.text' => 'Any changes to the default LDAP configuration do not propagate to existing OIDC clients!',
+  'pl.oa4mp_client_co_admin_client.save.dialog.text' => 'Any changes to the QDL paths or default LDAP configuration do not propagate to existing OIDC clients!',
   'pl.oa4mp_client_co_admin_client.save.dialog.understand' => 'I understand',
 
   'pl.oa4mp_client_co_admin_client.er.client_exists' => 'A CO may only have one Oa4mp Admin Client',
@@ -144,7 +148,9 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Exceptions
   'pl.oa4mp_client_co_oidc_client.er.bad_signature' => 'Client object from Oa4mp server failed signature check',
+  'pl.oa4mp_client_co_oidc_client.er.marshall' => 'Error marshalling OIDC client object for Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.unmarshall' => 'Error unmarshalling OIDC client object from Oa4mp server',
+  'pl.oa4mp_client_co_oidc_client.er.unmarshall.cfg' => 'Error unmarshalling cfg object from Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.preprocessing' => 'Found bad preProcessing block from Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.bad_client' => 'This client has been modified outside of the Registry. Please email help@cilogon.org for assistance.',
   'pl.oa4mp_client_co_oidc_client.er.wildcards' => 'Wildcards are not allowed in callback URLs',

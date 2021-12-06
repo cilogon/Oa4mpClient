@@ -38,6 +38,8 @@
         <field name="serverurl" type="C" size="256" />
         <field name="admin_identifier" type="C" size="96" />
         <field name="secret" type="C" size="96" />
+        <field name="qdl_claim_source" type="C" size="256" />
+        <field name="qdl_claim_process" type="C" size="256" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
