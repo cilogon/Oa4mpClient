@@ -51,6 +51,13 @@
   print $this->Html->css("Oa4mpClient.oa4mpclient");
 
   $l = 1;
+
+  // Include the current client ID if it is available.
+  if($e) {
+    if(!empty($this->request->data['Oa4mpClientCoOidcClient']['oa4mp_identifier'])) {
+      print $this->Form->hidden('oa4mp_identifier');
+    }
+  }
 ?>
 <script type="text/javascript">
   <!-- JS specific to these fields -->
