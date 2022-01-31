@@ -49,6 +49,8 @@
 
   if(isset($oa4mp_client_co_admin_clients) && $e) {
     print $this->Form->hidden('DefaultLdapConfig.id', array('default' => $oa4mp_client_co_admin_clients[0]['DefaultLdapConfig']['id'])) . "\n";
+    print $this->Form->hidden('Oa4mpClientCoEmailAddress.0.id', array('default' => $oa4mp_client_co_admin_clients[0]['Oa4mpClientCoEmailAddress'][0]['id'])) . "\n";
+    print $this->Form->hidden('Oa4mpClientCoEmailAddress.0.admin_id', array('default' => $oa4mp_client_co_admin_clients[0]['Oa4mpClientCoEmailAddress'][0]['admin_id'])) . "\n";
   }
   
   $l = 1;
@@ -119,6 +121,23 @@
         print filter_var($Oa4mpClientCoAdminClient[0]['Co']['name'],FILTER_SANITIZE_SPECIAL_CHARS);
       }
       ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e
+                     ? $this->Form->label('Oa4mpClientCoEmailAddress.mail', _txt('pl.oa4mp_client_co_admin_client.mail.fd.name'))
+                     : _txt('pl.oa4mp_client_co_admin_client.mail.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.mail.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php print ($e
+                   ? $this->Form->input('Oa4mpClientCoEmailAddress.0.mail')
+                   : filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoEmailAddress'][0]['mail'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
     </div>
   </li>
 

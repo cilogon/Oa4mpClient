@@ -158,4 +158,26 @@
         </index>
     </table>
 
+    <table name="oa4mp_client_co_email_addresses">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="admin_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_admin_clients(id)</constraint>
+        </field>
+        <field name="mail" type="C" size="256" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+
+        <index name="oa4mp_client_co_email_addresses_i1">
+            <col>client_id</col>
+            <col>admin_id</col>
+            <col>mail</col>
+        </index>
+    </table>
+
 </schema> 

@@ -373,6 +373,38 @@ function js_local_onload() {
     </div>
   </li>
 
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e
+                     ? $this->Form->label('Oa4mpClientCoEmailAddress.mail', _txt('pl.oa4mp_client_co_oidc_client.mail.fd.name'))
+                     : _txt('pl.oa4mp_client_co_oidc_client.mail.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.mail.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+        <?php
+          $params = array();
+          if(!empty($vv_default_contact_email)) {
+            $params['default'] = $vv_default_contact_email;
+          }
+          if(isset($this->validationErrors['Oa4mpClientCoEmailAddress']['mail'][0])) {
+            $params['class'] = 'form-error';
+          }
+          print ($e
+                 ? $this->Form->input('Oa4mpClientCoEmailAddress.0.mail', $params)
+                 : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoEmailAddress'][0]['mail'],FILTER_SANITIZE_SPECIAL_CHARS));
+          if($e) {
+            if(!empty($this->request->data['Oa4mpClientCoEmailAddress'][0]['mail'])) {
+              print $this->Form->hidden('Oa4mpClientCoEmailAddress.0.id');
+              print $this->Form->hidden('Oa4mpClientCoEmailAddress.0.client_id');
+            }
+          }
+        ?>
+    </div>
+  </li>
+
   <li id="callbacks-li">
     <div class="field-name">
       <div class="field-title">

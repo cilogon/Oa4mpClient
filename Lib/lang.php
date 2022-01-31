@@ -45,6 +45,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   // Plugin texts
   'pl.oa4mp_client_co_admin_client.admin_identifier.fd.name' => 'Admin ID',
   'pl.oa4mp_client_co_admin_client.admin_identifier.fd.description' => 'ID of the admin client for the CO',
+  'pl.oa4mp_client_co_admin_client.mail.fd.name' => 'Contact Email Address',
+  'pl.oa4mp_client_co_admin_client.mail.fd.description' => 'This email address is used for operational notices regarding clients.',
   'pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.name' => 'Delegated Management Group',
   'pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.description' => 'If set, members of this group may create and manage OIDC clients',
   'pl.oa4mp_client_co_admin_client.serverurl.fd.name' => 'Server URL',
@@ -71,6 +73,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_oidc_client.name.fd.name' => 'Name',
   'pl.oa4mp_client_co_oidc_client.name.fd.description' => 'The client Name is displayed to end-users on the Identity Provider selection page',
+  'pl.oa4mp_client_co_oidc_client.mail.fd.name' => 'Contact Email Address',
+  'pl.oa4mp_client_co_oidc_client.mail.fd.description' => 'This email address is used for operational notices regarding clients.',
   'pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name' => 'Client ID',
   'pl.oa4mp_client_co_oidc_client.secret.fd.name' => 'Client Secret',
   'pl.oa4mp_client_co_oidc_client.home_url.fd.name' => 'Home URL',

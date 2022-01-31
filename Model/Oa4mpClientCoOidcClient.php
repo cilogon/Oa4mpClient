@@ -53,6 +53,10 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'foreignKey' => 'client_id',
       'dependent' => true
     ),
+    "Oa4mpClient.Oa4mpClientCoEmailAddress" => array(
+      'foreignKey' => 'client_id',
+      'dependent' => true
+    ),
   );
 
   // Default display field for cake generated views

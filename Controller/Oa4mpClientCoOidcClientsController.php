@@ -50,6 +50,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     'Oa4mpClientCoCallback' => array(
       'order' => 'Oa4mpClientCoCallback.id'
     ),
+    'Oa4mpClientCoEmailAddress' => array(
+      'order' => 'Oa4mpClientCoEmailAddress.id'
+    ),
     'Oa4mpClientCoScope' => array(
       'order' => 'Oa4mpClientCoScope.id'
     ),
@@ -70,6 +73,13 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     $this->set('title_for_layout', _txt('op.add.new', array(_txt('ct.oa4mp_client_co_oidc_clients.1'))));
 
+    // Use the CO ID to find the admin client, which is needed in the call to
+    // the Oa4mp server.
+    $args = array();
+    $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $this->cur_co['Co']['id'];
+    $args['contain'] = 'Oa4mpClientCoEmailAddress';
+    $adminClient = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
+
     // Process POST data
     if($this->request->is('post')) {
       $data = $this->validatePost();
@@ -85,13 +95,6 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       if(empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
         unset($data['Oa4mpClientCoLdapConfig'][0]);
       } 
-
-      // Use the CO ID to find the admin client, which is needed in the call to
-      // the Oa4mp server. 
-      $args = array();
-      $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $this->cur_co['Co']['id'];
-      $args['contain'] = false;
-      $adminClient = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
 
       // Set the admin client ID.
       $data['Oa4mpClientCoOidcClient']['admin_id'] = $adminClient['Oa4mpClientCoAdminClient']['id'];
@@ -149,6 +152,74 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $ldapConfig['search_name'] = 'username';
 
       $this->request->data['Oa4mpClientCoLdapConfig'][0] = $ldapConfig;
+
+      // Construct the default contact email address.
+      $mail = null;
+
+      $roles = $this->Role->calculateCMRoles();
+
+      // If actor is member of the CO get email address from CoPerson record.
+      if($roles['comember'] && !empty($roles['copersonid'])) {
+        $args = array();
+        $args['conditions']['EmailAddress.co_person_id'] = $roles['copersonid'];
+        $args['conditions']['EmailAddress.deleted'] = false;
+        $args['contain'] = false;
+
+        $emails = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoPerson->EmailAddress->find('all', $args);
+
+        if(!empty($emails)) {
+          foreach($emails as $e) {
+            // Prefer the official email address.
+            if($e['EmailAddress']['type'] == EmailAddressEnum::Official) {
+              $mail = $e['EmailAddress']['mail'];
+              break;
+            }
+          }
+          // No official email address so take whatever is first.
+          if(empty($mail)) {
+            $mail = $emails[0]['EmailAddress']['mail'];
+          }
+        }
+      }
+
+      // If actor is not a member of the CO or could not find email then
+      // find the first email of any type from any CO admin.
+      if(empty($mail)) {
+        $adminCoGroupId = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoGroup->adminCoGroupId($this->cur_co['Co']['id']);
+
+        $args = array();
+        $args['conditions']['CoGroupMember.co_group_id'] = $adminCoGroupId;
+        $args['conditions']['CoGroupMember.member'] = true;
+        $args['conditions']['AND'][] = array(
+          'OR' => array(
+            'CoGroupMember.valid_from IS NULL',
+            'CoGroupMember.valid_from < ' => date('Y-m-d H:i:s', time())
+          )
+        );
+        $args['conditions']['AND'][] = array(
+          'OR' => array(
+            'CoGroupMember.valid_through IS NULL',
+            'CoGroupMember.valid_through > ' => date('Y-m-d H:i:s', time())
+          )
+        );
+        $args['contain']['CoPerson'] = 'EmailAddress';
+
+        $admins = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoGroup->CoGroupMember->find('all', $args);
+
+        if(!empty($admins[0]['CoPerson']['EmailAddress'][0]['mail'])) {
+          $mail = $admins[0]['CoPerson']['EmailAddress'][0]['mail'];
+        }
+      }
+
+      // If still no email then fallback to the contact email for the
+      // associated admin client.
+      if(empty($mail)) {
+        if(!empty($adminClient['Oa4mpClientCoEmailAddress'][0]['mail'])) {
+          $mail = $adminClient['Oa4mpClientCoEmailAddress'][0]['mail'];
+        }
+      }
+
+      $this->set('vv_default_contact_email', $mail);
 
       parent::add();
     }
@@ -570,6 +641,26 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $this->log("Oa4mpClientCoOidcClient refresh_token_lifetime is out of sync");
         return false;
       }
+    }
+
+    // Compare email addresses.
+    $curEmails = array();
+    $oa4mpEmails = array();
+
+    foreach($curData['Oa4mpClientCoEmailAddress'] as $key => $e) {
+      $curEmails[] = $e['mail'];
+    }
+
+    foreach($oa4mpServerData['Oa4mpClientCoEmailAddress'] as $key => $e) {
+      $oa4mpEmails[] = $e['mail'];
+    }
+
+    sort($curEmails);
+    sort($oa4mpEmails);
+
+    if($curEmails != $oa4mpEmails) {
+      $this->log("Oa4mpClientCoEmailAddress emails are out of sync");
+      return false;
     }
 
     // Compare callbacks.
@@ -1093,6 +1184,13 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $content['scope'] = $scopeString;
     }
 
+    // Today OA4MP only supports a single contact though we send
+    // it in a JSON list.
+    if(!empty($data['Oa4mpClientCoEmailAddress'][0])) {
+      $content['contacts'] = array();
+      $content['contacts'][] = $data['Oa4mpClientCoEmailAddress'][0]['mail'];
+    }
+
     // OA4MP extensions to the metadata not part of RFC 7591.
     $content['comment'] = _txt('pl.oa4mp_client_co_oidc_client.signature');
 
@@ -1176,6 +1274,13 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       if(array_key_exists('comment', $oa4mpObject)) {
         $oa4mpClient['Oa4mpClientCoOidcClient']['comment'] = $oa4mpObject['comment'];
+      }
+
+      if(array_key_exists('contacts', $oa4mpObject)) {
+        $oa4mpClient['Oa4mpClientCoEmailAddress'] = array();
+        foreach ($oa4mpObject['contacts'] as $mail) {
+          $oa4mpClient['Oa4mpClientCoEmailAddress'][] = array('mail' => $mail);
+        }
       }
 
       // For now we set proxy_limited to always be false.
@@ -1568,6 +1673,39 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       // For now we set proxy_limited to always be false.
       $data['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
+
+      // Validate the email contacts.
+      $validationErrors = array();
+      $validationErrors['mail'] = array();
+
+      for ($i = 0; $i < count($data['Oa4mpClientCoEmailAddress']); $i++) {
+        $m = $data['Oa4mpClientCoEmailAddress'][$i];
+        if(empty($m['mail'])) {
+          unset($data['Oa4mpClientCoEmailAddress'][$i]);
+          continue;
+        }
+        $d = array();
+        $d['Oa4mpClientCoEmailAddress'] = $m;
+        $this->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->set($d);
+
+        $fields = array();
+        $fields[] = 'mail';
+
+        $args = array();
+        $args['fieldList'] = $fields;
+
+        if(!$this->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->validates($args)) {
+          $errors = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->validationErrors;
+          $validationErrors['mail'][$i] = $errors['mail'][0];
+        }
+      }
+
+      if($validationErrors['mail']) {
+        $this->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->validationErrors = $validationErrors;
+        $i = min(array_keys($validationErrors['mail']));
+        $this->Flash->set($validationErrors['mail'][$i], array('key' => 'error'));
+        return false;
+      }
 
       // Validate the callback fields and remove empty values submitted
       // by any hidden input fields from the view.
