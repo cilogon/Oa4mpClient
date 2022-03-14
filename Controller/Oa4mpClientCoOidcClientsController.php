@@ -149,7 +149,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $ldapConfig['binddn'] = $defaultLdapConfig['binddn'];
       $ldapConfig['password'] = $defaultLdapConfig['password'];
       $ldapConfig['basedn'] = $defaultLdapConfig['basedn'];
-      $ldapConfig['search_name'] = 'username';
+      $ldapConfig['search_name'] = 'uid';
 
       $this->request->data['Oa4mpClientCoLdapConfig'][0] = $ldapConfig;
 
@@ -515,9 +515,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $ldapConfig['binddn'] = $defaultLdapConfig['binddn'];
       $ldapConfig['password'] = $defaultLdapConfig['password'];
       $ldapConfig['basedn'] = $defaultLdapConfig['basedn'];
-      $ldapConfig['search_name'] = 'username';
+      $ldapConfig['search_name'] = 'uid';
 
       $this->request->data['Oa4mpClientCoLdapConfig'][0] = $ldapConfig;
+    } else {
+      // We prefer uid to username for UI consistency.
+      if($curdata['Oa4mpClientCoLdapConfig'][0]['search_name'] == 'username') {
+        $this->request->data['Oa4mpClientCoLdapConfig'][0]['search_name'] = 'uid';
+      }
     }
 
     // Need to re-order the scopes to fit our checkbox use of them
@@ -1088,12 +1093,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $qdl['args']['bind_dn'] = $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
     $qdl['args']['bind_password'] = $data['Oa4mpClientCoLdapConfig'][0]['password'];
     $qdl['args']['search_base'] = $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
-
-    // TODO This should not be hard-coded.
-    $qdl['args']['search_attribute'] = 'uid';
+    $qdl['args']['search_attribute'] = $data['Oa4mpClientCoLdapConfig'][0]['search_name'];
 
     $qdl['args']['return_attributes'] = array();
-
     $qdl['args']['list_attributes'] = array();
 
     if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {

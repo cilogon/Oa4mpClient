@@ -30,9 +30,9 @@
   
   if(($this->action == "add" && $permissions['add']) || ($this->action == "edit" && $permissions['edit']))
     $e = true;
-    
+
   // We shouldn't get here if we don't have at least read permission, but check just in case
-  
+
   if(!$e && !$permissions['view'])
     return(false);
 
@@ -78,6 +78,7 @@
   <!-- JS specific to these fields -->
 
 function addCallbackInput() {
+  $("#oa4mp_client_co_callback").find("li:hidden:first").find("input:first").attr("required", "required");
   $("#oa4mp_client_co_callback").find("li:hidden:first").show();
   $("#oa4mp_client_co_callback").find("li:visible").find("button").show();
   hideCallbackDeleteButtons();
@@ -110,12 +111,15 @@ function hideCallbackDeleteButtons() {
 }
 
 function addFirstLdapToClaimMapping() {
+  $("#oa4mp_client_ldap_configs").show();
+  $("#oa4mp_client_co_search_attribute_0").find("input[type=text]").attr("required", "required");
   $("#oa4mp_client_co_search_attribute_0").show();
   $("#add_first_ldap_to_claim_mapping").hide();
   $("#add_another_ldap_to_claim_mapping").show();
 }
 
 function addLdapToClaimMappingInput() {
+  $("#oa4mp_client_ldap_to_claim_mappings").find("div.field-children-inline:hidden:first").find("input[type=text]").attr("required", "required");
   $("#oa4mp_client_ldap_to_claim_mappings").find("div.field-children-inline:hidden:first").show();
 }
 
@@ -132,6 +136,7 @@ function removeLdapToClaimMappingInput(e) {
 
   var visible = $("#oa4mp_client_ldap_to_claim_mappings").find("div.field-children-inline:visible").length;
   if (visible == 0) {
+    $("#oa4mp_client_ldap_configs").hide();
     $("#add_first_ldap_to_claim_mapping").show();
     $("#add_another_ldap_to_claim_mapping").hide();
   }
@@ -352,7 +357,7 @@ function js_local_onload() {
     <div class="field-info">
       <?php print ($e
                    ? $this->Form->input('name')
-                   : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoOidcClient']['name'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
+                   : filter_var($this->request->data['Oa4mpClientCoOidcClient']['name'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
     </div>
   </li>
 
@@ -369,7 +374,7 @@ function js_local_onload() {
     <div class="field-info">
       <?php print ($e
                    ? $this->Form->input('home_url')
-                   : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoOidcClient']['home_url'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
+                   : filter_var($this->request->data['Oa4mpClientCoOidcClient']['home_url'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
     </div>
   </li>
 
@@ -394,7 +399,7 @@ function js_local_onload() {
           }
           print ($e
                  ? $this->Form->input('Oa4mpClientCoEmailAddress.0.mail', $params)
-                 : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoEmailAddress'][0]['mail'],FILTER_SANITIZE_SPECIAL_CHARS));
+                 : filter_var($this->request->data['Oa4mpClientCoEmailAddress'][0]['mail'],FILTER_SANITIZE_SPECIAL_CHARS));
           if($e) {
             if(!empty($this->request->data['Oa4mpClientCoEmailAddress'][0]['mail'])) {
               print $this->Form->hidden('Oa4mpClientCoEmailAddress.0.id');
@@ -425,6 +430,12 @@ function js_local_onload() {
             $required = false;
           }
 
+          if(!empty($this->request->data['Oa4mpClientCoCallback'][$i]['url'])) {
+            $viewOnlyValue = $this->request->data['Oa4mpClientCoCallback'][$i]['url'];
+          } else {
+            $viewOnlyValue = "";
+          }
+
           $params = array();
           $params['required'] = $required;
           if(isset($this->validationErrors['Oa4mpClientCoCallback']['url'][$i])) {
@@ -437,7 +448,7 @@ function js_local_onload() {
           print '    </div>';
           print '  </div>';
           print '  <div class="field-info field-dynamic-actions">';
-          print ($e ? $this->Form->input('Oa4mpClientCoCallback.' . $i . '.url', $params) : filter_var($oa4mp_client_co_callbacks[$i+1]['Oa4mpClientCoCallback']['url'],FILTER_SANITIZE_SPECIAL_CHARS));
+          print ($e ? $this->Form->input('Oa4mpClientCoCallback.' . $i . '.url', $params) : filter_var($viewOnlyValue,FILTER_SANITIZE_SPECIAL_CHARS));
           if(isset($this->validationErrors['Oa4mpClientCoCallback']['url'][$i])) {
             print '<div class="error-message">';
             print $this->validationErrors['Oa4mpClientCoCallback']['url'][$i];
@@ -505,9 +516,12 @@ function js_local_onload() {
         } else {
           $params['disabled'] = 'disabled';
         }
-        print ($e
-                   ? $this->Form->input('public_client', $params)
-                   : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoOidcClient']['public_client'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
+        if(!empty($this->request->data['Oa4mpClientCoOidcClient']['public_client'])) {
+          $viewOnlyValue = "Yes";
+        } else {
+          $viewOnlyValue = "No";
+        }
+        print ($this->Form->input('public_client', $params)); ?>
     </div>
   </li>
 
@@ -538,9 +552,7 @@ function js_local_onload() {
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.openid.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::OpenId;
               $args['class'] = "form-check-input";
-              print ($e
-                     ? $this->Form->input('Oa4mpClientCoScope.0.scope', $args)
-                     : filter_var($oa4mp_client_co_scopes[0]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
+              print ($this->Form->input('Oa4mpClientCoScope.0.scope', $args));
               if($e) {
                 if(!empty($this->request->data['Oa4mpClientCoScope'][0])) {
                   print $this->Form->hidden('Oa4mpClientCoScope.0.id');
@@ -554,7 +566,7 @@ function js_local_onload() {
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              if($is_public_client) {
+              if($is_public_client || !$e) {
                 $args['disabled'] = true;
               } else {
                 $args['disabled'] = false;
@@ -562,9 +574,7 @@ function js_local_onload() {
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.profile.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::Profile;
               $args['class'] = "form-check-input";
-              print ($e
-                     ? $this->Form->input('Oa4mpClientCoScope.1.scope', $args)
-                     : filter_var($oa4mp_client_co_scopes[1]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
+              print ($this->Form->input('Oa4mpClientCoScope.1.scope', $args));
               if($e) {
                 if(!empty($this->request->data['Oa4mpClientCoScope'][1])) {
                   print $this->Form->hidden('Oa4mpClientCoScope.1.id');
@@ -578,7 +588,7 @@ function js_local_onload() {
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              if($is_public_client) {
+              if($is_public_client || !$e) {
                 $args['disabled'] = true;
               } else {
                 $args['disabled'] = false;
@@ -586,9 +596,7 @@ function js_local_onload() {
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.email.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::Email;
               $args['class'] = "form-check-input";
-              print ($e
-                     ? $this->Form->input('Oa4mpClientCoScope.2.scope', $args)
-                     : filter_var($oa4mp_client_co_scopes[2]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
+              print ($this->Form->input('Oa4mpClientCoScope.2.scope', $args));
               if($e) {
                 if(!empty($this->request->data['Oa4mpClientCoScope'][2])) {
                   print $this->Form->hidden('Oa4mpClientCoScope.2.id');
@@ -602,7 +610,7 @@ function js_local_onload() {
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              if($is_public_client) {
+              if($is_public_client || !$e) {
                 $args['disabled'] = true;
               } else {
                 $args['disabled'] = false;
@@ -610,9 +618,7 @@ function js_local_onload() {
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.org.cilogon.userinfo.fd.name'); 
               $args['value'] = Oa4mpClientScopeEnum::OrgCilogonUserInfo;
               $args['class'] = "form-check-input";
-              print ($e
-                     ? $this->Form->input('Oa4mpClientCoScope.3.scope', $args)
-                     : filter_var($oa4mp_client_co_scopes[3]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
+              print ($this->Form->input('Oa4mpClientCoScope.3.scope', $args));
               if($e) {
                 if(!empty($this->request->data['Oa4mpClientCoScope'][3])) {
                   print $this->Form->hidden('Oa4mpClientCoScope.3.id');
@@ -626,14 +632,17 @@ function js_local_onload() {
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              $args['disabled'] = false;
+              if($is_public_client || !$e) {
+                $args['disabled'] = true;
+              } else {
+                $args['disabled'] = false;
+              }
+              //$args['disabled'] = false;
               $args['onclick'] = 'showConfirmGetcert()';
               $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.getcert.fd.name');
               $args['value'] = Oa4mpClientScopeEnum::Getcert;
               $args['class'] = "form-check-input";
-              print ($e
-                     ? $this->Form->input('Oa4mpClientCoScope.4.scope', $args)
-                     : filter_var($oa4mp_client_co_scopes[4]['Oa4mpClientCoScope']['scope'],FILTER_SANITIZE_SPECIAL_CHARS));
+              print ($this->Form->input('Oa4mpClientCoScope.4.scope', $args));
               if($e) {
                 if(!empty($this->request->data['Oa4mpClientCoScope'][4])) {
                   print $this->Form->hidden('Oa4mpClientCoScope.4.id');
@@ -645,26 +654,6 @@ function js_local_onload() {
     </ul>
   </li>
 
-  <?php
-    if($e) {
-      $args = array();
-      $args['hidden'] = true;
-      $passwdArgs = array();
-      $passwdArgs['type'] = 'text';
-      $passwdArgs['autocomplete'] = 'new-password';
-      print $this->Form->input('Oa4mpClientCoLdapConfig.0.enabled', $args);
-      print $this->Form->input('Oa4mpClientCoLdapConfig.0.authorization_type', $args);
-      print $this->Form->input('Oa4mpClientCoLdapConfig.0.serverurl', $args);
-      print $this->Form->input('Oa4mpClientCoLdapConfig.0.binddn', $args);
-      print $this->Form->input('Oa4mpClientCoLdapConfig.0.password', array_merge($args, $passwdArgs));
-      print $this->Form->input('Oa4mpClientCoLdapConfig.0.basedn', $args);
-      print $this->Form->input('Oa4mpClientCoLdapConfig.0.search_name', $args);
-      if(!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['id'])) {
-        print $this->Form->input('Oa4mpClientCoLdapConfig.0.id', $args);
-      }
-
-    }
-  ?>
 
   <li>
     <?php
@@ -718,7 +707,7 @@ function js_local_onload() {
         }
       ?>
     </div>
-    <ul id="oa4mp_client_refresh_token_lifetime" class="field-children" style="<?php print ($rt_set ? '' : 'display:none')?>">
+    <ul id="oa4mp_client_refresh_token_lifetime" class="field-children" style="<?php print ($rt_set || !$e ? '' : 'display:none')?>">
       <li>
         <div class="field-name">
           <div class="field-title">
@@ -732,20 +721,69 @@ function js_local_onload() {
             <?php
               $args = array();
               $args['required'] = false;
-              print ($e
-                     ? $this->Form->input('refresh_token_lifetime', $args)
-                     : filter_var($oa4mp_client_co_oidc_clients[0]['Oa4mpClientCoOidcClient']['refresh_token_lifetime'],FILTER_SANITIZE_SPECIAL_CHARS));
+              if(!$e) {
+                if($rt_set) {
+                  $viewOnlyValue = filter_var($this->request->data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'],FILTER_SANITIZE_SPECIAL_CHARS);
+                } else {
+                  $viewOnlyValue = "Not set";
+                }
+              }
+              print ($e ? $this->Form->input('refresh_token_lifetime', $args) : $viewOnlyValue);
             ?>
         </div>
       </li>
     </ul>
   </li>
 
+    <?php
+      if($e) {
+        $args = array();
+        $args['hidden'] = true;
+        // TODO Do we still need passwdArgs?
+        $passwdArgs = array();
+        $passwdArgs['type'] = 'text';
+        $passwdArgs['autocomplete'] = 'new-password';
+        print $this->Form->input('Oa4mpClientCoLdapConfig.0.enabled', $args);
+        print $this->Form->input('Oa4mpClientCoLdapConfig.0.authorization_type', $args);
+        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.serverurl', $args);
+        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.binddn', $args);
+        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.password', array_merge($args, $passwdArgs));
+        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.basedn', $args);
+        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.search_name', $args);
+        if(!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['id'])) {
+          print $this->Form->input('Oa4mpClientCoLdapConfig.0.id', $args);
+        }
+
+      }
+    ?>
+
+  <?php
+    // Determine if any of the LDAP to claim mappings have existing data
+    // and so should be displayed.
+    $hideLdapDetails = true;
+    for($i = 0; $i < 10; $i++) {
+      if (!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i])) {
+        $searchAttribute = $this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i];
+        $name = $searchAttribute['name'];
+        $return_name = $searchAttribute['return_name'];
+        $return_as_list = $searchAttribute['return_as_list'];
+        if (!empty($name) or !empty($return_name) or ($return_as_list != 0)) {
+          $hideLdapDetails = false;
+          break;
+        }
+      }
+    }
+    if(!empty($this->validationErrors['Oa4mpClientCoLdapConfig'])) {
+      $hideLdapDetails = false;
+    }
+  ?>
+
   <?php if($is_public_client): ?>
   <li id="oa4mp_client_ldap_to_claim_mappings" style="display: none;">
   <?php else: ?>
   <li id="oa4mp_client_ldap_to_claim_mappings">
   <?php endif; ?>
+
     <div class="field-name">
       <div class="field-title">
         <?php print _txt('pl.oa4mp_client_co_search_attribute.fd.title'); ?>
@@ -753,6 +791,7 @@ function js_local_onload() {
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_search_attribute.fd.description'); ?></div>
     </div>
     <div class="field-info">
+
       <?php
         if($e) {
           print '<div>';
@@ -760,29 +799,100 @@ function js_local_onload() {
           $params['class'] = 'addbutton';
           $params['onclick'] = 'addFirstLdapToClaimMapping()';
           $params['id'] = 'add_first_ldap_to_claim_mapping';
-
-          // If any of the LDAP to claim mappings are not hidden because
-          // they have data, such as an edit operation or a form resubmit
-          // after validation failure, hide the button to add the first
-          // LDAP to claim mapping.
-          for($i = 0; $i < 10; $i++) {
-            if (!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i])) {
-              $searchAttribute = $this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i];
-              $name = $searchAttribute['name'];
-              $return_name = $searchAttribute['return_name'];
-              $return_as_list = $searchAttribute['return_as_list'];
-              if (!empty($name) or !empty($return_name) or ($return_as_list != 0)) {
-                $params['style'] = 'display:none';
-                break;
-              }
-            }
+          if(!$hideLdapDetails) {
+            $params['style'] = 'display:none';
           }
-
           print $this->Html->tag('a', _txt('pl.oa4mp_client_co_search_attribute.fd.add_first_button'), $params);
           print '</div>';
         }
       ?>
     </div>
+    
+    <?php if($hideLdapDetails): ?>
+    <ul id="oa4mp_client_ldap_configs" class="field-children" style="display: none;">
+    <?php else: ?>
+    <ul id="oa4mp_client_ldap_configs" class="field-children">
+    <?php endif; ?>
+      <li>
+        <div class="field-name">
+          <div class="field-title">
+            <?php print ($e
+                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.serverurl', _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name'))
+                         : _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name')); ?>
+            <span class="required">*</span>
+          </div>
+        </div>
+        <div class="field-info">
+            <?php
+              $params = array();
+              if(isset($this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'])) {
+                $params['class'] = 'form-error';
+              }
+              print ($e
+                     ? $this->Form->input('Oa4mpClientCoLdapConfig.0.serverurl', $params)
+                     : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['serverurl']));
+              if(isset($this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'])) {
+                print '<div class="error-message">';
+                print $this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'][0];
+                print '</div>';
+              }
+            ?>
+        </div>
+      </li>
+      <li>
+        <div class="field-name">
+          <div class="field-title">
+            <?php print ($e
+                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.binddn', _txt('pl.oa4mp_client_co_ldap_config.binddn.fd.name'))
+                         : _txt('pl.oa4mp_client_co_ldap_config.binddn.fd.name')); ?>
+            <span class="required">*</span>
+          </div>
+        </div>
+        <div class="field-info">
+            <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.binddn') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['binddn'])); ?>
+        </div>
+      </li>
+      <li>
+        <div class="field-name">
+          <div class="field-title">
+            <?php print ($e
+                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.password', _txt('pl.oa4mp_client_co_ldap_config.password.fd.name'))
+                         : _txt('pl.oa4mp_client_co_ldap_config.password.fd.name')); ?>
+            <span class="required">*</span>
+          </div>
+        </div>
+        <div class="field-info">
+            <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.password') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['password'])); ?>
+        </div>
+      </li>
+      <li>
+        <div class="field-name">
+          <div class="field-title">
+            <?php print ($e
+                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.basedn', _txt('pl.oa4mp_client_co_ldap_config.basedn.fd.name'))
+                         : _txt('pl.oa4mp_client_co_ldap_config.basedn.fd.name')); ?>
+            <span class="required">*</span>
+          </div>
+        </div>
+        <div class="field-info">
+            <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.basedn') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['basedn'])); ?>
+        </div>
+      </li>
+      <li>
+        <div class="field-name">
+          <div class="field-title">
+            <?php print ($e
+                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.search_name', _txt('pl.oa4mp_client_co_ldap_config.search_name.fd.name'))
+                         : _txt('pl.oa4mp_client_co_ldap_config.search_name.fd.name')); ?>
+            <span class="required">*</span>
+          </div>
+        </div>
+        <div class="field-info">
+            <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.search_name') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['search_name'])); ?>
+        </div>
+      </li>
+    </ul>
+
 
     <?php
       // If any of the LDAP to claim mappings are not hidden because
@@ -800,9 +910,9 @@ function js_local_onload() {
 
         if (!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i])) {
           $searchAttribute = $this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i];
-          $name = $searchAttribute['name'];
-          $return_name = $searchAttribute['return_name'];
-          $return_as_list = $searchAttribute['return_as_list'];
+          $name = filter_var($searchAttribute['name'], FILTER_SANITIZE_SPECIAL_CHARS);
+          $return_name = filter_var($searchAttribute['return_name'], FILTER_SANITIZE_SPECIAL_CHARS);
+          $return_as_list = filter_var($searchAttribute['return_as_list'], FILTER_SANITIZE_SPECIAL_CHARS);
         }
 
         if (!empty($name) or !empty($return_name) or ($return_as_list != 0)) {
@@ -822,7 +932,7 @@ function js_local_onload() {
         print '   <div class="field-info">';
         $args = array();
         $args['required'] = !empty($name) ? true : false;
-        print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.name', $args) : filter_var($oa4mp_client_co_search_attributes[$i]['Oa4mpClientCoSearchAttribute']['name'],FILTER_SANITIZE_SPECIAL_CHARS));
+        print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.name', $args) : $name);
         print '   </div>';
         print ' </li>';
         print '  <li>';
@@ -835,7 +945,7 @@ function js_local_onload() {
         print '    <div class="field-info">';
         $args = array();
         $args['required'] = !empty($return_name) ? true : false;
-        print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_name', $args) : filter_var($oa4mp_client_co_search_attributes[$i]['Oa4mpClientCoSearchAttribute']['return_name'],FILTER_SANITIZE_SPECIAL_CHARS));
+        print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_name', $args) : $return_name);
         print '    </div>';
         print '    <div class="standard-claim-warning" style="display: none;">';
         print  '   <div class="field-name">';
@@ -856,20 +966,24 @@ function js_local_onload() {
         $args = array();
         $args['required'] = false;
         $args['type'] = 'checkbox';
-        $args['checked'] = ($return_as_list !=0) ? true : false;
-        $args['disabled'] = false;
-        print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_as_list', $args) : filter_var($oa4mp_client_co_search_attributes[$i]['Oa4mpClientCoSearchAttribute']['return_as_list'],FILTER_SANITIZE_SPECIAL_CHARS));
+        $args['checked'] = empty($return_as_list) ? false : true;
+        if(!$e) {
+          $args['disabled'] = true;
+        } else {
+          $args['disabled'] = false;
+        }
+        print $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_as_list', $args);
         print '   </div>';
         print '  </li>';
         print '</ul>';
-        $params = array();
-        $params['class'] = "deletebutton";
-        $params['type'] = "button";
-        $params['onclick'] = 'removeLdapToClaimMappingInput(this)';
-        print $this->Html->tag('button', _txt('op.delete'), $params);
-        print '</div>';
 
         if($e) {
+          $params = array();
+          $params['class'] = "deletebutton";
+          $params['type'] = "button";
+          $params['onclick'] = 'removeLdapToClaimMappingInput(this)';
+          print $this->Html->tag('button', _txt('op.delete'), $params);
+          print '</div>';
           if(!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i]['id'])) {
             print $this->Form->hidden('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.id');
           }

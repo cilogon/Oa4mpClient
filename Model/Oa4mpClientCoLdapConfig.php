@@ -82,6 +82,7 @@ class Oa4mpClientCoLdapConfig extends AppModel {
       'rule' => array('custom', '/^ldaps?:\/\/.*/'),
       'required' => true,
       'allowEmpty' => false,
+      'message' => 'A ldap:// or ldaps:// URL is required'
     ),
     'binddn' => array(
       'rule' => 'notBlank',

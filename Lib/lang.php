@@ -136,6 +136,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_ldap_config.binddn.fd.name' => 'LDAP Bind DN',
   'pl.oa4mp_client_co_ldap_config.password.fd.name' => 'LDAP Bind Password',
   'pl.oa4mp_client_co_ldap_config.basedn.fd.name' => 'LDAP Search Base DN',
+  'pl.oa4mp_client_co_ldap_config.search_name.fd.name' => 'LDAP Search Attribute for Authenticated User Identifier',
 
   'pl.oa4mp_client_co_search_attribute.fd.title' => 'LDAP to Claim Mappings',
   'pl.oa4mp_client_co_search_attribute.fd.add_first_button' => 'Add a LDAP to Claim Mapping',
