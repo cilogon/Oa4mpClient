@@ -339,6 +339,18 @@ function js_local_onload() {
     });
   }
 
+  // Explorer menu toggles
+  $(".fieldGroupName").click(
+    function(event) {
+      event.preventDefault();
+      $(this).next(".fields").slideToggle("fast");
+      // toggle the icon
+      if ($(this).find(".material-icons").text() == "indeterminate_check_box") {
+        $(this).find(".material-icons").text("add_box");
+      } else {
+        $(this).find(".material-icons").text("indeterminate_check_box");
+      }
+    });
 }
 
 </script>
@@ -787,6 +799,7 @@ function js_local_onload() {
     <div class="field-name">
       <div class="field-title">
         <?php print _txt('pl.oa4mp_client_co_search_attribute.fd.title'); ?>
+        <!-- LDAP to Claim Mappings -->
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_search_attribute.fd.description'); ?></div>
     </div>
@@ -813,196 +826,232 @@ function js_local_onload() {
     <?php else: ?>
     <ul id="oa4mp_client_ldap_configs" class="field-children">
     <?php endif; ?>
-      <li>
-        <div class="field-name">
-          <div class="field-title">
-            <?php print ($e
-                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.serverurl', _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name'))
-                         : _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name')); ?>
-            <span class="required">*</span>
-          </div>
-        </div>
-        <div class="field-info">
-            <?php
-              $params = array();
-              if(isset($this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'])) {
-                $params['class'] = 'form-error';
+
+      <div class="explorerContainer">
+        <div class="personExplorer">
+          <ul>
+              <a class="fieldGroupName" href="#connection-details">
+                <em class="material-icons">add_box</em>
+                <?php print _txt('pl.oa4mp_client_co_ldap_config.explorer.heading.connection'); ?>
+              </a>
+              <ul class="fields form-list" style="display: none;">
+
+                <li>
+                  <div class="field-name">
+                    <div class="field-title">
+                      <?php print ($e
+                                   ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.serverurl', _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name'))
+                                   : _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name')); ?>
+                      <span class="required">*</span>
+                    </div>
+                  </div>
+                  <div class="field-info">
+                      <?php
+                        $params = array();
+                        if(isset($this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'])) {
+                          $params['class'] = 'form-error';
+                        }
+                        print ($e
+                               ? $this->Form->input('Oa4mpClientCoLdapConfig.0.serverurl', $params)
+                               : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['serverurl']));
+                        if(isset($this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'])) {
+                          print '<div class="error-message">';
+                          print $this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'][0];
+                          print '</div>';
+                        }
+                      ?>
+                  </div>
+                </li>
+
+                <li>
+                  <div class="field-name">
+                    <div class="field-title">
+                      <?php print ($e
+                                   ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.binddn', _txt('pl.oa4mp_client_co_ldap_config.binddn.fd.name'))
+                                   : _txt('pl.oa4mp_client_co_ldap_config.binddn.fd.name')); ?>
+                      <span class="required">*</span>
+                    </div>
+                  </div>
+                  <div class="field-info">
+                      <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.binddn') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['binddn'])); ?>
+                  </div>
+                </li>
+
+                <li>
+                  <div class="field-name">
+                    <div class="field-title">
+                      <?php print ($e
+                                   ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.password', _txt('pl.oa4mp_client_co_ldap_config.password.fd.name'))
+                                   : _txt('pl.oa4mp_client_co_ldap_config.password.fd.name')); ?>
+                      <span class="required">*</span>
+                    </div>
+                  </div>
+                  <div class="field-info">
+                      <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.password') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['password'])); ?>
+                  </div>
+                </li>
+
+
+              </ul>
+
+              <a class="fieldGroupName" href="#tabs-sync">
+                <em class="material-icons">add_box</em>
+                <?php print _txt('pl.oa4mp_client_co_ldap_config.explorer.heading.search'); ?>
+              </a>
+              <ul class="fields form-list" style="display: none;">
+
+                <li>
+                  <div class="field-name">
+                    <div class="field-title">
+                      <?php print ($e
+                                   ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.basedn', _txt('pl.oa4mp_client_co_ldap_config.basedn.fd.name'))
+                                   : _txt('pl.oa4mp_client_co_ldap_config.basedn.fd.name')); ?>
+                      <span class="required">*</span>
+                    </div>
+                  </div>
+                  <div class="field-info">
+                      <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.basedn') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['basedn'])); ?>
+                  </div>
+                </li>
+
+                <li>
+                  <div class="field-name">
+                    <div class="field-title">
+                      <?php print ($e
+                                   ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.search_name', _txt('pl.oa4mp_client_co_ldap_config.search_name.fd.name'))
+                                   : _txt('pl.oa4mp_client_co_ldap_config.search_name.fd.name')); ?>
+                      <span class="required">*</span>
+                    </div>
+                  </div>
+                  <div class="field-info">
+                      <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.search_name') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['search_name'])); ?>
+                  </div>
+                </li>
+
+
+              </ul>
+
+              <a class="fieldGroupName" href="#tabs-cxn">
+                <em class="material-icons">indeterminate_check_box</em>
+                <?php print _txt('pl.oa4mp_client_co_ldap_config.explorer.heading.mappings'); ?>
+              </a>
+              <ul class="fields form-list">
+
+          <?php
+            // If any of the LDAP to claim mappings are not hidden because
+            // they have data, such as an edit operation or a form resubmit
+            // after validation failure, display the button to add another
+            // LDAP to claim mapping.
+
+            $displayAddLdapToClaimMappingButton = false;
+
+            for($i = 0; $i < 10; $i++) {
+              $display = "display:none";
+              $name = "";
+              $return_name = "";
+              $return_as_list = 0;
+
+              if (!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i])) {
+                $searchAttribute = $this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i];
+                $name = filter_var($searchAttribute['name'], FILTER_SANITIZE_SPECIAL_CHARS);
+                $return_name = filter_var($searchAttribute['return_name'], FILTER_SANITIZE_SPECIAL_CHARS);
+                $return_as_list = filter_var($searchAttribute['return_as_list'], FILTER_SANITIZE_SPECIAL_CHARS);
               }
-              print ($e
-                     ? $this->Form->input('Oa4mpClientCoLdapConfig.0.serverurl', $params)
-                     : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['serverurl']));
-              if(isset($this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'])) {
-                print '<div class="error-message">';
-                print $this->validationErrors['Oa4mpClientCoLdapConfig']['serverurl'][0];
+
+              if (!empty($name) or !empty($return_name) or ($return_as_list != 0)) {
+                  $display = "";
+                  $displayAddLdapToClaimMappingButton = true;
+              } 
+
+              print '<div class="field-children-inline" style="' . $display . '" id="oa4mp_client_co_search_attribute_' . "$i" . '">';
+              print '<ul class="field-children field-ldap-to-claim-mapping">';
+              print '  <li>';
+              print '    <div class="field-name">';
+              print '      <div class="field-title">';
+              print ($e ? $this->Form->label('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.name', _txt('pl.oa4mp_client_co_search_attribute.name.fd.name')) : _txt('pl.oa4mp_client_co_search_attribute.name.fd.name')); 
+              print '       <span class="required">*</span>';
+              print '     </div>';
+              print '   </div>';
+              print '   <div class="field-info">';
+              $args = array();
+              $args['required'] = !empty($name) ? true : false;
+              print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.name', $args) : $name);
+              print '   </div>';
+              print ' </li>';
+              print '  <li>';
+              print '    <div class="field-name">';
+              print '      <div class="field-title">';
+              print ($e ? $this->Form->label('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_name', _txt('pl.oa4mp_client_co_search_attribute.return_name.fd.name')) : _txt('pl.oa4mp_client_co_search_attribute.return_name.fd.name'));
+              print '        <span class="required">*</span>';
+              print '      </div>';
+              print '    </div>';
+              print '    <div class="field-info">';
+              $args = array();
+              $args['required'] = !empty($return_name) ? true : false;
+              print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_name', $args) : $return_name);
+              print '    </div>';
+              print '    <div class="standard-claim-warning" style="display: none;">';
+              print  '   <div class="field-name">';
+              print  '   </div>';
+              print '    <div class="field-info">';
+              print '<em class="material-icons" aria-hidden="true">info</em>';
+              print _txt('pl.oa4mp_client_co_scope.scope.override');
+              print '    </div>';
+              print '    </div>';
+              print '  </li>';
+              print '  <li>';
+              print '    <div class="field-name">';
+              print '      <div class="field-title">';
+              print ($e ? $this->Form->label('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_as_list', _txt('pl.oa4mp_client_co_search_attribute.return_as_list.fd.name')) : _txt('pl.oa4mp_client_co_search_attribute.return_as_list.fd.name'));
+              print '      </div>';
+              print '   </div>';
+              print '   <div class="field-info">';
+              $args = array();
+              $args['required'] = false;
+              $args['type'] = 'checkbox';
+              $args['checked'] = empty($return_as_list) ? false : true;
+              if(!$e) {
+                $args['disabled'] = true;
+              } else {
+                $args['disabled'] = false;
+              }
+              print $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_as_list', $args);
+              print '   </div>';
+              print '  </li>';
+              print '</ul>';
+
+              if($e) {
+                $params = array();
+                $params['class'] = "deletebutton";
+                $params['type'] = "button";
+                $params['onclick'] = 'removeLdapToClaimMappingInput(this)';
+                print $this->Html->tag('button', _txt('op.delete'), $params);
                 print '</div>';
+                if(!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i]['id'])) {
+                  print $this->Form->hidden('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.id');
+                }
               }
-            ?>
+            }
+
+            if($e) {
+              print '<div>';
+              $params = array();
+              $params['class'] = 'addbutton';
+              $params['onclick'] = 'addLdapToClaimMappingInput()';
+              if (!$displayAddLdapToClaimMappingButton) {
+                $params['style'] = 'display:none';
+              }
+              $params['id'] = 'add_another_ldap_to_claim_mapping';
+              print $this->Html->tag('a', _txt('pl.oa4mp_client_co_search_attribute.fd.add_another_button'), $params);
+              print '</div>';
+            }
+          ?>
+              </ul>
+          </ul>
         </div>
-      </li>
-      <li>
-        <div class="field-name">
-          <div class="field-title">
-            <?php print ($e
-                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.binddn', _txt('pl.oa4mp_client_co_ldap_config.binddn.fd.name'))
-                         : _txt('pl.oa4mp_client_co_ldap_config.binddn.fd.name')); ?>
-            <span class="required">*</span>
-          </div>
-        </div>
-        <div class="field-info">
-            <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.binddn') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['binddn'])); ?>
-        </div>
-      </li>
-      <li>
-        <div class="field-name">
-          <div class="field-title">
-            <?php print ($e
-                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.password', _txt('pl.oa4mp_client_co_ldap_config.password.fd.name'))
-                         : _txt('pl.oa4mp_client_co_ldap_config.password.fd.name')); ?>
-            <span class="required">*</span>
-          </div>
-        </div>
-        <div class="field-info">
-            <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.password') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['password'])); ?>
-        </div>
-      </li>
-      <li>
-        <div class="field-name">
-          <div class="field-title">
-            <?php print ($e
-                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.basedn', _txt('pl.oa4mp_client_co_ldap_config.basedn.fd.name'))
-                         : _txt('pl.oa4mp_client_co_ldap_config.basedn.fd.name')); ?>
-            <span class="required">*</span>
-          </div>
-        </div>
-        <div class="field-info">
-            <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.basedn') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['basedn'])); ?>
-        </div>
-      </li>
-      <li>
-        <div class="field-name">
-          <div class="field-title">
-            <?php print ($e
-                         ?  $this->Form->label('Oa4mpClientCoLdapConfig.0.search_name', _txt('pl.oa4mp_client_co_ldap_config.search_name.fd.name'))
-                         : _txt('pl.oa4mp_client_co_ldap_config.search_name.fd.name')); ?>
-            <span class="required">*</span>
-          </div>
-        </div>
-        <div class="field-info">
-            <?php print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.search_name') : filter_var($this->request->data['Oa4mpClientCoLdapConfig'][0]['search_name'])); ?>
-        </div>
-      </li>
+      </div> <!-- explorer container -->
+
     </ul>
-
-
-    <?php
-      // If any of the LDAP to claim mappings are not hidden because
-      // they have data, such as an edit operation or a form resubmit
-      // after validation failure, display the button to add another
-      // LDAP to claim mapping.
-
-      $displayAddLdapToClaimMappingButton = false;
-
-      for($i = 0; $i < 10; $i++) {
-        $display = "display:none";
-        $name = "";
-        $return_name = "";
-        $return_as_list = 0;
-
-        if (!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i])) {
-          $searchAttribute = $this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i];
-          $name = filter_var($searchAttribute['name'], FILTER_SANITIZE_SPECIAL_CHARS);
-          $return_name = filter_var($searchAttribute['return_name'], FILTER_SANITIZE_SPECIAL_CHARS);
-          $return_as_list = filter_var($searchAttribute['return_as_list'], FILTER_SANITIZE_SPECIAL_CHARS);
-        }
-
-        if (!empty($name) or !empty($return_name) or ($return_as_list != 0)) {
-            $display = "";
-            $displayAddLdapToClaimMappingButton = true;
-        } 
-
-        print '<div class="field-children-inline" style="' . $display . '" id="oa4mp_client_co_search_attribute_' . "$i" . '">';
-        print '<ul class="field-children field-ldap-to-claim-mapping">';
-        print '  <li>';
-        print '    <div class="field-name">';
-        print '      <div class="field-title">';
-        print ($e ? $this->Form->label('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.name', _txt('pl.oa4mp_client_co_search_attribute.name.fd.name')) : _txt('pl.oa4mp_client_co_search_attribute.name.fd.name')); 
-        print '       <span class="required">*</span>';
-        print '     </div>';
-        print '   </div>';
-        print '   <div class="field-info">';
-        $args = array();
-        $args['required'] = !empty($name) ? true : false;
-        print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.name', $args) : $name);
-        print '   </div>';
-        print ' </li>';
-        print '  <li>';
-        print '    <div class="field-name">';
-        print '      <div class="field-title">';
-        print ($e ? $this->Form->label('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_name', _txt('pl.oa4mp_client_co_search_attribute.return_name.fd.name')) : _txt('pl.oa4mp_client_co_search_attribute.return_name.fd.name'));
-        print '        <span class="required">*</span>';
-        print '      </div>';
-        print '    </div>';
-        print '    <div class="field-info">';
-        $args = array();
-        $args['required'] = !empty($return_name) ? true : false;
-        print ($e ? $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_name', $args) : $return_name);
-        print '    </div>';
-        print '    <div class="standard-claim-warning" style="display: none;">';
-        print  '   <div class="field-name">';
-        print  '   </div>';
-        print '    <div class="field-info">';
-        print '<em class="material-icons" aria-hidden="true">info</em>';
-        print _txt('pl.oa4mp_client_co_scope.scope.override');
-        print '    </div>';
-        print '    </div>';
-        print '  </li>';
-        print '  <li>';
-        print '    <div class="field-name">';
-        print '      <div class="field-title">';
-        print ($e ? $this->Form->label('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_as_list', _txt('pl.oa4mp_client_co_search_attribute.return_as_list.fd.name')) : _txt('pl.oa4mp_client_co_search_attribute.return_as_list.fd.name'));
-        print '      </div>';
-        print '   </div>';
-        print '   <div class="field-info">';
-        $args = array();
-        $args['required'] = false;
-        $args['type'] = 'checkbox';
-        $args['checked'] = empty($return_as_list) ? false : true;
-        if(!$e) {
-          $args['disabled'] = true;
-        } else {
-          $args['disabled'] = false;
-        }
-        print $this->Form->input('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.return_as_list', $args);
-        print '   </div>';
-        print '  </li>';
-        print '</ul>';
-
-        if($e) {
-          $params = array();
-          $params['class'] = "deletebutton";
-          $params['type'] = "button";
-          $params['onclick'] = 'removeLdapToClaimMappingInput(this)';
-          print $this->Html->tag('button', _txt('op.delete'), $params);
-          print '</div>';
-          if(!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'][$i]['id'])) {
-            print $this->Form->hidden('Oa4mpClientCoLdapConfig.0.Oa4mpClientCoSearchAttribute.' . "$i" . '.id');
-          }
-        }
-      }
-
-      if($e) {
-        print '<div>';
-        $params = array();
-        $params['class'] = 'addbutton';
-        $params['onclick'] = 'addLdapToClaimMappingInput()';
-        if (!$displayAddLdapToClaimMappingButton) {
-          $params['style'] = 'display:none';
-        }
-        $params['id'] = 'add_another_ldap_to_claim_mapping';
-        print $this->Html->tag('a', _txt('pl.oa4mp_client_co_search_attribute.fd.add_another_button'), $params);
-        print '</div>';
-      }
-    ?>
   </li>
 
   <?php if($e): ?>

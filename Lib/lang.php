@@ -132,11 +132,18 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_scope.scope.override' => ' Be aware this name overrides a standard claim',
 
+  'pl.oa4mp_client_co_ldap_config.explorer.heading.connection' => 'Connection Details',
+
   'pl.oa4mp_client_co_ldap_config.serverurl.fd.name' => 'LDAP Server URL',
   'pl.oa4mp_client_co_ldap_config.binddn.fd.name' => 'LDAP Bind DN',
   'pl.oa4mp_client_co_ldap_config.password.fd.name' => 'LDAP Bind Password',
+
+  'pl.oa4mp_client_co_ldap_config.explorer.heading.search' => 'Search Details',
+
   'pl.oa4mp_client_co_ldap_config.basedn.fd.name' => 'LDAP Search Base DN',
   'pl.oa4mp_client_co_ldap_config.search_name.fd.name' => 'LDAP Search Attribute for Authenticated User Identifier',
+
+  'pl.oa4mp_client_co_ldap_config.explorer.heading.mappings' => 'Mappings',
 
   'pl.oa4mp_client_co_search_attribute.fd.title' => 'LDAP to Claim Mappings',
   'pl.oa4mp_client_co_search_attribute.fd.add_first_button' => 'Add a LDAP to Claim Mapping',
@@ -145,6 +152,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_search_attribute.name.fd.name' => 'LDAP Attribute Name',
   'pl.oa4mp_client_co_search_attribute.return_name.fd.name' => 'OIDC Claim Name',
   'pl.oa4mp_client_co_search_attribute.return_as_list.fd.name' => 'Multivalued?',
+
+
 
   // Enumerations
   'pl.oa4mp_client.en.scope' => array(
