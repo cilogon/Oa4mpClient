@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.0.0 (2022-05-10)
+
+- Use QDL for configuring claims from LDAP.
+- Support requesting a public client.
+- Enable configuration of LDAP search filter attribute.
+- Include email address in client configuration.
+
 ## 3.1.0 (2021-10-14)
 
 - Stylistic changes necessary for use with COmanage Registry version 4.0.0.
