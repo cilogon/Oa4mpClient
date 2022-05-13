@@ -233,7 +233,9 @@
           if($e) { 
             $args = array();
             if(empty($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_source'])) {
-              $args['default'] = $qdlClaimSourceDefault;
+              if($qdlClaimSourceDefault) {
+                $args['default'] = $qdlClaimSourceDefault;
+              }
             }
             echo $this->Form->input('qdl_claim_source', $args);
           } else {
@@ -258,7 +260,9 @@
           if($e) { 
             $args = array();
             if(empty($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_process'])) {
-              $args['default'] = $qdlClaimProcessDefault;
+              if($qdlClaimProcessDefault) {
+                $args['default'] = $qdlClaimProcessDefault;
+              }
             }
             echo $this->Form->input('qdl_claim_process', $args);
           } else {

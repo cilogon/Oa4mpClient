@@ -123,8 +123,8 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
     // Read the default paths for QDL configuration and set a view
     // variable so that the defaults can be supplied in the form
     // if there is no existing value.
-    $qdlClaimSourceDefault = Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_source.default');
-    $qdlClaimProcessDefault =Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_source.process');
+    $qdlClaimSourceDefault = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_DEFAULT');
+    $qdlClaimProcessDefault = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_PROCESS');
 
     $this->set('qdlClaimSourceDefault', $qdlClaimSourceDefault);
     $this->set('qdlClaimProcessDefault', $qdlClaimProcessDefault);
@@ -218,30 +218,45 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
    */
   
   function isAuthorized() {
-    // Only configured usernames may invoke this controller.
-    $allowedUsernames = Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.allowedUsernames');
-
+    // Only authenticated users are authorized.
     if($this->Session->check('Auth.User.username')) {
-      $username = $this->Session->read('Auth.User.username');
+        $username = $this->Session->read('Auth.User.username');
     } else {
       return false;
     }
 
+    $allowedUsernames = array();
+
+    // If defined read a comma separated list of authorized usernames
+    // from environmemt variable.
+    $allowedUsernamesString = getenv('COMANAGE_REGISTRY_OA4MP_ADMIN_USERS');
+
+    if($allowedUsernamesString) {
+      $allowedUsernames = explode(',', $allowedUsernamesString);
+    } else {
+      $allowedUsernames[] = $username;
+    }
+
     if(in_array($username, $allowedUsernames)) {
+      // Authorized usernames must have the platform admin role.
+      $roles = $this->Role->calculateCMRoles();
+
+      $p = array();
+
       // Add a new admin client?
-      $p['add'] = true;
+      $p['add'] = $roles['cmadmin'];
 
       // Delete an existing admin client?
-      $p['delete'] = true;
+      $p['delete'] = $roles['cmadmin'];
     
       // Edit an existing admin client?
-      $p['edit'] = true;
+      $p['edit'] = $roles['cmadmin'];
 
       // View all existing admin clients?
-      $p['index'] = true;
+      $p['index'] = $roles['cmadmin'];
     
       // View an existing admin client?
-      $p['view'] = true;
+      $p['view'] = $roles['cmadmin'];
 
       $this->set('permissions', $p);
       return $p[$this->action];
