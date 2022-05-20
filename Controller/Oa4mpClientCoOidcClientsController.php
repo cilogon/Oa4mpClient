@@ -46,7 +46,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
   public $requires_co = true;
 
   public $edit_contains = array(
-    'Oa4mpClientCoAdminClient',
+    'Oa4mpClientCoAdminClient' => array(
+      'Oa4mpClientCoNamedConfig' => array('Oa4mpClientCoScope'),
+      'Oa4mpClientCoEmailAddress',
+      'DefaultLdapConfig'
+    ),
     'Oa4mpClientCoCallback' => array(
       'order' => 'Oa4mpClientCoCallback.id'
     ),
@@ -60,7 +64,8 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       'Oa4mpClientCoSearchAttribute' => array(
         'order' => 'Oa4mpClientCoSearchAttribute.id'
       )
-    )
+    ),
+    'Oa4mpClientCoNamedConfig'
   );
 
   /**
@@ -77,18 +82,23 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // the Oa4mp server.
     $args = array();
     $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $this->cur_co['Co']['id'];
-    $args['contain'] = 'Oa4mpClientCoEmailAddress';
+    $args['contain'] = array();
+    $args['contain'][] = 'Oa4mpClientCoEmailAddress';
+    $args['contain']['Oa4mpClientCoNamedConfig'] = 'Oa4mpClientCoScope';
+    $args['contain'][] = 'DefaultLdapConfig';
     $adminClient = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
 
     // Process POST data
     if($this->request->is('post')) {
-      $data = $this->validatePost();
+      $ret = $this->validatePost();
 
-      if(!$data) {
+      if(!$ret) {
         // The call to validatePost() sets $this->Flash if there any validation 
         // error so just return.
         return;
       }
+
+      $data = & $this->request->data;
 
       // If there are no search attribute mappings then remove entirely the necessary
       // parts of the input data.
@@ -134,13 +144,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     } else {
       // Process GET request.
 
-      // Use the CO ID to find the admin client and the default LDAP configuration.
-      $args = array();
-      $args['conditions'] = array('co_id' => $this->cur_co['Co']['id']);
-      $args['contain'] = array('DefaultLdapConfig');
-
-      $ret = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
-      $defaultLdapConfig = $ret['DefaultLdapConfig'];
+      $defaultLdapConfig = $adminClient['DefaultLdapConfig'];
 
       $ldapConfig = array();
       $ldapConfig['enabled'] = true;
@@ -221,6 +225,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       $this->set('vv_default_contact_email', $mail);
 
+      if(!empty($adminClient['Oa4mpClientCoNamedConfig'])) {
+        $this->request->data['Oa4mpClientCoNamedConfig'] = $adminClient['Oa4mpClientCoNamedConfig'];
+      }
+
       parent::add();
     }
   }
@@ -255,6 +263,21 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     }
 
    return $coId; 
+  }
+
+  /**
+   * Pull the current data by ID.
+   *
+   * @since COmanage Registry 4.0.2
+   * @param Integer $id
+   * @return Array 
+   */
+  private function current($id) {
+    $args = array();
+    $args['conditions']['Oa4mpClientCoOidcClient.id'] = $id;
+    $args['contain'] = $this->edit_contains;
+
+    return $this->Oa4mpClientCoOidcClient->find('first', $args);
   }
 
   /**
@@ -314,15 +337,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    * Edit an OIDC client.
    *
    * @since COmanage Registry 2.0.1
+   * @param Integer $id
    */
 
   function edit($id) {
-    // Pull the current data.
-    $args = array();
-    $args['conditions']['Oa4mpClientCoOidcClient.id'] = $id;
-    $args['contain'] = $this->edit_contains;
-
-    $curdata = $this->Oa4mpClientCoOidcClient->find('first', $args);
+    $curdata = $this->current($id);
 
     if(empty($curdata)) {
       $this->Flash->set(_txt('er.notfound', array(_txt('ct.oa4mp_client_co_oidc_clients.1'), $id)), array('key' => 'error'));
@@ -332,9 +351,18 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $this->redirect($args);
     }
 
+    // We can get the admin client from the contained current data but
+    // need to format it as if doing a find 'first' on the Oa4mpClientCoAdminClient
+    // model.
+    $adminClient = array();
+    $adminClient['Oa4mpClientCoAdminClient'] = $curdata['Oa4mpClientCoAdminClient'];
+    $adminClient['Oa4mpClientCoEmailAddress'] = $curdata['Oa4mpClientCoAdminClient']['Oa4mpClientCoEmailAddress'];
+    $adminClient['Oa4mpClientCoNamedConfig'] = $curdata['Oa4mpClientCoAdminClient']['Oa4mpClientCoNamedConfig'];
+    $adminClient['DefaultLdapConfig'] = $curdata['Oa4mpClientCoAdminClient']['DefaultLdapConfig'];
+
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
-    $synchronized = $this->oa4mpVerifyClient($curdata, $curdata);
+    $synchronized = $this->oa4mpVerifyClient($adminClient, $curdata);
     if(!$synchronized) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
       $args = array();
@@ -349,13 +377,15 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // PUT request
     if($this->request->is(array('post','put'))) {
 
-      $data = $this->validatePost();
+      $ret = $this->validatePost();
 
-      if(!$data) {
+      if(!$ret) {
         // The call to validatePost() sets $this->Flash if there any validation 
         // error so just return.
         return;
       }
+
+      $data = & $this->request->data;
 
       // If there are no search attribute mappings then remove entirely the necessary
       // parts of the input data.
@@ -374,12 +404,18 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       // Return value of 0 indicates an error saving the edit.
       // Return value of 2 indicates the plugin representation of the client
       // and the Oa4mp server representation of the client are out of sync.
-      $ret = $this->oa4mpEditClient($curdata, $curdata, $data);
+      $ret = $this->oa4mpEditClient($adminClient, $curdata, $data);
       if($ret == 0) {
         $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+        // Reread the current data and process again as a GET request.
+        $curdata = $this->current($id);
+        $this->editGET($adminClient, $curdata);
         return;
       } elseif($ret == 2) {
         $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+        // Reread the current data and process again as a GET request.
+        $curdata = $this->current($id);
+        $this->editGET($adminClient, $curdata);
         return;
       }
 
@@ -478,35 +514,50 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $args = array();
       $args['validate'] = false;
       $args['deep'] = true;
+
       $ret = $this->Oa4mpClientCoOidcClient->saveAssociated($data, $args);
 
-      if(!$ret) {
+      if($ret) {
+        // Success so set flash for success and redirect to index view.
+        $clientName = $data['Oa4mpClientCoOidcClient']['name'];
+        $this->Flash->set(_txt('rs.updated', array(filter_var($clientName,FILTER_SANITIZE_SPECIAL_CHARS))), array('key' => 'success'));
+
+        $args = array();
+        $args['action'] = 'index';
+        $args['co'] = $this->cur_co['Co']['id'];
+        $this->redirect($args);
+      } else {
           $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
-          return;
+
+          // Read the current data again so that when fall through below to
+          // the GET request logic all the necessary data is available to be
+          // rendered.
+          $curdata = $this->current($id);
       }
-
-      $args = array();
-      $args['action'] = 'index';
-      $args['co'] = $this->cur_co['Co']['id'];
-      $this->redirect($args);
-
     } 
 
     // GET request
+    $this->editGET($adminClient, $curdata);
+  }
 
+  /**
+   * Logic for edit of an OIDC client when the request is a GET.
+   * - postcondition: $this->request->data manipulated for view
+   *
+   * @since COmanage Registry 2.0.1
+   * @param array $adminClient Oa4mpClientCoAdminClient model data
+   * @param array $curdata Current Oa4mpClientCoOidcClient model data
+   * @return void
+   */
+
+  function editGET($adminClient, $curdata) {
     $this->request->data = $curdata;
 
     // If the current data does not have an LDAP config
     // then add the default LDAP config in case the user
     // wants to add LDAP search attributes. 
     if(empty($curdata['Oa4mpClientCoLdapConfig'])) {
-      // Use the CO ID to find the admin client and the default LDAP configuration.
-      $args = array();
-      $args['conditions'] = array('co_id' => $this->cur_co['Co']['id']);
-      $args['contain'] = array('DefaultLdapConfig');
-
-      $ret = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
-      $defaultLdapConfig = $ret['DefaultLdapConfig'];
+      $defaultLdapConfig = $adminClient['DefaultLdapConfig'];
 
       $ldapConfig = array();
       $ldapConfig['enabled'] = true;
@@ -549,6 +600,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     }
 
     $this->request->data['Oa4mpClientCoScope'] = $newScopes;
+
+    // Copy the available named configurations so that the view
+    // only needs to look in one place regardless of edit or add 
+    // actions.
+    $this->request->data['Oa4mpClientCoNamedConfig'] = $curdata['Oa4mpClientCoAdminClient']['Oa4mpClientCoNamedConfig'];
   }
 
   /**
@@ -688,12 +744,37 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       return false;
     }
 
+    // Does this client used a named configuration?
+    if(!empty($curData['Oa4mpClientCoOidcClient']['named_config_id'])) {
+      $usesNamedConfig = true;
+    } else {
+      $usesNamedConfig = false;
+    }
+
     // Compare scopes.
     $curScopes = array();
     $oa4mpScopes = array();
 
-    foreach($curData['Oa4mpClientCoScope'] as $key => $s) {
-      $curScopes[] = $s['scope'];
+    if($usesNamedConfig) {
+      // Compare the scopes sent by the OA4MP server to the scopes
+      // specified as part of the named configuration.
+      $usedNamedConfigId = $curData['Oa4mpClientCoOidcClient']['named_config_id'];
+      foreach($curData['Oa4mpClientCoAdminClient']['Oa4mpClientCoNamedConfig'] as $config) {
+        if($config['id'] == $usedNamedConfigId) {
+          foreach($config['Oa4mpClientCoScope'] as $s) {
+            if(in_array($s['scope'], Oa4mpClientScopeEnum::$allScopesArray)) {
+              $curScopes[] = $s['scope'];
+            }
+          }
+          break;
+        }
+      }
+    } else {
+      // Compare the scopes sent by the OA4MP server to the scopes
+      // linked to this OIDC client instance.
+      foreach($curData['Oa4mpClientCoScope'] as $key => $s) {
+        $curScopes[] = $s['scope'];
+      }
     }
 
     foreach($oa4mpServerData['Oa4mpClientCoScope'] as $key => $s) {
@@ -706,6 +787,26 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     if($curScopes != $oa4mpScopes) {
       $this->log("Oa4mpClientCoScope scopes are out of sync");
       return false;
+    }
+
+    // Compare the comment.
+    if(empty($oa4mpClient['comment'])) {
+      $this->log("The OA4MP server representation of the client does not include a comment");
+      return false;
+    }
+
+    if(strcmp($oa4mpClient['comment'], _txt('pl.oa4mp_client_co_oidc_client.signature')) !==0) {
+      $this->log("The OA4MP server respresentation of the client has comment");
+      $this->log($oa4mpClient['comment']);
+      $this->log("but the comment should be");
+      $this->log(_txt('pl.oa4mp_client_co_oidc_client.signature'));
+      return false;
+    }
+
+    // If this client uses a named configuration than return true here,
+    // else continue to compare the LDAP configurations.
+    if($usesNamedConfig) {
+      return true;
     }
 
     // Compare LDAP configurations.
@@ -817,20 +918,6 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
     }
 
-    // Compare the comment.
-    if(empty($oa4mpClient['comment'])) {
-      $this->log("The OA4MP server representation of the client does not include a comment");
-      return false;
-    }
-
-    if(strcmp($oa4mpClient['comment'], _txt('pl.oa4mp_client_co_oidc_client.signature')) !==0) {
-      $this->log("The OA4MP server respresentation of the client has comment");
-      $this->log($oa4mpClient['comment']);
-      $this->log("but the comment should be");
-      $this->log(_txt('pl.oa4mp_client_co_oidc_client.signature'));
-      return false;
-    }
-
     return true;
   }
 
@@ -894,7 +981,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $client_id = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
     $request['uri']['query'] = array('client_id' => $client_id);
 
-    $body = $this->oa4mpMarshallContent($data);
+    $body = $this->oa4mpMarshallContent($adminClient, $data);
 
     $request['body'] = json_encode($body);
 
@@ -1029,24 +1116,36 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $args = array();
     $args['conditions'] = array();
     $args['conditions']['Oa4mpClientCoAdminClient.id'] = $adminClientId;
-    $args['contain'] = false;
+    $args['contain'] = 'Oa4mpClientCoNamedConfig';
 
     $ret = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
+
+    // If using a named configuration then just return the cfg for that 
+    // named configuration.
+    if(!empty($data['Oa4mpClientCoOidcClient']['named_config_id'])) {
+      foreach($ret['Oa4mpClientCoNamedConfig'] as $c) {
+        if($c['id'] == $data['Oa4mpClientCoOidcClient']['named_config_id']) {
+          $jsonString = $c['config'];
+          $cfg = json_decode($jsonString);
+          return $cfg;
+        }
+      }
+    }
 
     // Older admin clients may not have the QDL path set so use the configured
     // default, or a hard-coded default as a last resort.
     if(!empty($ret['Oa4mpClientCoAdminClient']['qdl_claim_source'])) {
       $qdlClaimSourcePath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_source'];
-    } elseif(!empty(Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_source.default'))) {
-      $qdlClaimSourcePath = Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_source.default');
+    } elseif(!empty(getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_DEFAULT'))) {
+      $qdlClaimSourcePath = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_DEFAULT');
     } else{
       $qdlClaimSourcePath = 'COmanageRegistry/default/identity_token_ldap_claim_source.qdl';
     }
 
     if(!empty($ret['Oa4mpClientCoAdminClient']['qdl_claim_process'])) {
       $qdlClaimProcessPath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_process'];
-    } elseif(!empty(Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_process.default'))) {
-      $qdlClaimProcessPath = Configure::read('Oa4mpClient.Oa4mpClientCoAdminClientsController.qdl_claim_process.default');
+    } elseif(!empty(getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_PROCESS'))) {
+      $qdlClaimProcessPath = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_PROCESS');
     } else{
       $qdlClaimProcessPath = 'COmanageRegistry/default/identity_token_ldap_claim_process.qdl';
     }
@@ -1140,7 +1239,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    * @param array $data Posted client data after validation
    * @return array Content to be sent to Oa4mp server after JSON encoding
    */
-  function oa4mpMarshallContent($data) {
+  function oa4mpMarshallContent($adminClient, $data) {
     $content = array();
 
     // Client metadata per RFC 7591.
@@ -1175,16 +1274,51 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $content['rt_lifetime'] = $data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'];
     }
 
-    if(!empty($data['Oa4mpClientCoScope'])) {
-      $scopeString = "";
+    // Determine if the client uses a named configuration.
+    if(!empty($data['Oa4mpClientCoOidcClient']['named_config_id'])) {
+      $usesNamedConfig = true;
+    } else {
+      $usesNamedConfig = false;
+    }
 
-      foreach($data['Oa4mpClientCoScope'] as $s) {
-        $scopeString = $scopeString . " " . $s['scope'];
+    $scopeString = "";
+    $strictScopes = true;
+
+    if($usesNamedConfig) {
+      // If this client uses a named configuration then create the scope
+      // string from the named configuration.
+      $usedNamedConfigId = $data['Oa4mpClientCoOidcClient']['named_config_id'];
+
+      foreach($adminClient['Oa4mpClientCoNamedConfig'] as $config) {
+        if($usedNamedConfigId == $config['id']) {
+          foreach($config['Oa4mpClientCoScope'] as $s) {
+            if(!in_array($s['scope'], Oa4mpClientScopeEnum::$allScopesArray)) {
+              $strictScopes = false;
+            } else {
+              $scopeString = $scopeString . " " . $s['scope'];
+            }
+          }
+          break;
+        }
       }
+    } else {
+      // If this client does not used a named configuration then create
+      // the scope string from the scopes associated with this client.
+      if(!empty($data['Oa4mpClientCoScope'])) {
+        $scopeString = "";
 
+        foreach($data['Oa4mpClientCoScope'] as $s) {
+          $scopeString = $scopeString . " " . $s['scope'];
+        }
+      }
+    }
+
+    if(!empty($scopeString)) {
       $scopeString = trim($scopeString);
       $content['scope'] = $scopeString;
     }
+
+    $content['strict_scopes'] = $strictScopes;
 
     // Today OA4MP only supports a single contact though we send
     // it in a JSON list.
@@ -1196,7 +1330,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // OA4MP extensions to the metadata not part of RFC 7591.
     $content['comment'] = _txt('pl.oa4mp_client_co_oidc_client.signature');
 
-    if(!empty($data['Oa4mpClientCoLdapConfig'])) {
+    if(!empty($data['Oa4mpClientCoLdapConfig']) || !empty($data['Oa4mpClientCoOidcClient']['named_config_id'])) {
       $content['cfg'] = $this->oa4mpMarshallCfgQdl($data);
     }
 
@@ -1218,7 +1352,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $request = $this->oa4mpInitializeRequest($adminClient);
     $request['method'] = 'POST';
 
-    $body = $this->oa4mpMarshallContent($data);
+    $body = $this->oa4mpMarshallContent($adminClient, $data);
 
     $request['body'] = json_encode($body);
 
@@ -1642,7 +1776,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    */
 
   private function validatePost() {
-      $data = $this->request->data;
+      $data = & $this->request->data;
 
       // Trim leading and trailing whitespace from user input.
       array_walk_recursive($data, function (&$value,$key) { 
@@ -1656,6 +1790,23 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       // When it is set to true and there are multiple rows of associated data
       // validation fails.
 
+      // The named_config_id having a value of zero indicates no named
+      // configuration was selected.
+      $namedConfiguration = false;
+      if(array_key_exists('named_config_id', $data['Oa4mpClientCoOidcClient'])) {
+        if($data['Oa4mpClientCoOidcClient']['named_config_id'] <= 0) {
+          $data['Oa4mpClientCoOidcClient']['named_config_id'] = null;
+        } else {
+          $namedConfiguration = true;
+        }
+      }
+
+      // We do not need to keep the Oa4mpClientCoNamedConfig details since
+      // we have the ID (or not if no named config was selected).
+      if(!empty($data['Oa4mpClientCoNamedConfig'])) {
+        unset($data['Oa4mpClientCoNamedConfig']);
+      }
+
       // Validate the OIDC client fields.
       $this->Oa4mpClientCoOidcClient->set($data);
 
@@ -1664,6 +1815,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $fields[] = 'home_url';
       $fields[] = 'refresh_token_lifetime';
       $fields[] = 'public_client';
+
+      if($namedConfiguration) {
+        $fields[] = 'named_config_id';
+      }
 
       $args = array();
       $args['fieldList'] = $fields;
@@ -1742,6 +1897,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $this->Flash->set($validationErrors['url'][$i], array('key' => 'error'));
         return false;
       }
+
+      // If using a named configuration unset the scope and LDAP configurations
+      // since they are managed using the named configuration and then return.
+      if($namedConfiguration) {
+        unset($data['Oa4mpClientCoScope']);
+        unset($data['Oa4mpClientCoLdapConfig']);
+        return true;
+      } 
 
       // Validate the scope field and remove empty values submitted
       // by any hidden input fields from the view.
@@ -1841,7 +2004,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         }
       }
 
-      return $data;
+      return true;
   }
 
   /**

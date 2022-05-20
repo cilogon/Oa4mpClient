@@ -64,6 +64,9 @@
         <field name="proxy_limited" type="L" />
         <field name="refresh_token_lifetime" type="I" />
         <field name="public_client" type="L" />
+        <field name="named_config_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_named_configs(id)</constraint>
+        </field>
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
@@ -148,12 +151,20 @@
         <field name="client_id" type="I">
             <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
         </field>
+        <field name="named_config_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_named_configs(id)</constraint>
+        </field>
         <field name="scope" type="C" size="64" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
         <index name="oa4mp_client_co_scopes_i1">
             <col>client_id</col>
+            <col>scope</col>
+        </index>
+
+        <index name="oa4mp_client_co_scopes_i2">
+            <col>named_config_id</col>
             <col>scope</col>
         </index>
     </table>
@@ -180,4 +191,22 @@
         </index>
     </table>
 
+    <table name="oa4mp_client_co_named_configs">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="admin_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_admin_clients(id)</constraint>
+        </field>
+        <field name="config_name" type="C" size="256" />
+        <field name="description" type="X" size="1024" />
+        <field name="config" type="X" size="4096" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+
+        <index name="oa4mp_client_co_named_config_i1">
+            <col>admin_id</col>
+        </index>
+    </table>
 </schema> 

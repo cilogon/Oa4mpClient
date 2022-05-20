@@ -1,6 +1,6 @@
 <?php
 /**
- * COmanage Registry Oa4mp Client Plugin CO Admin Client Index View
+ * COmanage Registry Oa4mp Client Plugin CO Named Config Index View
  *
  * Portions licensed to the University Corporation for Advanced Internet
  * Development, Inc. ("UCAID") under one or more contributor license agreements.
@@ -26,7 +26,7 @@
  */
 
   // Add breadcrumbs
-  $this->Html->addCrumb(_txt('ct.oa4mp_client_co_admin_clients.pl'));
+  $this->Html->addCrumb(_txt('ct.oa4mp_client_co_named_configs.pl'));
 
   // Add page title
   $params = array();
@@ -37,10 +37,10 @@
 
   if($permissions['add']) {
     $params['topLinks'][] = $this->Html->link(
-      _txt('op.add.new', array(_txt('ct.oa4mp_client_co_admin_clients.1'))),
+      _txt('op.add.new', array(_txt('ct.oa4mp_client_co_named_configs.1'))),
       array(
         'plugin' => 'oa4mp_client',
-        'controller' => 'oa4mp_client_co_admin_clients',
+        'controller' => 'oa4mp_client_co_named_configs',
         'action' => 'add'
       ),
       array('class' => 'addbutton')
@@ -48,23 +48,30 @@
   }
 
   print $this->element("pageTitleAndButtons", $params);
-
 ?>
 
 <div class="table-container">
 
-<table id="oa4mp_client_co_admin_clients" class="ui-widget">
+<table id="oa4mp_client_co_named_configs" class="ui-widget">
   <thead>
     <tr class="ui-widget-header">
-      <th><?php print $this->Paginator->sort('name', _txt('co'), array('model' => 'Co')); ?></th>
-      <th><?php print $this->Paginator->sort('admin_identifier', _txt('pl.oa4mp_client_co_admin_client.admin_identifier.fd.name')); ?></th>
+      <th><?php
+          $args = array();
+          print $this->Paginator->sort('Oa4mpClientCoAdminClient.id', _txt('co'), $args);
+          ?>
+      </th>
+      <th><?php
+          $args = array();
+          print $this->Paginator->sort('config_name', _txt('pl.oa4mp_client_co_named_config.config_name.fd'), $args);
+          ?>
+      </th>
       <th class="thinActionButtonsCol"><?php print _txt('fd.actions'); ?></th>
     </tr>
   </thead>
   
   <tbody>
     <?php $i = 0; ?>
-    <?php foreach ($oa4mp_client_co_admin_clients as $c): ?>
+    <?php foreach ($oa4mp_client_co_named_configs as $c): ?>
     <tr class="line<?php print ($i % 2)+1; ?>">
       <td>
         <?php
@@ -72,9 +79,9 @@
             $c['Co']['name'],
             array(
               'plugin' => 'oa4mp_client',
-              'controller' => 'oa4mp_client_co_admin_clients',
+              'controller' => 'oa4mp_client_co_named_configs',
               'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
-              $c['Oa4mpClientCoAdminClient']['id']
+              $c['Oa4mpClientCoNamedConfig']['id']
             )
           );
         ?>
@@ -82,12 +89,12 @@
       <td>
         <?php
           print $this->Html->link(
-            $c['Oa4mpClientCoAdminClient']['admin_identifier'],
+            $c['Oa4mpClientCoNamedConfig']['config_name'],
             array(
               'plugin' => 'oa4mp_client',
-              'controller' => 'oa4mp_client_co_admin_clients',
+              'controller' => 'oa4mp_client_co_named_configs',
               'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
-              $c['Oa4mpClientCoAdminClient']['id']
+              $c['Oa4mpClientCoNamedConfig']['id']
             )
           );
         ?>
@@ -99,8 +106,8 @@
                 _txt('op.edit'),
                 array(
                   'plugin' => 'oa4mp_client',
-                  'controller' => 'oa4mp_client_co_admin_clients',
-                  'action' => 'edit', $c['Oa4mpClientCoAdminClient']['id']
+                  'controller' => 'oa4mp_client_co_named_configs',
+                  'action' => 'edit', $c['Oa4mpClientCoNamedConfig']['id']
                 ),
                 array('class' => 'editbutton')) . "\n";
           }
@@ -111,15 +118,15 @@
               . $this->Html->url(              // dialog confirm URL
                 array(
                   'plugin' => 'oa4mp_client',
-                  'controller' => 'oa4mp_client_co_admin_clients',
+                  'controller' => 'oa4mp_client_co_named_configs',
                   'action' => 'delete',
-                  $c['Oa4mpClientCoAdminClient']['id']
+                  $c['Oa4mpClientCoNamedConfig']['id']
                 )
               ) . '\',\''
               . _txt('op.remove') . '\',\''    // dialog confirm button
               . _txt('op.cancel') . '\',\''    // dialog cancel button
               . _txt('op.remove') . '\',[\''   // dialog title
-              . filter_var(_jtxt($c['Oa4mpClientCoAdminClient']['admin_identifier']),FILTER_SANITIZE_STRING)  // dialog body text replacement strings
+              . filter_var(_jtxt($c['Oa4mpClientCoNamedConfig']['config_name']),FILTER_SANITIZE_STRING)  // dialog body text replacement strings
               . '\']);">'
               . _txt('op.delete')
               . '</button>';

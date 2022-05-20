@@ -1,0 +1,1 @@
+/srv/comanage-registry/app/View/Standard/add.ctp

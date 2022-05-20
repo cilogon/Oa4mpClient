@@ -37,6 +37,11 @@ class Oa4mpClientCoOidcClient extends AppModel {
     // An Oa4mp OIDC client is attached to an admin client
     "Oa4mpClient.Oa4mpClientCoAdminClient" => array(
       'foreignKey' => 'admin_id'
+    ),
+    // An Oa4mp OIDC client may be attached to a named
+    // configuration.
+    "Oa4mpClient.Oa4mpClientCoNamedConfig" => array(
+      'foreignKey' => 'named_config_id'
     )
   );
 
@@ -108,6 +113,12 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'rule' => 'boolean',
       'required' => false,
       'allowEmpty' => true
+    ),
+    'named_config_id' => array(
+      'rule' => 'numeric',
+      'required' => false,
+      'on' => 'update',
+      'allowEmpty' => true,
     )
   );
   

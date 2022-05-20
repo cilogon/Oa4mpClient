@@ -58,6 +58,10 @@ class Oa4mpClientCoAdminClient extends AppModel {
     // An Oa4mp admin client has many contact email addresses
     "Oa4mpClient.Oa4mpClientCoEmailAddress" => array(
       'foreignKey' => 'admin_id'
+    ),
+    // An Oa4mp admin client has many named configurations
+    "Oa4mpClient.Oa4mpClientCoNamedConfig" => array(
+      'foreignKey' => 'admin_id'
     )
   );
 

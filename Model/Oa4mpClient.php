@@ -40,7 +40,9 @@ class Oa4mpClient extends AppModel {
     
     $menus = array(
       "cmp" => array(
-        _txt('pl.oa4mp_client.menu.cmp') => array('controller' => 'oa4mp_client_co_admin_clients',
+        _txt('pl.oa4mp_client.menu.admin_clients.cmp') => array('controller' => 'oa4mp_client_co_admin_clients',
+                                                  'action' => 'index'),
+        _txt('pl.oa4mp_client.menu.named_configs.cmp') => array('controller' => 'oa4mp_client_co_named_configs',
                                                   'action' => 'index')
       ),
       "coconfig" => array(

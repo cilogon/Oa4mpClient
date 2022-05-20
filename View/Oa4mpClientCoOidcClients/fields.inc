@@ -72,7 +72,6 @@
   } else {
     $is_public_client = false;
   }
-
 ?>
 <script type="text/javascript">
   <!-- JS specific to these fields -->
@@ -170,7 +169,57 @@ function publicClientClicked() {
   }
 }
 
+function namedConfigClicked() {
+  if($("#Oa4mpClientCoOidcClientNamedConfigId").is(":checked")) {
+    $("#Oa4mpClientCoOidcClientPublicClient").prop("checked", false);
+    $("#oa4mp_client_co_oidc_client_public_client").hide();
+    $("#oa4mp_client_co_oidc_client_scopes").hide();
+    $("#oa4mp_client_co_scope").find("input[type='checkbox']:not(:first)").prop("checked", false);
+    $("#oa4mp_client_ldap_to_claim_mappings").hide();
+    $("#oa4mp_client_co_named_configs").show();
+
+    for (let i=0; i < 10; i++) {
+      let name_id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}Name`;
+      let return_name_id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}ReturnName`;
+      let return_as_list_id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}ReturnAsList`;
+      $(name_id).val("");
+      $(return_name_id).val("");
+      $(return_as_list_id).prop("checked", false);
+    }
+  } else {
+    $("#oa4mp_client_co_named_configs").find("input[type='checkbox']").prop("checked", false);
+    $("#oa4mp_client_co_named_configs").hide();
+    $("#oa4mp_client_ldap_to_claim_mappings").show();
+    $("#oa4mp_client_co_oidc_client_public_client").show();
+    $("#oa4mp_client_co_oidc_client_scopes").show();
+  }
+}
+
+function specificNamedConfigClicked(e) {
+  if($(e).is(":checked")) {
+    $("#oa4mp_client_co_named_configs").find("input[type='checkbox']").not(e).prop("checked", false);
+    $("#Oa4mpClientCoOidcClientNamedConfigId").val($(e).val());
+  } else {
+    $("#Oa4mpClientCoOidcClientNamedConfigId").val(0);
+  }
+}
+
 function js_local_onload() {
+  $("form").submit(function(e) {
+    if($("#Oa4mpClientCoOidcClientNamedConfigId").is(":checked") && $("#oa4mp_client_co_named_configs input:checkbox:checked").length == 0) {
+      e.preventDefault();
+      $("#co-loading").hide();
+      $("#named-config-not-selected-dialog").dialog("open");
+      return false;
+    }
+  });
+
+  if($("#Oa4mpClientCoOidcClientNamedConfigId").is(":checked")) {
+    $("#oa4mp_client_co_named_configs").show();
+    $("#oa4mp_client_co_oidc_client_public_client").hide();
+    $("#oa4mp_client_ldap_to_claim_mappings").hide();
+  }
+
   hideCallbackDeleteButtons();
 
   $("#confirm-getcert-scope-dialog").dialog({
@@ -247,6 +296,17 @@ function js_local_onload() {
           $(this).dialog("close");
         }
       },
+      modal: true,
+      show: {
+        effect: "fade"
+      },
+      hide: {
+        effect: "fade"
+      }
+  });
+
+  $("#named-config-not-selected-dialog").dialog({
+      autoOpen: false,
       modal: true,
       show: {
         effect: "fade"
@@ -503,7 +563,91 @@ function js_local_onload() {
     </ul>
   </li>
 
-  <li>
+  <?php
+    if(!empty($this->request->data['Oa4mpClientCoNamedConfig'])) {
+      $display = '';
+    } else {
+      $display = 'display:none';
+    }
+  ?>
+
+  <li style="<?php print $display; ?>">
+    <div class="field-name">
+      <div class="field-title">
+        <?php
+          print _txt('pl.oa4mp_client_co_oidc_client.named_config.fd.name');
+        ?>
+      </div>
+      <div class="field-desc">
+        <?php
+          print _txt('pl.oa4mp_client_co_oidc_client.named_config.fd.description');
+        ?>
+      </div>
+    </div>
+    <div class="field-info">
+      <?php
+        $params = array();
+        $params['type'] = 'checkbox';
+        $params['onclick'] = 'namedConfigClicked()';
+        if(!empty($this->request->data['Oa4mpClientCoOidcClient']['named_config_id'])) {
+          $params['checked'] = true;
+          $params['value'] = $this->request->data['Oa4mpClientCoOidcClient']['named_config_id'];
+        } else {
+          $params['value'] = 0;
+          $params['checked'] = false;
+        }
+        print $this->Form->input('named_config_id', $params);
+      ?>  
+    </div>
+    <ul id="oa4mp_client_co_named_configs" class="field-children" style="display:none">
+      <?php
+        $i = 0;
+        foreach($this->request->data['Oa4mpClientCoNamedConfig'] as $c) {
+          print '<li>';
+          print '  <div class="field-info form-check">';
+          $args = array();
+          $args['type'] = 'checkbox';
+          $args['class'] = 'form-check-input';
+          $args['onclick'] = 'specificNamedConfigClicked(this)';
+          $args['value'] = $c['id'];
+          $args['checked'] = false;
+
+          $label = '<div class="named-config-tooltip">';
+          $label = $label . '<span class="named-config-name">' . $c['config_name'] . '</span>';
+          $label = $label . '<span class="named-config-tooltiptext">';
+          $label = $label . $c['description'];
+          $label = $label . '</span>';
+          $label = $label . '<span class="named-config-required-scopes">';
+          $label = $label . ' requires scope(s) ';
+
+          $scopes = array();
+          foreach($c['Oa4mpClientCoScope'] as $s) {
+            $scopes[] = $s['scope'];
+          }
+
+          $label = $label . implode(', ', $scopes);
+          $label = $label . '</span>';
+          $label = $label . '</div>';
+
+          $args['label'] = $label;
+          if(!empty($this->request->data['Oa4mpClientCoOidcClient']['named_config_id'])) {
+            if($this->request->data['Oa4mpClientCoOidcClient']['named_config_id'] == $c['id']) {
+            $args['checked'] = true;
+            }
+          }
+          print $this->Form->input('Oa4mpClientCoNamedConfig.' . $i . '.id', $args);
+          // We want this to be exempt from SecurityComponent field hashing so it does
+          // not have to be included in the POST.
+          $this->Form->unlockField('Oa4mpClientCoNamedConfig.' . $i . '.id');
+          print '  </div>';
+          print '</li>';
+          $i = $i + 1;
+        }
+      ?>
+    </ul>
+  </li>
+
+  <li id="oa4mp_client_co_oidc_client_public_client">
     <div class="field-name">
       <div class="field-title">
         <?php print ($e
@@ -537,7 +681,15 @@ function js_local_onload() {
     </div>
   </li>
 
-  <li>
+  <?php
+    if(!empty($this->request->data['Oa4mpClientCoOidcClient']['named_config_id'])) {
+      $display = 'display:none';
+    } else {
+      $display = '';
+    }
+  ?>
+
+    <li id="oa4mp_client_co_oidc_client_scopes" style="<?php print $display; ?> ">
     <div class="field-name">
       <div class="field-title">
         <?php print _txt('pl.oa4mp_client_co_scope.scope.fd.name'); ?>
@@ -751,17 +903,11 @@ function js_local_onload() {
       if($e) {
         $args = array();
         $args['hidden'] = true;
-        // TODO Do we still need passwdArgs?
         $passwdArgs = array();
         $passwdArgs['type'] = 'text';
         $passwdArgs['autocomplete'] = 'new-password';
         print $this->Form->input('Oa4mpClientCoLdapConfig.0.enabled', $args);
         print $this->Form->input('Oa4mpClientCoLdapConfig.0.authorization_type', $args);
-        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.serverurl', $args);
-        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.binddn', $args);
-        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.password', array_merge($args, $passwdArgs));
-        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.basedn', $args);
-        //print $this->Form->input('Oa4mpClientCoLdapConfig.0.search_name', $args);
         if(!empty($this->request->data['Oa4mpClientCoLdapConfig'][0]['id'])) {
           print $this->Form->input('Oa4mpClientCoLdapConfig.0.id', $args);
         }
@@ -1058,7 +1204,10 @@ function js_local_onload() {
     <li class="fields-submit">
       <div class="field-name"></div>
       <div class="field-info">
-        <?php print $this->Form->submit($submit_label); ?>
+        <?php
+          $params = array();
+          print $this->Form->submit($submit_label);
+        ?>
       </div>
     </li>
   <?php endif; ?>
@@ -1079,4 +1228,8 @@ function js_local_onload() {
 
 <div id="confirm-userinfo-scope-dialog" title="<?php print _txt('pl.oa4mp_client_co_scope.scope.userinfo.dialog.title'); ?>">
   <p><?php print _txt('pl.oa4mp_client_co_scope.scope.userinfo.dialog.text'); ?></p>
+</div>
+
+<div id="named-config-not-selected-dialog" title="<?php print _txt('pl.oa4mp_client_co_named_config.not_selected.dialog.title'); ?>">
+  <p><?php print _txt('pl.oa4mp_client_co_named_config.not_selected.dialog.text'); ?></p>
 </div>

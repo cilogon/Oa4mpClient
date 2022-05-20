@@ -32,4 +32,12 @@ class Oa4mpClientScopeEnum
   const Email = 'email';
   const OrgCilogonUserInfo = 'org.cilogon.userinfo';
   const Getcert = 'edu.uiuc.ncsa.myproxy.getcert';
+
+  public static $allScopesArray = array(
+    Oa4mpClientScopeEnum::OpenId,
+    Oa4mpClientScopeEnum::Profile,
+    Oa4mpClientScopeEnum::Email,
+    Oa4mpClientScopeEnum::OrgCilogonUserInfo,
+    Oa4mpClientScopeEnum::Getcert,
+  );
 }

@@ -1,6 +1,6 @@
 <?php
 /**
- * COmanage Registry Oa4mp Client Plugin CO Scope Model
+ * COmanage Registry Oa4mp Client Plugin CO Named Config Model
  *
  * Portions licensed to the University Corporation for Advanced Internet
  * Development, Inc. ("UCAID") under one or more contributor license agreements.
@@ -21,50 +21,57 @@
  * 
  * @link          http://www.internet2.edu/comanage COmanage Project
  * @package       registry-plugin
- * @since         COmanage Registry v2.0.1
+ * @since         COmanage Registry v4.0.2
  * @license       Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
  */
 
-class Oa4mpClientCoScope extends AppModel {
+class Oa4mpClientCoNamedConfig extends AppModel {
   // Define class name for cake
-  public $name = "Oa4mpClientCoScope";
+  public $name = "Oa4mpClientCoNamedConfig";
 
   // Add behaviors
   public $actsAs = array('Containable');
 
   // Association rules from this model to other models
   public $belongsTo = array(
-    // An Oa4mp Client Scope is attached to an OIDC client
-    // or a named configuration
-    "Oa4mpClient.Oa4mpClientCoOidcClient",
-    "Oa4mpClient.Oa4mpClientCoNamedConfig"
+    // An Oa4mp Client Named config is attached to an admin client
+    "Oa4mpClient.Oa4mpClientCoAdminClient" => array(
+      'foreignKey' => 'admin_id'
+    )
+  );
+
+  public $hasMany = array(
+    // An Oa4mp Client LDAP config may have multiple scopes
+    "Oa4mpClient.Oa4mpClientCoScope" => array(
+      'foreignKey' => 'named_config_id',
+      'dependent' => true
+    )
   );
 
   // Default display field for cake generated views
-  public $displayField = "scope";
+  public $displayField = "config_name";
 
   // Validation rules for table elements
   public $validate = array(
-    'client_id' => array(
+    'admin_id' => array(
       'rule' => 'numeric',
-      'required' => false,
-      'allowEmpty' => true,
+      'required' => true,
+      'allowEmpty' => false,
     ),
-    'named_config_id' => array(
-      'rule' => 'numeric',
-      'required' => false,
-      'allowEmpty' => true,
+    'config_name' => array(
+      'rule' => 'notBlank',
+      'required' => true,
+      'allowEmpty' => false
     ),
-    'scope' => array(
-      'rule' => array('inList',
-                      array(Oa4mpClientScopeEnum::OpenId,
-                            Oa4mpClientScopeEnum::Profile,
-                            Oa4mpClientScopeEnum::Email,
-                            Oa4mpClientScopeEnum::OrgCilogonUserInfo,
-                            Oa4mpClientScopeEnum::Getcert)),
+    'description' => array(
+      'rule' => 'notBlank',
+      'required' => false,
+      'allowEmpty' => true
+    ),
+    'config' => array(
+      'rule' => 'notBlank',
       'required' => true,
       'allowEmpty' => false
     )
   );
-  
 }

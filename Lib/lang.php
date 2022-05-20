@@ -37,9 +37,12 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'ct.oa4mp_client_co_admin_clients.pl' => 'Oa4mp Admin Clients',
   'ct.oa4mp_client_co_oidc_clients.1' => 'OIDC Client',
   'ct.oa4mp_client_co_oidc_clients.pl' => 'OIDC Clients',
+  'ct.oa4mp_client_co_named_configs.1' => 'Oa4mp Named Configuration',
+  'ct.oa4mp_client_co_named_configs.pl' => 'Oa4mp Named Configurations',
 
   // Menu
-  'pl.oa4mp_client.menu.cmp' => 'Oa4mp Admin Clients',
+  'pl.oa4mp_client.menu.admin_clients.cmp' => 'Oa4mp Admin Clients',
+  'pl.oa4mp_client.menu.named_configs.cmp' => 'Oa4mp Named Configurations',
   'pl.oa4mp_client.menu.coconfig' => 'OIDC Clients',
 
   // Plugin texts
@@ -90,6 +93,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.public_client.fd.name' => 'Public Client',
   'pl.oa4mp_client_co_oidc_client.public_client.fd.description.add' => 'Public clients have no client secret and only the openid scope is allowed. <a href="https://oauth.net/2/client-types/">See OAuth 2.0 Client Types</a>',
   'pl.oa4mp_client_co_oidc_client.public_client.fd.description.edit' => 'The client type cannot be changed after the client is created',
+  'pl.oa4mp_client_co_oidc_client.named_config.fd.name' => 'Use a Named Configuration',
+  'pl.oa4mp_client_co_oidc_client.named_config.fd.description' => 'Configure scopes, claims, and other details using an existing template. Check the box to see available templates, and hover over the template name for a full description.',
 
   'pl.oa4mp_client_co_oidc_client.public.title' => 'New OIDC Client',
   'pl.oa4mp_client_co_oidc_client.public.text' => 'This is a public OIDC client and therefore it has no client secret.',
@@ -153,7 +158,20 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_search_attribute.return_name.fd.name' => 'OIDC Claim Name',
   'pl.oa4mp_client_co_search_attribute.return_as_list.fd.name' => 'Multivalued?',
 
+  'pl.oa4mp_client_co_named_config.config_name.fd' => 'Configuration Name',
+  'pl.oa4mp_client_co_named_config.config_name.description' => 'This name will be shown to admininstrators when managing OIDC clients',
+  'pl.oa4mp_client_co_named_config.description.fd' => 'Description',
+  'pl.oa4mp_client_co_named_config.description.description' => 'This description will be shown to administrators when managing OIDC clients',
+  'pl.oa4mp_client_co_named_config.config.fd' => 'Configuration',
+  'pl.oa4mp_client_co_named_config.config.description' => 'This is the full Oa4mp server cfg JSON and will not be displayed to administrators',
+  'pl.oa4mp_client_co_named_config.scope.description' => 'Scopes the client must request; these will be displayed to administrators but will not be editable',
+  'pl.oa4mp_client_co_named_config.additional_scope.fd' => 'Additional Scopes',
+  'pl.oa4mp_client_co_named_config.additional_scope.description' => 'Any additional scopes the client must request, e.g. scopes needed for GA4GH passports',
+  'pl.oa4mp_client_co_named_config.additional_scope.scope.fd' => 'Scope',
+  'pl.oa4mp_client_co_named_config.add_first_additional_scope' => 'Add scope',
 
+  'pl.oa4mp_client_co_named_config.not_selected.dialog.title' => 'No Named Configuration Selected',
+  'pl.oa4mp_client_co_named_config.not_selected.dialog.text' => 'You have not selected a specific named configuration. Please select a specific named configuration or uncheck the box to indicate you do not want to use a named configuration.',
 
   // Enumerations
   'pl.oa4mp_client.en.scope' => array(
