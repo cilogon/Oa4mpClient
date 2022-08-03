@@ -1167,7 +1167,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $qdl['load'] = $qdlClaimSourcePath;
 
     $qdl['xmd'] = array();
-    $qdl['xmd']['exec_phase'] = 'pre_auth';
+    $qdl['xmd']['exec_phase'] = array();
+    $qdl['xmd']['exec_phase'][] = 'post_auth';
+    $qdl['xmd']['exec_phase'][] = 'post_refresh';
+    $qdl['xmd']['exec_phase'][] = 'post_token';
+    $qdl['xmd']['exec_phase'][] = 'post_user_info';
 
     $qdl['args'] = array();
     $qdl['args']['server_fqdn'] = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_HOST);
@@ -1216,6 +1220,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     $qdl['xmd'] = array();
     $qdl['xmd']['exec_phase'] = array();
+    $qdl['xmd']['exec_phase'][] = 'post_auth';
     $qdl['xmd']['exec_phase'][] = 'post_refresh';
     $qdl['xmd']['exec_phase'][] = 'post_token';
     $qdl['xmd']['exec_phase'][] = 'post_user_info';
