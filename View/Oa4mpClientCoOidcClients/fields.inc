@@ -385,7 +385,7 @@ function js_local_onload() {
   }
 
   var j;
-  for (j=0; j < 10; j++) {
+  for (j=0; j < 50; j++) {
     let id = `#Oa4mpClientCoCallback${j}Url`;
     $(id).on("input", function() {
       let url = $(id).val();
@@ -493,7 +493,7 @@ function js_local_onload() {
     <ul class="field-children" id="oa4mp_client_co_callback">
 
       <?php
-        for($i = 0; $i < 10; $i++) {
+        for($i = 0; $i < 50; $i++) {
           if (($i == 0) || !empty($this->request->data['Oa4mpClientCoCallback'][$i]['url'])) {
             $display = "";
             $required = true;

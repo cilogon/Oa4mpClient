@@ -1874,7 +1874,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $validationErrors = array();
       $validationErrors['url'] = array();
 
-      for ($i = 0; $i < 10; $i++) {
+      for ($i = 0; $i < 50; $i++) {
         $cb = $data['Oa4mpClientCoCallback'][$i];
         if(empty($cb['url'])) {
           unset($data['Oa4mpClientCoCallback'][$i]);
