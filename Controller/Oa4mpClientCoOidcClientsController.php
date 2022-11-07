@@ -1136,21 +1136,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // default, or a hard-coded default as a last resort.
     if(!empty($ret['Oa4mpClientCoAdminClient']['qdl_claim_source'])) {
       $qdlClaimSourcePath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_source'];
-    } elseif(!empty(getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_DEFAULT'))) {
-      $qdlClaimSourcePath = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_DEFAULT');
+    } elseif(!empty(getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT'))) {
+      $qdlClaimSourcePath = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT');
     } else{
-      $qdlClaimSourcePath = 'COmanageRegistry/default/identity_token_ldap_claim_source.qdl';
+      $qdlClaimSourcePath = 'COmanageRegistry/default/ldap_claims.qdl';
     }
-
-    if(!empty($ret['Oa4mpClientCoAdminClient']['qdl_claim_process'])) {
-      $qdlClaimProcessPath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_process'];
-    } elseif(!empty(getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_PROCESS'))) {
-      $qdlClaimProcessPath = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_PROCESS');
-    } else{
-      $qdlClaimProcessPath = 'COmanageRegistry/default/identity_token_ldap_claim_process.qdl';
-    }
-
-    $qdlClaimProcessPath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_process'];
 
     // Now construct the OA4MP cfg object.
     $cfg = array();
@@ -1161,7 +1151,6 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // The QDL value is a list.
     $cfg['tokens']['identity']['qdl'] = array();
 
-    // The first QDL value is the claims source object.
     $qdl = array();
 
     $qdl['load'] = $qdlClaimSourcePath;
@@ -1211,24 +1200,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
     }
 
-    $cfg['tokens']['identity']['qdl'][] = $qdl;
 
-    // The second QDL value is the claims process object.
-    $qdl = array();
-
-    $qdl['load'] = $qdlClaimProcessPath;
-
-    $qdl['xmd'] = array();
-    $qdl['xmd']['exec_phase'] = array();
-    $qdl['xmd']['exec_phase'][] = 'post_auth';
-    $qdl['xmd']['exec_phase'][] = 'post_refresh';
-    $qdl['xmd']['exec_phase'][] = 'post_token';
-    $qdl['xmd']['exec_phase'][] = 'post_user_info';
-
-    $qdl['args'] = array();
+    $qdl['args']['ldap_to_claim_mappings'] = array();
     if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
       foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
-        $qdl['args'][$sa['name']] = $sa['return_name'];
+        $qdl['args']['ldap_to_claim_mappings'][$sa['name']] = $sa['return_name'];
       }
     }
 
@@ -1642,12 +1618,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       $listAttributes = $qdl_args['list_attributes'];
 
-      $qdl_post_user_info = $cfg['tokens']['identity']['qdl'][1];
-      $qdl_args = $qdl_post_user_info['args'];
+      $ldapToClaimMappings = $qdl_args['ldap_to_claim_mappings'];
 
       $ldapConfig['Oa4mpClientCoSearchAttribute'] = array();
 
-      foreach($qdl_args as $key => $mapping) {
+      foreach($ldapToClaimMappings as $key => $mapping) {
         $sa = array();
         $sa['name'] = $key;
         $sa['return_name'] = $mapping;

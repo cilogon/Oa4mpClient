@@ -249,33 +249,6 @@
     <div class="field-name">
       <div class="field-title">
         <?php print ($e
-                     ? $this->Form->label('qdl_claim_process', _txt('pl.oa4mp_client_co_admin_client.qdl_claim_process.fd.name'))
-                     : _txt('pl.oa4mp_client_co_admin_client.qdl_claim_process.fd.name')); ?>
-        <span class="required">*</span>
-      </div>
-      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.qdl_claim_process.fd.description'); ?></div>
-    </div>
-    <div class="field-info">
-        <?php 
-          if($e) { 
-            $args = array();
-            if(empty($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_process'])) {
-              if($qdlClaimProcessDefault) {
-                $args['default'] = $qdlClaimProcessDefault;
-              }
-            }
-            echo $this->Form->input('qdl_claim_process', $args);
-          } else {
-            echo filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_process'],FILTER_SANITIZE_SPECIAL_CHARS); 
-          }
-        ?>
-    </div>
-  </li>
-
-  <li>
-    <div class="field-name">
-      <div class="field-title">
-        <?php print ($e
                      ? $this->Form->label('DefaultLdapConfig.serverurl', _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name'))
                      : _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name')); ?>
         <span class="required">*</span>

@@ -103,11 +103,6 @@ class Oa4mpClientCoAdminClient extends AppModel {
       'rule' => 'notBlank',
       'required' => true,
       'allowEmpty' => false
-    ),
-    'qdl_claim_process' => array(
-      'rule' => 'notBlank',
-      'required' => true,
-      'allowEmpty' => false
     )
   );
 }
