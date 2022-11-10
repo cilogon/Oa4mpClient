@@ -1618,7 +1618,20 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       $listAttributes = $qdl_args['list_attributes'];
 
-      $ldapToClaimMappings = $qdl_args['ldap_to_claim_mappings'];
+      // Initialize the LDAP to claim mappings as empty.
+      $ldapToClaimMappings = array();
+
+      if(array_key_exists('ldap_to_claim_mappings', $qdl_args)) {
+        // COmanage Registry OA4MP plugin cfg format 2.0.0.
+        $ldapToClaimMappings = $qdl_args['ldap_to_claim_mappings'];
+      } else {
+        // COmanage Registry OA4MP plugin cfg format 1.0.0.
+        if(count($cfg['tokens']['identity']['qdl']) == 2) {
+          if(array_key_exists('args', $cfg['tokens']['identity']['qdl'][1])){
+            $ldapToClaimMappings = $cfg['tokens']['identity']['qdl'][1]['args'];
+          }
+        }
+      }
 
       $ldapConfig['Oa4mpClientCoSearchAttribute'] = array();
 

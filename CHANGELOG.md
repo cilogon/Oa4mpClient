@@ -1,5 +1,24 @@
 # Changelog
 
+## 5.3.0 (2022-11-10)
+
+- Adopt version 2.0.0 of COmanage Registry OA4MP plugin cfg syntax
+  that uses a single QDL file for LDAP claims instead of two
+  QDL files.
+- Add definition of cfg format versions.
+
+## 5.2.0 (2022-08-23)
+
+- Increase the number of callback URLs to 50.
+
+## 5.1.0 (2022-08-03)
+
+- Use different execution phases in cfg.
+
+## 5.0.0 (2022-05-20)
+
+- Add Named Configurations for managing custom cfg and QDL.
+
 ## 4.0.0 (2022-05-10)
 
 - Use QDL for configuring claims from LDAP.
