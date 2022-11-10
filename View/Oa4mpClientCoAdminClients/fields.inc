@@ -233,8 +233,8 @@
           if($e) { 
             $args = array();
             if(empty($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['qdl_claim_source'])) {
-              if($qdlClaimSourceDefault) {
-                $args['default'] = $qdlClaimSourceDefault;
+              if($qdlClaimDefault) {
+                $args['default'] = $qdlClaimDefault;
               }
             }
             echo $this->Form->input('qdl_claim_source', $args);

@@ -120,14 +120,12 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
 
     $this->set('co_options', $co_options);
 
-    // Read the default paths for QDL configuration and set a view
-    // variable so that the defaults can be supplied in the form
+    // Read the default path for QDL configuration and set a view
+    // variable so that the default can be supplied in the form
     // if there is no existing value.
-    $qdlClaimSourceDefault = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_DEFAULT');
-    $qdlClaimProcessDefault = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_SOURCE_PROCESS');
+    $qdlClaimDefault = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT');
 
-    $this->set('qdlClaimSourceDefault', $qdlClaimSourceDefault);
-    $this->set('qdlClaimProcessDefault', $qdlClaimProcessDefault);
+    $this->set('qdlClaimDefault', $qdlClaimDefault);
     
     parent::beforeRender();
   }
