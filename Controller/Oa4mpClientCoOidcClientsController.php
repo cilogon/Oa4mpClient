@@ -1345,7 +1345,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     $this->log("Response is " . print_r($response, true));
 
-    if($response->code == 200) {
+    # During OA4MP server evolution accept both 200 and 201 as
+    # return code when creating a new client.
+    if(($response->code == 200) || ($response->code == 201)) {
       $body = json_decode($response->body(), true);
       
       $ret['clientId'] = $body['client_id'];
