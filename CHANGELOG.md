@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.4.0 (2023-01-19)
+
+- Accept from OA4MP server both a 200 and a 201 when creating a
+  new OIDC client.
+
 ## 5.3.0 (2022-11-10)
 
 - Adopt version 2.0.0 of COmanage Registry OA4MP plugin cfg syntax
