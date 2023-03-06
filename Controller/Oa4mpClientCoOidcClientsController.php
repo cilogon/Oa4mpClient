@@ -1490,11 +1490,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
           }
         }
 
-        if(empty($ldapConfigs)) {
-          // Throw exception here because $cfg is set but we not not been able
-          // to unmarshall it using either QDL syntax or deprecated syntax.
-          throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.unmarshall.cfg'));
-        }
+        // cfg is set but we are not able to unmarshall it as a defined cfg format
+        // that uses QDL or the deprecated cfg syntax. That is ok, however, since it
+        // may now be a Named Configuration.
       }
     }
     catch(Exception $e) {
@@ -1594,65 +1592,78 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // does not contain the expected QDL syntax.
     $ldapConfigs = array();
 
-    if(!empty($cfg['tokens']['identity']['qdl'])) {
-      $qdl_pre_auth = $cfg['tokens']['identity']['qdl'][0];
-      $qdl_args = $qdl_pre_auth['args'];
+    // Try to parse the cfg as a defined format. See
+    // https://github.com/cilogon/Oa4mpClient/blob/main/cfg_format.md
+    try {
+      if(!empty($cfg['tokens']['identity']['qdl'])) {
+        $qdl_pre_auth = $cfg['tokens']['identity']['qdl'][0];
 
-      $ldapConfig = array();
+        if(!empty($qdl_pre_auth['args'])){ 
+          $qdl_args = $qdl_pre_auth['args'];
 
-      // This is required by the current schema but is deprecated after
-      // the transition to QDL.
-      $ldapConfig['authorization_type'] = 'simple';
-      $ldapConfig['enabled'] = true;
+          $ldapConfig = array();
 
-      $address = $qdl_args['server_fqdn'];
-      $port = $qdl_args['server_port'];
-      if($port == 636) {
-        $ldapConfig['serverurl'] = 'ldaps://' . $address;
-      } else {
-        $ldapConfig['serverurl'] = 'ldap://' . $address;
-      }
+          // This is required by the current schema but is deprecated after
+          // the transition to QDL.
+          $ldapConfig['authorization_type'] = 'simple';
+          $ldapConfig['enabled'] = true;
 
-      $ldapConfig['binddn'] = $qdl_args['bind_dn'];
-      $ldapConfig['password'] = $qdl_args['bind_password'];
-      $ldapConfig['basedn'] = $qdl_args['search_base'];
-      $ldapConfig['search_name'] = $qdl_args['search_attribute'];
-
-      $listAttributes = $qdl_args['list_attributes'];
-
-      // Initialize the LDAP to claim mappings as empty.
-      $ldapToClaimMappings = array();
-
-      if(array_key_exists('ldap_to_claim_mappings', $qdl_args)) {
-        // COmanage Registry OA4MP plugin cfg format 2.0.0.
-        $ldapToClaimMappings = $qdl_args['ldap_to_claim_mappings'];
-      } else {
-        // COmanage Registry OA4MP plugin cfg format 1.0.0.
-        if(count($cfg['tokens']['identity']['qdl']) == 2) {
-          if(array_key_exists('args', $cfg['tokens']['identity']['qdl'][1])){
-            $ldapToClaimMappings = $cfg['tokens']['identity']['qdl'][1]['args'];
+          $address = $qdl_args['server_fqdn'];
+          $port = $qdl_args['server_port'];
+          if($port == 636) {
+            $ldapConfig['serverurl'] = 'ldaps://' . $address;
+          } else {
+            $ldapConfig['serverurl'] = 'ldap://' . $address;
           }
+
+          $ldapConfig['binddn'] = $qdl_args['bind_dn'];
+          $ldapConfig['password'] = $qdl_args['bind_password'];
+          $ldapConfig['basedn'] = $qdl_args['search_base'];
+          $ldapConfig['search_name'] = $qdl_args['search_attribute'];
+
+          $listAttributes = $qdl_args['list_attributes'];
+
+          // Initialize the LDAP to claim mappings as empty.
+          $ldapToClaimMappings = array();
+
+          if(array_key_exists('ldap_to_claim_mappings', $qdl_args)) {
+            // COmanage Registry OA4MP plugin cfg format 2.0.0.
+            $ldapToClaimMappings = $qdl_args['ldap_to_claim_mappings'];
+          } else {
+            // COmanage Registry OA4MP plugin cfg format 1.0.0.
+            if(count($cfg['tokens']['identity']['qdl']) == 2) {
+              if(array_key_exists('args', $cfg['tokens']['identity']['qdl'][1])){
+                $ldapToClaimMappings = $cfg['tokens']['identity']['qdl'][1]['args'];
+              }
+            }
+          }
+
+          $ldapConfig['Oa4mpClientCoSearchAttribute'] = array();
+
+          foreach($ldapToClaimMappings as $key => $mapping) {
+            $sa = array();
+            $sa['name'] = $key;
+            $sa['return_name'] = $mapping;
+
+            if(in_array($key, $listAttributes)) {
+              $sa['return_as_list'] = true;
+            } else {
+              $sa['return_as_list'] = false;
+            }
+
+            $ldapConfig['Oa4mpClientCoSearchAttribute'][] = $sa;
+          }
+
+          // At this time we assume a single LDAP configuration in the QDL.
+          $ldapConfigs[] = $ldapConfig;
         }
       }
-
-      $ldapConfig['Oa4mpClientCoSearchAttribute'] = array();
-
-      foreach($ldapToClaimMappings as $key => $mapping) {
-        $sa = array();
-        $sa['name'] = $key;
-        $sa['return_name'] = $mapping;
-
-        if(in_array($key, $listAttributes)) {
-          $sa['return_as_list'] = true;
-        } else {
-          $sa['return_as_list'] = false;
-        }
-
-        $ldapConfig['Oa4mpClientCoSearchAttribute'][] = $sa;
-      }
-
-      // At this time we assume a single LDAP configuration in the QDL.
-      $ldapConfigs[] = $ldapConfig;
+    } catch (Exception $e) {
+      $this->log("Oa4mpClientCoOidcClient cfg is not a defined format, perhaps a NamedConfiguration");
+      return array();
+    } catch (TypeError $e) {
+      $this->log("Oa4mpClientCoOidcClient cfg is not a defined format, perhaps a NamedConfiguration");
+      return array();
     }
 
     return $ldapConfigs;
