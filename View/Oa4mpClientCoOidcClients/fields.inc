@@ -183,7 +183,9 @@ function namedConfigClicked() {
       let return_name_id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}ReturnName`;
       let return_as_list_id = `#Oa4mpClientCoLdapConfig0Oa4mpClientCoSearchAttribute${i}ReturnAsList`;
       $(name_id).val("");
+      $(name_id).removeAttr("required");
       $(return_name_id).val("");
+      $(return_name_id).removeAttr("required");
       $(return_as_list_id).prop("checked", false);
     }
   } else {
