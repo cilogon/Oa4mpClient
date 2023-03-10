@@ -69,9 +69,22 @@ class Oa4mpClientCoNamedConfig extends AppModel {
       'allowEmpty' => true
     ),
     'config' => array(
-      'rule' => 'notBlank',
+      'rule' => 'isValidJson',
       'required' => true,
-      'allowEmpty' => false
+      'allowEmpty' => false,
+      'message' => 'The config must be valid JSON'
     )
   );
+
+  // Validate config is valid JSON.
+  public function isValidJson($check) {
+    $config = $check['config'];
+    
+    try {
+      json_decode($config, true, 512, JSON_THROW_ON_ERROR);
+      return true;
+    } catch (Exception $e) {
+      return false;
+    }
+  }
 }
