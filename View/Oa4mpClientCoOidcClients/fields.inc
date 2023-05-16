@@ -709,7 +709,8 @@ function js_local_onload() {
     </div>
     <ul class="field-children" id="oa4mp_client_co_scope">
       <li>
-        <div class="field-info form-check">
+        <div class="field-info form-check checkbox-checked-appear-disabled">
+            <span class="material-icons-outlined">check_box</span>
             <?php
               $args = array();
               $args['type'] = 'checkbox';

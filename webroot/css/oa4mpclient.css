@@ -92,3 +92,20 @@ div.field-children-inline button {
   font-style: italic;
   font-size: 0.9em;
 }
+
+.checkbox-checked-appear-disabled .form-check-input {
+  appearance: none;
+  cursor: default;
+}
+.checkbox-checked-appear-disabled label {
+  cursor: default;
+  color: #666;
+}
+.checkbox-checked-appear-disabled .material-icons-outlined {
+  padding: 0;
+  margin: 0 0 0 -1.25em;
+  font-size: 16px;
+  vertical-align: middle;
+  color: #666;
+  cursor: default;
+}
