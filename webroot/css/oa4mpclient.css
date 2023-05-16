@@ -57,37 +57,12 @@ div.field-children-inline button {
     margin-top: 4px;
 }
 
-.named-config-tooltip {
-    position: relative;
-    display: inline-block;
-    width: 900px;
-}
-
-.named-config-tooltip .named-config-tooltiptext {
-  visibility: hidden;
-  width: 360px;
-  background-color: rgb(223,239,252);
-  color: #06c;
-  text-align: left;
-  padding-top: 5px;
-  padding-right: 5px;
-  padding-bottom: 5px;
-  padding-left: 8px;
-  border-radius: 6px;
- 
-  /* Position the tooltip text - see examples below! */
-  position: absolute;
-  z-index: 1;
-}
-
-.named-config-tooltip:hover .named-config-tooltiptext {
-  visibility: visible;
-}
-
 .named-config-name {
   font-weight: bold;
 }
-
+.named-config-desc {
+  font-size: 0.9em;
+}
 .named-config-required-scopes {
   font-style: italic;
   font-size: 0.9em;

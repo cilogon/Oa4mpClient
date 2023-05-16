@@ -614,11 +614,8 @@ function js_local_onload() {
           $args['value'] = $c['id'];
           $args['checked'] = false;
 
-          $label = '<div class="named-config-tooltip">';
+          $label = '<div class="named-config">';
           $label = $label . '<span class="named-config-name">' . $c['config_name'] . '</span>';
-          $label = $label . '<span class="named-config-tooltiptext">';
-          $label = $label . $c['description'];
-          $label = $label . '</span>';
           $label = $label . '<span class="named-config-required-scopes">';
           $label = $label . ' requires scope(s) ';
 
@@ -630,7 +627,10 @@ function js_local_onload() {
           $label = $label . implode(', ', $scopes);
           $label = $label . '</span>';
           $label = $label . '</div>';
-
+          $label = $label . '<div class="named-config-desc">';
+          $label = $label . $c['description'];
+          $label = $label . '</div>';
+  
           $args['label'] = $label;
           if(!empty($this->request->data['Oa4mpClientCoOidcClient']['named_config_id'])) {
             if($this->request->data['Oa4mpClientCoOidcClient']['named_config_id'] == $c['id']) {
