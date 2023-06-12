@@ -68,7 +68,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_admin_client.save.dialog.understand' => 'I understand',
 
   'pl.oa4mp_client_co_admin_client.er.client_exists' => 'A CO may only have one Oa4mp Admin Client',
-  'pl.oa4mp_client_co_admin_client.er.create_error' => 'Unable to create new OIDC client',
+  'pl.oa4mp_client_co_admin_client.er.create_error' => 'OAuth2 server is unwilling to create new OIDC client. Please check your settings.',
   'pl.oa4mp_client_co_admin_client.er.delete_error' => 'Unable to delete OIDC client',
   'pl.oa4mp_client_co_admin_client.er.edit_error' => 'Unable to edit OIDC client',
 
