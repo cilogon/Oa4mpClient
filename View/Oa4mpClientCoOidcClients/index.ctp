@@ -36,13 +36,17 @@
   // Add top links
   $params['topLinks'] = array();
 
+  // The link to add a new client uses a different action
+  // depending on how many admin clients the CO has available.
+  $addAction = $this->viewVars['vv_next_action'];
+
   if($permissions['add']) {
     $params['topLinks'][] = $this->Html->link(
       _txt('op.add.new', array(_txt('ct.oa4mp_client_co_oidc_clients.1'))),
       array(
         'plugin' => 'oa4mp_client',
         'controller' => 'oa4mp_client_co_oidc_clients',
-        'action' => 'add',
+        'action' => $addAction,
         'co' => $this->params['named']['co']
       ),
       array('class' => 'addbutton')
@@ -50,13 +54,13 @@
   }
 
   print $this->element("pageTitleAndButtons", $params);
-
 ?>
 
 <table id="oa4mp_client_co_oidc_clients" class="ui-widget">
   <thead>
     <tr class="ui-widget-header">
-      <th><?php print $this->Paginator->sort('name', _txt('pl.oa4mp_client_co_oidc_client.name.fd.name'), array('model' => 'Co')); ?></th>
+      <th><?php print $this->Paginator->sort('name', _txt('pl.oa4mp_client_co_oidc_client.name.fd.name'), array('model' => 'Oa4mpClientCoOidcClient')); ?></th>
+      <th><?php print $this->Paginator->sort('name', _txt('pl.oa4mp_client_co_oidc_client.admin_id.fd.name'), array('model' => 'Oa4mpClientCoOidcAdminClient')); ?></th>
       <th><?php print $this->Paginator->sort('oa4mp_identifier', _txt('pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name')); ?></th>
       <th class="thinActionButtonsCol"><?php print _txt('fd.actions'); ?></th>
     </tr>
@@ -70,6 +74,19 @@
         <?php
           print $this->Html->link(
             $c['Oa4mpClientCoOidcClient']['name'],
+            array(
+              'plugin' => 'oa4mp_client',
+              'controller' => 'oa4mp_client_co_oidc_clients',
+              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              $c['Oa4mpClientCoOidcClient']['id']
+            )
+          );
+        ?>
+      </td>
+      <td>
+        <?php
+          print $this->Html->link(
+            $c['Oa4mpClientCoAdminClient']['name'] . " - " . $c['Oa4mpClientCoAdminClient']['issuer'],
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_oidc_clients',
@@ -134,7 +151,7 @@
   
   <tfoot>
     <tr class="ui-widget-header">
-      <th colspan="3">
+      <th colspan="4">
         <?php print $this->element("pagination"); ?>
       </th>
     </tr>

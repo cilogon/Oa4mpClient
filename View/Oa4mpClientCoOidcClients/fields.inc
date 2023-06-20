@@ -64,6 +64,9 @@
     if(!empty($this->request->data['Oa4mpClientCoOidcClient']['admin_id'])) {
       print $this->Form->hidden('admin_id');
     }
+    if(!empty($vv_admin_id)) {
+      print $this->Form->hidden('admin_id', array('value' => $vv_admin_id));
+    }
   }
 
   // Is this a public client?

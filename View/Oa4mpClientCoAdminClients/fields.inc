@@ -180,6 +180,40 @@
     <div class="field-name">
       <div class="field-title">
         <?php print ($e
+                     ? $this->Form->label('name', _txt('pl.oa4mp_client_co_admin_client.name.fd.name'))
+                     : _txt('pl.oa4mp_client_co_admin_client.name.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.name.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+        <?php print ($e
+                     ? $this->Form->input('name')
+                     : filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['name'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e
+                     ? $this->Form->label('name', _txt('pl.oa4mp_client_co_admin_client.issuer.fd.name'))
+                     : _txt('pl.oa4mp_client_co_admin_client.issuer.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.issuer.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+        <?php print ($e
+                     ? $this->Form->input('issuer')
+                     : filter_var($oa4mp_client_co_admin_clients[0]['Oa4mpClientCoAdminClient']['issuer'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e
                      ? $this->Form->label('admin_identifier', _txt('pl.oa4mp_client_co_admin_client.admin_identifier.fd.name'))
                      : _txt('pl.oa4mp_client_co_admin_client.admin_identifier.fd.name')); ?>
         <span class="required">*</span>

@@ -57,6 +57,8 @@
   <thead>
     <tr class="ui-widget-header">
       <th><?php print $this->Paginator->sort('name', _txt('co'), array('model' => 'Co')); ?></th>
+      <th><?php print $this->Paginator->sort('name', _txt('pl.oa4mp_client_co_admin_client.name.fd.name')); ?></th>
+      <th><?php print $this->Paginator->sort('issuer', _txt('pl.oa4mp_client_co_admin_client.issuer.fd.name')); ?></th>
       <th><?php print $this->Paginator->sort('admin_identifier', _txt('pl.oa4mp_client_co_admin_client.admin_identifier.fd.name')); ?></th>
       <th class="thinActionButtonsCol"><?php print _txt('fd.actions'); ?></th>
     </tr>
@@ -70,6 +72,32 @@
         <?php
           print $this->Html->link(
             $c['Co']['name'],
+            array(
+              'plugin' => 'oa4mp_client',
+              'controller' => 'oa4mp_client_co_admin_clients',
+              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              $c['Oa4mpClientCoAdminClient']['id']
+            )
+          );
+        ?>
+      </td>
+      <td>
+        <?php
+          print $this->Html->link(
+            $c['Oa4mpClientCoAdminClient']['name'],
+            array(
+              'plugin' => 'oa4mp_client',
+              'controller' => 'oa4mp_client_co_admin_clients',
+              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              $c['Oa4mpClientCoAdminClient']['id']
+            )
+          );
+        ?>
+      </td>
+      <td>
+        <?php
+          print $this->Html->link(
+            $c['Oa4mpClientCoAdminClient']['issuer'],
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_admin_clients',
@@ -134,7 +162,7 @@
   
   <tfoot>
     <tr class="ui-widget-header">
-      <th colspan="3">
+      <th colspan="5">
         <?php print $this->element("pagination"); ?>
       </th>
     </tr>

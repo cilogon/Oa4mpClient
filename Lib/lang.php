@@ -54,6 +54,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.description' => 'If set, members of this group may create and manage OIDC clients',
   'pl.oa4mp_client_co_admin_client.serverurl.fd.name' => 'Server URL',
   'pl.oa4mp_client_co_admin_client.serverurl.fd.description' => 'OA4MP server URL (https://cilogon.org/oauth2/clients)',
+  'pl.oa4mp_client_co_admin_client.name.fd.name' => 'Display Name',
+  'pl.oa4mp_client_co_admin_client.name.fd.description' => 'Admin client display name',
+  'pl.oa4mp_client_co_admin_client.issuer.fd.name' => 'Issuer',
+  'pl.oa4mp_client_co_admin_client.issuer.fd.description' => 'OAuth2 Issuer (e.g. https://cilogon.org)',
   'pl.oa4mp_client_co_admin_client.secret.fd.name' => 'Secret',
   'pl.oa4mp_client_co_admin_client.secret.fd.description' => 'Secret for the admin client for the CO',
   'pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.name' => 'Claims QDL Path',
@@ -72,6 +76,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_admin_client.er.delete_error' => 'Unable to delete OIDC client',
   'pl.oa4mp_client_co_admin_client.er.edit_error' => 'Unable to edit OIDC client',
 
+  'pl.oa4mp_client_co_oidc_client.admin_id.fd.name' => 'OAuth2 Server and Issuer',
+  'pl.oa4mp_client_co_oidc_client.admin_id.fd.name.select' => 'Select OAuth2 Server and Issuer for New Client',
+  'pl.oa4mp_client_co_oidc_client.admin_id.fd.issuer' => 'Issuer',
+  'pl.oa4mp_client_co_oidc_client.admin_id.fd.warn' => 'The OAuth2 Server and Issuer cannot be changed after the client is created.',
   'pl.oa4mp_client_co_oidc_client.name.fd.name' => 'Name',
   'pl.oa4mp_client_co_oidc_client.name.fd.description' => 'The client Name is displayed to end-users on the Identity Provider selection page',
   'pl.oa4mp_client_co_oidc_client.mail.fd.name' => 'Contact Email Address',
@@ -92,7 +100,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.public_client.fd.description.add' => 'Public clients have no client secret and only the openid scope is allowed. <a href="https://oauth.net/2/client-types/">See OAuth 2.0 Client Types</a>',
   'pl.oa4mp_client_co_oidc_client.public_client.fd.description.edit' => 'The client type cannot be changed after the client is created',
   'pl.oa4mp_client_co_oidc_client.named_config.fd.name' => 'Use a Named Configuration',
-  'pl.oa4mp_client_co_oidc_client.named_config.fd.description' => 'Configure scopes, claims, and other details using an existing template. Check the box to see available templates, and hover over the template name for a full description.',
+  'pl.oa4mp_client_co_oidc_client.named_config.fd.description' => 'Configure scopes, claims, and other details using an existing template. Check the box to see available templates.',
 
   'pl.oa4mp_client_co_oidc_client.public.title' => 'New OIDC Client',
   'pl.oa4mp_client_co_oidc_client.public.text' => 'This is a public OIDC client and therefore it has no client secret.',
@@ -156,6 +164,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_search_attribute.return_name.fd.name' => 'OIDC Claim Name',
   'pl.oa4mp_client_co_search_attribute.return_as_list.fd.name' => 'Multivalued?',
 
+  'pl.oa4mp_client_co_named_config.admin.fd' => 'Admin Client',
+  'pl.oa4mp_client_co_named_config.admin.description' => 'Each Named Configuration is bound to a single admin client/issuer.',
   'pl.oa4mp_client_co_named_config.config_name.fd' => 'Configuration Name',
   'pl.oa4mp_client_co_named_config.config_name.description' => 'This name will be shown to admininstrators when managing OIDC clients',
   'pl.oa4mp_client_co_named_config.description.fd' => 'Description',
@@ -194,4 +204,5 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.er.invalid_scheme' => 'Please use a valid scheme for callback URLs',
   'pl.oa4mp_client_co_oidc_client.er.valid_domain' => 'Private-use URI schemes require a valid domain',
   'pl.oa4mp_client_co_oidc_client.er.callback_default' => 'Please provide a valid callback URL',
+  'pl.oa4mp_client_co_oidc_client.er.bad_admin_id' => 'The selected OAuth2 server is not available',
 );

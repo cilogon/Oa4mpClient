@@ -45,6 +45,7 @@ class Oa4mpClientCoAdminClient extends AppModel {
   public $hasOne = array(
     // An Oa4mp admin client has one default LDAP config
     "DefaultLdapConfig" => array(
+      'dependent' => true,
       'className' => 'Oa4mpClient.Oa4mpClientCoLdapConfig',
       'foreignKey' => 'admin_id'
     )
@@ -53,14 +54,17 @@ class Oa4mpClientCoAdminClient extends AppModel {
   public $hasMany = array(
     // An Oa4mp admin client manages many OIDC clients
     "Oa4mpClient.Oa4mpClientCoOidcClient" => array(
+      'dependent' => true,
       'foreignKey' => 'admin_id'
     ),
     // An Oa4mp admin client has many contact email addresses
     "Oa4mpClient.Oa4mpClientCoEmailAddress" => array(
+      'dependent' => true,
       'foreignKey' => 'admin_id'
     ),
     // An Oa4mp admin client has many named configurations
     "Oa4mpClient.Oa4mpClientCoNamedConfig" => array(
+      'dependent' => true,
       'foreignKey' => 'admin_id'
     )
   );
@@ -88,6 +92,18 @@ class Oa4mpClientCoAdminClient extends AppModel {
       'required' => true,
       'allowEmpty' => false,
       'message' => 'Please supply a valid http:// or https:// URL'
+    ),
+    'name' => array(
+      'rule' => 'notBlank',
+      'required' => 'update',
+      'allowEmpty' => false,
+      'message' => 'Please supply a display name'
+    ),
+    'issuer' => array(
+      'rule' => 'url',
+      'required' => true,
+      'allowEmpty' => false,
+      'message' => 'Please supply a valid https:// URL'
     ),
     'admin_identifier' => array( 
         'rule' => 'notBlank',

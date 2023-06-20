@@ -1,5 +1,9 @@
 # Changelog
 
+## 6.0.0 (2023-06-21)
+
+- Enable multiple admin clients per CO.
+
 ## 5.4.0 (2023-01-19)
 
 - Accept from OA4MP server both a 200 and a 201 when creating a

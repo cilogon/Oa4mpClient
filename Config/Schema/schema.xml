@@ -36,6 +36,8 @@
             <constraint>REFERENCES cm_co_groups(id)</constraint>
         </field>
         <field name="serverurl" type="C" size="256" />
+        <field name="name" type="C" size="256" />
+        <field name="issuer" type="C" size="256" />
         <field name="admin_identifier" type="C" size="96" />
         <field name="secret" type="C" size="96" />
         <field name="qdl_claim_source" type="C" size="256" />
@@ -45,7 +47,6 @@
 
         <index name="oa4mp_client_co_admin_clients_i1">
             <col>co_id</col>
-            <unique />
         </index>
     </table>
 

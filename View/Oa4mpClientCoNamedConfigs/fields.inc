@@ -76,14 +76,26 @@ function removeAdditionalScope(e) {
   <li>
     <div class="field-name">
       <div class="field-title">
-        <?php print $this->Form->label('admin_id',_txt('co')); ?>
+        <?php print $this->Form->label('admin_id',_txt('pl.oa4mp_client_co_named_config.admin.fd')); ?>
         <span class="required">*</span>
+      </div>
+      <div class="field-desc">
+        <?php print _txt('pl.oa4mp_client_co_named_config.admin.description'); ?>
       </div>
     </div>
     <div class="field-info">
       <?php 
         // Print dropdown selector with CO options
-        print $this->Form->select('admin_id', $this->viewVars['cos']);
+        $options = array();
+        foreach($adminClients as $c) {
+          $adminId = $c['Oa4mpClientCoAdminClient']['id'];
+          $adminName = $c['Oa4mpClientCoAdminClient']['name'];
+          $adminIssuer = $c['Oa4mpClientCoAdminClient']['issuer'];
+          $coName = $c['Co']['name'];
+          $value = $coName . " - " . $adminName . " (" . $adminIssuer . ")";
+          $options[$adminId] = $value;
+        }
+        print $this->Form->select('admin_id', $options);
       ?>
     </div>
   </li>

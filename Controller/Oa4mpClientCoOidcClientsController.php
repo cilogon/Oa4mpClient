@@ -78,7 +78,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     $this->set('title_for_layout', _txt('op.add.new', array(_txt('ct.oa4mp_client_co_oidc_clients.1'))));
 
-    // Use the CO ID to find the admin client, which is needed in the call to
+    // Use the CO ID to find the admin clients, one of which is needed in the call to
     // the Oa4mp server.
     $args = array();
     $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $this->cur_co['Co']['id'];
@@ -86,7 +86,12 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $args['contain'][] = 'Oa4mpClientCoEmailAddress';
     $args['contain']['Oa4mpClientCoNamedConfig'] = 'Oa4mpClientCoScope';
     $args['contain'][] = 'DefaultLdapConfig';
-    $adminClient = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
+    $adminClients = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('all', $args);
+
+    $adminIds = array();
+    foreach($adminClients as $c) {
+      $adminIds[] = $c['Oa4mpClientCoAdminClient']['id'];
+    }
 
     // Process POST data
     if($this->request->is('post')) {
@@ -106,8 +111,22 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         unset($data['Oa4mpClientCoLdapConfig'][0]);
       } 
 
-      // Set the admin client ID.
-      $data['Oa4mpClientCoOidcClient']['admin_id'] = $adminClient['Oa4mpClientCoAdminClient']['id'];
+      // Verify that the admin client is available for this CO.
+      if(!in_array($data['Oa4mpClientCoOidcClient']['admin_id'], $adminIds)) {
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_admin_id'), array('key' => 'error'));
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_co_oidc_clients';
+          $args['action'] = 'index';
+          $args['co'] = $this->cur_co['Co']['id'];
+          $this->redirect($args);
+      }
+
+      foreach($adminClients as $c) {
+        if($c['Oa4mpClientCoAdminClient']['id'] == $data['Oa4mpClientCoOidcClient']['admin_id']) {
+            $adminClient = $c;
+        }
+      }
 
       // Call out to Oa4mp server to create the new client.
       $newClient = $this->oa4mpNewClient($adminClient, $data);
@@ -144,6 +163,36 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     } else {
       // Process GET request.
 
+      // If an admin_id is passed in as a named parameter verify it is
+      // one of the admin IDs matched to the CO.
+      if(!empty($this->request->named['admin_id'])) {
+        $selectedAdminId = $this->request->named['admin_id'];
+
+        if(!in_array($selectedAdminId, $adminIds)) {
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_admin_id'), array('key' => 'error'));
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_co_oidc_clients';
+          $args['action'] = 'index';
+          $args['co'] = $this->cur_co['Co']['id'];
+          $this->redirect($args);
+        }
+
+        // Set the adminClient to be used for choosing default LDAP
+        // config and email address as the one passed in or the only
+        // admin client if there is only the single choice.
+        foreach($adminClients as $c) {
+          if($c['Oa4mpClientCoAdminClient']['id'] == $selectedAdminId) {
+            $adminClient = $c;
+          }
+        }
+      } else {
+        $adminClient = $adminClients[0];
+      }
+
+      $this->set('vv_admin_id', $adminClient['Oa4mpClientCoAdminClient']['id']);
+
+      // Set the default LDAP configuration.
       $defaultLdapConfig = $adminClient['DefaultLdapConfig'];
 
       $ldapConfig = array();
@@ -227,6 +276,8 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       if(!empty($adminClient['Oa4mpClientCoNamedConfig'])) {
         $this->request->data['Oa4mpClientCoNamedConfig'] = $adminClient['Oa4mpClientCoNamedConfig'];
+      } else {
+        $this->request->data['Oa4mpClientCoNamedConfig'] = array();
       }
 
       parent::add();
@@ -607,6 +658,25 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $this->request->data['Oa4mpClientCoNamedConfig'] = $curdata['Oa4mpClientCoAdminClient']['Oa4mpClientCoNamedConfig'];
   }
 
+  function index() {
+
+    // Use the CO ID to find the admin clients.
+    $args = array();
+    $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $this->cur_co['Co']['id'];
+    $args['contain'] = false;
+    $adminClients = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('all', $args);
+
+    // If there is more than one admin client available signal that the next action
+    // is select_admin.
+    if(count($adminClients) > 1) {
+      $this->set('vv_next_action', "select_admin");
+    } else {
+      $this->set('vv_next_action', "add");
+    }
+
+    parent::index();
+  }
+
   /**
    * Authorization for this Controller, called by Auth component
    * - precondition: Session.Auth holds data used for authz decisions
@@ -634,7 +704,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       $coPersonId = $this->Session->read('Auth.User.co_person_id');
 
-      if(!empty($coPersonId)){
+      if(!empty($coPersonId) && !empty($manageGroupId)){
         if($this->Role->isCoGroupMember($coPersonId, $manageGroupId)){
           $manager = true;
         }
@@ -643,6 +713,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     // Add a new OIDC client?
     $p['add'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
+    $p['select_admin'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
 
     // Delete an existing OIDC client?
     $p['delete'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
@@ -1756,7 +1827,8 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     if(!$coid) {
       $coid = -1;
       
-      if($this->action == 'index' || $this->action == 'add') {
+      $action = $this->action;
+      if(in_array($action, array('index', 'add', 'select_admin'))) {
         if(isset($this->params['named']['co'])) {
           $coid = $this->params['named']['co'];
         }
@@ -2014,6 +2086,49 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
   }
 
   /**
+   */
+
+  public function select_admin() {
+    // Use the CO ID to find the admin clients.
+    $co_id = $this->request->named['co'];
+
+    $args = array();
+    $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $co_id;
+    $args['contain'] = false;
+    $adminClients = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('all', $args);
+
+    // Process POST data
+    if($this->request->is('post')) {
+      // Verify that the chosen admin client is one mapped to this CO
+      // and if so then redirect to the add action with that admin client
+      // ID set.
+      if(!empty($this->request->data['Oa4mpClientCoOidcClient']['admin_id'])) {
+        $chosen = $this->request->data['Oa4mpClientCoOidcClient']['admin_id'];
+
+        $adminClientIds = array();
+        foreach($adminClients as $c) {
+          $adminClientIds[] = $c['Oa4mpClientCoAdminClient']['id'];
+        }
+
+        if(in_array($chosen, $adminClientIds)) {
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_co_oidc_clients';
+          $args['action'] = 'add';
+          $args['co'] = $this->cur_co['Co']['id'];
+          $args['admin_id'] = $chosen;
+
+          $this->redirect($args);
+        }
+      }
+    }
+
+    // GET
+    $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.admin_id.fd.name.select'));
+    $this->set('adminClients', $adminClients);
+  }
+
+  /**
    * Perform a sanity check on the identifier to verify it is part
    * of the current CO. This overrides method defined in AppController.php.
    *
@@ -2028,7 +2143,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       throw new LogicException(_txt('er.co.specify'));
     }
 
-    if($this->action != 'index' && $this->action != 'add') {
+    if(!in_array($this->action, array('index', 'add', 'select_admin'))) {
        $id = $this->request->pass[0];
 
        $args = array();

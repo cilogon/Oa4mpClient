@@ -62,6 +62,16 @@
       </th>
       <th><?php
           $args = array();
+          print $this->Paginator->sort('Oa4mpClientCoAdminClient.name', _txt('pl.oa4mp_client_co_named_config.admin.fd'), $args);
+          ?>
+      </th>
+      <th><?php
+          $args = array();
+          print $this->Paginator->sort('Oa4mpClientCoAdminClient.issuer', _txt('pl.oa4mp_client_co_oidc_client.admin_id.fd.issuer'), $args);
+          ?>
+      </th>
+      <th><?php
+          $args = array();
           print $this->Paginator->sort('config_name', _txt('pl.oa4mp_client_co_named_config.config_name.fd'), $args);
           ?>
       </th>
@@ -77,6 +87,32 @@
         <?php
           print $this->Html->link(
             $c['Co']['name'],
+            array(
+              'plugin' => 'oa4mp_client',
+              'controller' => 'oa4mp_client_co_named_configs',
+              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              $c['Oa4mpClientCoNamedConfig']['id']
+            )
+          );
+        ?>
+      </td>
+      <td>
+        <?php
+          print $this->Html->link(
+            $c['Oa4mpClientCoAdminClient']['name'],
+            array(
+              'plugin' => 'oa4mp_client',
+              'controller' => 'oa4mp_client_co_named_configs',
+              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              $c['Oa4mpClientCoNamedConfig']['id']
+            )
+          );
+        ?>
+      </td>
+      <td>
+        <?php
+          print $this->Html->link(
+            $c['Oa4mpClientCoAdminClient']['issuer'],
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_named_configs',
@@ -141,7 +177,7 @@
   
   <tfoot>
     <tr class="ui-widget-header">
-      <th colspan="3">
+      <th colspan="5">
         <?php print $this->element("pagination"); ?>
       </th>
     </tr>

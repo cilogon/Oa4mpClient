@@ -67,9 +67,8 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
   // Add models to contain when querying for data to be
   // used in views populated by the StandardController.
   public $view_contains = array(
-    // Include the CO for rendering of the index view.
-    //'Oa4mpClientCoAdminClient.Co'
-    'Oa4mpClientCoAdminClient' => 'Co'
+    'Oa4mpClientCoAdminClient.name',
+    'Oa4mpClientCoAdminClient.issuer',
   );
 
   /**
@@ -143,12 +142,7 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
 
     $adminClients = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->find('all', $args);
 
-    $cos = array();
-    foreach($adminClients as $c) {
-      $cos[$c['Oa4mpClientCoAdminClient']['id']] = $c['Co']['name'];
-    }
-
-    $this->set('cos', $cos);
+    $this->set('adminClients', $adminClients);
 
     parent::beforeRender();
   }

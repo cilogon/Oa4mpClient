@@ -100,22 +100,10 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
 
     $cos = $this->Oa4mpClientCoAdminClient->Co->find('all', $args);
 
-    $args = array();
-    $args['contain'] = false;
-
-    $clients = $this->Oa4mpClientCoAdminClient->find('all', $args);
-    $co_ids = array();
-    foreach($clients as $c) {
-      $co_ids[] = $c['Oa4mpClientCoAdminClient']['co_id'];
-    }
-
+    // We no longer constrain the CO to having a single admin client.
     $co_options = array();
     foreach($cos as $co) {
-      if(!in_array($co['Co']['id'], $co_ids)||
-        ($this->action == 'edit' && $this->data['Oa4mpClientCoAdminClient']['co_id'] == $co['Co']['id'])
-        ) {
         $co_options[$co['Co']['id']] = $co['Co']['name'];
-      }
     }
 
     $this->set('co_options', $co_options);
@@ -128,35 +116,6 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
     $this->set('qdlClaimDefault', $qdlClaimDefault);
     
     parent::beforeRender();
-  }
-
-  /**
-   * Perform any dependency checks required prior to a write (add/edit) operation.
-   *
-   * @since  COmanage Registry v2.0.1
-   * @param  Array Request data
-   * @param  Array Current data
-   * @return boolean true if dependency checks succeed, false otherwise.
-   */
-  
-  function checkWriteDependencies($reqdata, $curdata = null) {
-    
-    if(!isset($curdata) ||
-      ($curdata['Oa4mpClientCoAdminClient']['co_id'] != $reqdata['Oa4mpClientCoAdminClient']['co_id'])) {
-
-      $args = array();
-      $args['contain'] = false;
-      $args['conditions']['co_id'] = $reqdata['Oa4mpClientCoAdminClient']['co_id'];
-
-      $client = $this->Oa4mpClientCoAdminClient->find('first', $args);
-
-      if($client && $reqdata) {
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.client_exists'), array('key' => 'error'));
-        return false;
-      }
-    }
-    
-    return true;
   }
 
   /**
