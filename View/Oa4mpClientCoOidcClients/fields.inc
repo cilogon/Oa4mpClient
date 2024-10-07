@@ -797,6 +797,8 @@ function js_local_onload() {
             ?>
         </div>
       </li>
+
+      <?php if($this->action == "edit" && !empty($this->request->data['Oa4mpClientCoScope'][4])): ?>
       <li>
         <div class="field-info form-check">
             <?php
@@ -821,6 +823,8 @@ function js_local_onload() {
             ?>
         </div>
       </li>
+      <?php endif;?>
+
     </ul>
   </li>
 
