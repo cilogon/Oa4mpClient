@@ -84,3 +84,41 @@ div.field-children-inline button {
   color: #666;
   cursor: default;
 }
+
+#oidc-client-id {
+  width: 70%;
+  margin-right: 12px;
+}
+
+#oidc-client-secret {
+  width: 70%;
+  margin-right: 12px;
+}
+
+#oidc-client-id-label {
+  width: 10%;
+}
+
+#oidc-client-secret-label {
+  width: 10%;
+}
+
+#oidc-client-id-value {
+  width: 60%;
+}
+
+#oidc-client-secret-value {
+  width: 60%;
+}
+
+#oidc-client-id-btn {
+  display: inline-block;
+}
+
+#oidc-client-secret-btn {
+  display: inline-block;
+}
+
+#oidc-client-continue {
+  margin-top: 12px;
+}

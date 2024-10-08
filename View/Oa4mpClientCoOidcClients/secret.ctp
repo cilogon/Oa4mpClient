@@ -50,11 +50,15 @@
   print $this->element("pageTitleAndButtons", $params);
 
 ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.10/clipboard.min.js"></script>
+
 <script type="text/javascript">
   <!-- JS specific to these fields -->
 
 <?php if(!empty($vv_client_secret)): ?>
 function js_local_onload() {
+    new ClipboardJS('.copybtn');
+
     $("#client-secret-dialog").dialog({
       autoOpen: true,
       buttons: {
@@ -74,6 +78,8 @@ function js_local_onload() {
 }
 <?php else: ?>
 function js_local_onload() {
+    new ClipboardJS('.copybtn');
+
     $("#client-public-dialog").dialog({
       autoOpen: true,
       buttons: {
@@ -95,27 +101,29 @@ function js_local_onload() {
 
 </script>
 
-<ul id="<?php print $this->action; ?>_oa4mp_client_co_oidc_client" class="fields form-list form-list-admin">
+<ul id="secret_oa4mp_client_co_oidc_client" class="fields form-list form-list-admin">
   <li>
-    <div class="field-name">
+    <div class="field-name" id="oidc-client-id-label">
       <div class="field-title">
-        <?php print _txt('pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name'); ?>
+        <label><?php print _txt('pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name'); ?></label>
       </div>
     </div>
-    <div class="field-info">
-        <?php print $vv_client_id; ?>
+    <div class="field-info" id="oidc-client-id-value">
+        <input type="text" value="<?php print $vv_client_id; ?>" readonly="readonly" id="oidc-client-id">
+        <button class="co-button btn btn-primary copybtn" type="button" data-clipboard-target="#oidc-client-id" id="oidc-client-id-btn">Copy</button>
     </div>
   </li>
 
   <?php if(!empty($vv_client_secret)): ?>
   <li>
-    <div class="field-name">
+    <div class="field-name" id="oidc-client-secret-label">
       <div class="field-title">
-        <?php print _txt('pl.oa4mp_client_co_oidc_client.secret.fd.name'); ?>
+        <label><?php print _txt('pl.oa4mp_client_co_oidc_client.secret.fd.name'); ?></label>
       </div>
     </div>
-    <div class="field-info">
-        <?php print $vv_client_secret; ?>
+    <div class="field-info" id="oidc-client-secret-value">
+        <input type="text" value="<?php print $vv_client_secret; ?>" readonly="readonly" id="oidc-client-secret">
+        <button class="co-button btn btn-primary copybtn" type="button" data-clipboard-target="#oidc-client-secret" id="oidc-client-secret-btn">Copy</button>
     </div>
   </li>
   <?php endif; ?>
@@ -130,7 +138,7 @@ function js_local_onload() {
     $args['co'] = $cur_co['Co']['id'];
   }
   
-  print $this->Html->link(_txt('op.cont'), $args, array('class' => 'forwardbutton'));
+  print $this->Html->link(_txt('op.cont'), $args, array('class' => 'co-button btn btn-primary', 'id'=> 'oidc-client-continue'));
   ?>
 
 </ul>
