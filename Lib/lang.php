@@ -116,6 +116,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_scope.scope.fd.description' => '<a href="https://www.cilogon.org/oidc">Information on scopes</a>',
   'pl.oa4mp_client_co_scope.scope.fd.description.public' => 'Public clients may only use the openid scope',
   'pl.oa4mp_client_co_scope.scope.openid.fd.name' => 'openid',
+  'pl.oa4mp_client_co_scope.scope.openid.required' => 'openid scope is required',
 
   'pl.oa4mp_client_co_scope.scope.profile.fd.name' => 'profile',
   'pl.oa4mp_client_co_scope.scope.profile.dialog.title' => 'Confirm profile scope',
@@ -177,6 +178,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_named_config.additional_scope.description' => 'Any additional scopes the client must request, e.g. scopes needed for GA4GH passports',
   'pl.oa4mp_client_co_named_config.additional_scope.scope.fd' => 'Scope',
   'pl.oa4mp_client_co_named_config.add_first_additional_scope' => 'Add scope',
+  'pl.oa4mp_client_co_named_config.allowed_scopes' => 'allowed scope(s) include',
 
   'pl.oa4mp_client_co_named_config.not_selected.dialog.title' => 'No Named Configuration Selected',
   'pl.oa4mp_client_co_named_config.not_selected.dialog.text' => 'You have not selected a specific named configuration. Please select a specific named configuration or uncheck the box to indicate you do not want to use a named configuration.',

@@ -620,10 +620,14 @@ function js_local_onload() {
           $label = '<div class="named-config">';
           $label = $label . '<span class="named-config-name">' . $c['config_name'] . '</span>';
           $label = $label . '<span class="named-config-required-scopes">';
-          $label = $label . ' requires scope(s) ';
+          $label = $label . ' ' . _txt('pl.oa4mp_client_co_scope.scope.openid.required') . ',';
+          $label = $label . ' ' . _txt('pl.oa4mp_client_co_named_config.allowed_scopes') . ' ';
 
           $scopes = array();
           foreach($c['Oa4mpClientCoScope'] as $s) {
+            if($s['scope'] == 'openid') {
+              continue;
+            }
             $scopes[] = $s['scope'];
           }
 
