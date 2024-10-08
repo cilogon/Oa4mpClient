@@ -346,7 +346,7 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     }
 
     // Validate the standard scope fields and remove empty values.
-    for ($i = 0; $i < 10; $i++) {
+    for ($i = 0; $i < 50; $i++) {
       $scope = $data['Oa4mpClientCoScope'][$i];
       if(empty($scope['scope'])) {
         unset($data['Oa4mpClientCoScope'][$i]);

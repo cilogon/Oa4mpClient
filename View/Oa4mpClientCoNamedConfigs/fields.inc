@@ -44,6 +44,12 @@
 ?>
 
 <script type="text/javascript">
+function js_local_onload() {
+  var visible = $("#oa4mp_co_named_configs_scope_adhoc").find("li:visible").length;
+  if (visible == 0) {
+    $("#oa4mp_co_named_configs_add_first_additional_scope").show();
+  }
+}
 
 function addFirstAdditionalScope() {
   $("#oa4mp_client_co_named_configs_scope_5").find("input[type=text]").attr("required", "required");
@@ -235,22 +241,6 @@ function removeAdditionalScope(e) {
             ?>
         </div>
       </li>
-      <li>
-        <div class="field-info form-check">
-            <?php
-              $args = array();
-              $args['type'] = 'checkbox';
-              $args['label'] = _txt('pl.oa4mp_client_co_scope.scope.getcert.fd.name');
-              $args['value'] = Oa4mpClientScopeEnum::Getcert;
-              $args['class'] = "form-check-input";
-              print ($this->Form->input('Oa4mpClientCoScope.4.scope', $args));
-              if(!empty($this->request->data['Oa4mpClientCoScope'][4])) {
-                print $this->Form->hidden('Oa4mpClientCoScope.4.id');
-                print $this->Form->hidden('Oa4mpClientCoScope.4.named_config_id');
-              }
-            ?>
-        </div>
-      </li>
     </ul>
   </li>
 
@@ -271,6 +261,7 @@ function removeAdditionalScope(e) {
           $params['class'] = 'addbutton';
           $params['onclick'] = 'addFirstAdditionalScope()';
           $params['id'] = 'oa4mp_co_named_configs_add_first_additional_scope';
+          $params['style'] = 'display:none;';
           print $this->Html->tag('a', _txt('pl.oa4mp_client_co_named_config.add_first_additional_scope'), $params);
           print '</div>';
       ?>
@@ -281,8 +272,8 @@ function removeAdditionalScope(e) {
       <?php
         $displayAddScopeButton = false;
 
-        for($i = 5; $i < 10; $i++) {
-          if (!empty($this->request->data['Oa4mpClientCoScope'][$i])) {
+        for($i = 5; $i < 50; $i++) {
+          if (!empty($this->request->data['Oa4mpClientCoScope'][$i]['scope'])) {
             $display = "";
             $displayAddScopeButton = true;
           } else {
