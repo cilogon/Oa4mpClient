@@ -191,6 +191,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
 
       $this->set('vv_admin_id', $adminClient['Oa4mpClientCoAdminClient']['id']);
+      $this->set('vv_admin_issuer', $adminClient['Oa4mpClientCoAdminClient']['issuer']);
 
       // Set the default LDAP configuration.
       $defaultLdapConfig = $adminClient['DefaultLdapConfig'];
@@ -410,6 +411,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $adminClient['Oa4mpClientCoEmailAddress'] = $curdata['Oa4mpClientCoAdminClient']['Oa4mpClientCoEmailAddress'];
     $adminClient['Oa4mpClientCoNamedConfig'] = $curdata['Oa4mpClientCoAdminClient']['Oa4mpClientCoNamedConfig'];
     $adminClient['DefaultLdapConfig'] = $curdata['Oa4mpClientCoAdminClient']['DefaultLdapConfig'];
+
+    $this->set('vv_admin_id', $adminClient['Oa4mpClientCoAdminClient']['id']);
+    $this->set('vv_admin_issuer', $adminClient['Oa4mpClientCoAdminClient']['issuer']);
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.

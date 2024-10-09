@@ -438,6 +438,25 @@ function js_local_onload() {
     </div>
   </li>
 
+  <?php if($this->action == "edit"): ?>
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print $this->Form->label('name', _txt('pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+    </div>
+    <div class="field-info">
+      <?php
+        $params = array();
+        $params['default'] = $this->request->data['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
+        $params['disabled'] = 'disabled';
+        print $this->Form->text('oa4mp_identifier', $params);
+      ?>
+    </div>
+  </li>
+  <?php endif; ?>
+
   <li>
     <div class="field-name">
       <div class="field-title">
@@ -484,6 +503,47 @@ function js_local_onload() {
             }
           }
         ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print _txt('pl.oa4mp_client_co_oidc_client.issuer.fd.name') ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.issuer.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        $params = array();
+        $params['default'] = $vv_admin_issuer;
+        $params['disabled'] = 'disabled';
+        print ($e
+               ? $this->Form->text('issuer', $params)
+               : filter_var($vv_admin_issuer, FILTER_SANITIZE_SPECIAL_CHARS));
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print _txt('pl.oa4mp_client_co_oidc_client.wellknown.fd.name') ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.wellknown.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        $wellknown = $vv_admin_issuer . '/.well-known/openid-configuration';
+        $params = array();
+        $params['default'] = $wellknown;
+        $params['disabled'] = 'disabled';
+        print ($e
+               ? $this->Form->text('wellknown', $params)
+               : filter_var($wellknown, FILTER_SANITIZE_SPECIAL_CHARS));
+      ?>
     </div>
   </li>
 

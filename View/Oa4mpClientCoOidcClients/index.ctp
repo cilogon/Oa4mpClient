@@ -55,6 +55,15 @@
 
   print $this->element("pageTitleAndButtons", $params);
 ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.10/clipboard.min.js"></script>
+
+<script type="text/javascript">
+
+function js_local_onload() {
+    new ClipboardJS('.copybtn');
+}
+
+</script>
 
 <table id="oa4mp_client_co_oidc_clients" class="ui-widget">
   <thead>
@@ -97,6 +106,7 @@
         ?>
       </td>
       <td>
+        <div style="display:inline-block;width:70%;">
         <?php
           print $this->Html->link(
             $c['Oa4mpClientCoOidcClient']['oa4mp_identifier'],
@@ -108,6 +118,12 @@
             )
           );
         ?>
+        </div>
+        <button class="ui-button ui-corner-all ui-widget copybtn" data-clipboard-text="<?php print $c['Oa4mpClientCoOidcClient']['oa4mp_identifier']; ?>">
+          <span class="ui-button-icon ui-icon ui-icon-copy"></span>
+          <span class="ui-button-icon-space"></span>
+          Copy ID
+        </button>
       </td>
       <td>
         <?php
