@@ -49,6 +49,26 @@ function js_local_onload() {
   if (visible == 0) {
     $("#oa4mp_co_named_configs_add_first_additional_scope").show();
   }
+
+  $("#no-auto-update-dialog").dialog({
+    autoOpen: false,
+    buttons: {
+      "<?php print _txt('pl.oa4mp_client_co_oidc_client.secret.understand'); ?>": function() {
+        $(this).dialog("close");
+        $("#Oa4mpClientCoNamedConfigEditForm").attr("onsubmit", "return true;");
+        $("#Oa4mpClientCoNamedConfigEditForm").submit();
+      }
+    },
+    modal: true,
+    show: {
+      effect: "fade"
+    },
+    hide: {
+      effect: "fade"
+    }
+  });
+
+  $("#Oa4mpClientCoNamedConfigEditForm").attr("onsubmit", "return false;");
 }
 
 function addFirstAdditionalScope() {
@@ -72,6 +92,10 @@ function removeAdditionalScope(e) {
     $("#oa4mp_co_named_configs_add_first_additional_scope").show();
     $("#oa4mp_co_named_configs_add_additional_scope").hide();
   }
+}
+
+function renderNoAutomaticUpdateDialog() {
+  $("#no-auto-update-dialog").dialog("open");
 }
 
 </script>
@@ -326,7 +350,11 @@ function removeAdditionalScope(e) {
       <span class="required"><?php print _txt('fd.req'); ?></span>
     </div>
     <div class="field-info">
-      <?php print $this->Form->submit($submit_label); ?>
+    <button class="btn btn-primary" onclick="renderNoAutomaticUpdateDialog()"><?php print _txt('op.save'); ?></button>
     </div>
   </li>
 </ul>
+
+<div id="no-auto-update-dialog" title="<?php print _txt('pl.oa4mp_client_co_named_config.no_auto_update.dialog.title'); ?>" style="display:none">
+  <p><?php print _txt('pl.oa4mp_client_co_named_config.no_auto_update.dialog.text'); ?></p>
+</div>

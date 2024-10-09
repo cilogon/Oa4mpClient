@@ -186,6 +186,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_named_config.not_selected.dialog.title' => 'No Named Configuration Selected',
   'pl.oa4mp_client_co_named_config.not_selected.dialog.text' => 'You have not selected a specific named configuration. Please select a specific named configuration or uncheck the box to indicate you do not want to use a named configuration.',
+  'pl.oa4mp_client_co_named_config.no_auto_update.dialog.title' => 'No Clients Will Be Updated',
+  'pl.oa4mp_client_co_named_config.no_auto_update.dialog.text' => 'Editing the Named Configuration does NOT cause the cfg for any client to be automatically updated. You must edit and re-save any client that uses the Named Configuration you just edited.',
 
   // Enumerations
   'pl.oa4mp_client.en.scope' => array(
