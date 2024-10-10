@@ -1201,7 +1201,20 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       foreach($ret['Oa4mpClientCoNamedConfig'] as $c) {
         if($c['id'] == $data['Oa4mpClientCoOidcClient']['named_config_id']) {
           $jsonString = $c['config'];
-          $cfg = json_decode($jsonString);
+          $cfg = json_decode($jsonString, true);
+
+          // Add metadata with URL to the named configuration if not already present.
+          if($cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] ?? true) {
+
+            $routingArray = array();
+            $routingArray['plugin'] = 'oa4mp_client';
+            $routingArray['controller'] = 'oa4mp_client_co_named_configs';
+            $routingArray['action'] = 'edit';
+            $routingArray[] = $data['Oa4mpClientCoOidcClient']['named_config_id'];
+
+            $cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] = Router::url($routingArray, true);
+          }
+
           return $cfg;
         }
       }
