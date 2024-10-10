@@ -203,7 +203,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $ldapConfig['binddn'] = $defaultLdapConfig['binddn'];
       $ldapConfig['password'] = $defaultLdapConfig['password'];
       $ldapConfig['basedn'] = $defaultLdapConfig['basedn'];
-      $ldapConfig['search_name'] = 'uid';
+      $ldapConfig['search_name'] = 'voPersonExternalID';
 
       $this->request->data['Oa4mpClientCoLdapConfig'][0] = $ldapConfig;
 
