@@ -870,10 +870,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       return false;
     }
 
-    if(strcmp($oa4mpClient['comment'], _txt('pl.oa4mp_client_co_oidc_client.signature')) !==0) {
+    if(!str_starts_with($oa4mpClient['comment'], _txt('pl.oa4mp_client_co_oidc_client.signature'))) {
       $this->log("The OA4MP server respresentation of the client has comment");
       $this->log($oa4mpClient['comment']);
-      $this->log("but the comment should be");
+      $this->log("but the comment should start with");
       $this->log(_txt('pl.oa4mp_client_co_oidc_client.signature'));
       return false;
     }
@@ -1383,8 +1383,18 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $content['contacts'][] = $data['Oa4mpClientCoEmailAddress'][0]['mail'];
     }
 
-    // OA4MP extensions to the metadata not part of RFC 7591.
-    $content['comment'] = _txt('pl.oa4mp_client_co_oidc_client.signature');
+    // Include a comment that begins with a constant static string
+    // appended with a URL to the index view for the clients since we
+    // do not yet know that ID for the new client.
+    $indexRoutingArray = array();
+    $indexRoutingArray['plugin'] = 'oa4mp_client';
+    $indexRoutingArray['controller'] = 'oa4mp_client_co_oidc_clients';
+    $indexRoutingArray['action'] = 'index';
+    $indexRoutingArray['co'] = $adminClient['Oa4mpClientCoAdminClient']['co_id'];
+
+    $indexUrl = Router::url($indexRoutingArray, true);
+
+    $content['comment'] = _txt('pl.oa4mp_client_co_oidc_client.signature') . ': ' . $indexUrl;
 
     if(!empty($data['Oa4mpClientCoLdapConfig']) || !empty($data['Oa4mpClientCoOidcClient']['named_config_id'])) {
       $content['cfg'] = $this->oa4mpMarshallCfgQdl($data);
@@ -1991,7 +2001,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       // Validate the scope field and remove empty values submitted
       // by any hidden input fields from the view.
       for ($i = 0; $i < 5; $i++) {
-        $scope = $data['Oa4mpClientCoScope'][$i];
+        $scope = $data['Oa4mpClientCoScope'][$i] ?? null;
+        if(is_null($scope)) {
+          continue;
+        }
         if(empty($scope['scope'])) {
           unset($data['Oa4mpClientCoScope'][$i]);
           continue; 
