@@ -282,16 +282,253 @@
   <li>
     <div class="field-name">
       <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.aws_region', _txt('pl.oa4mp_client_co_admin_client.dynamo.region.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.region.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.region.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        $attrs = array();
+        $attrs['value'] = (isset($oa4mp_client_dynamo_configs[0]['DefaultDynamoConfig']['aws_region']) 
+                           ? $oa4mp_client_dynamo_configs[0]['DefaultDynamoConfig']['aws_region']
+                           : null);
+        // Since required=true, this will render blank by default but not allow save until a region is selected
+        $attrs['empty'] = true;
+
+        if($e) {
+          print $this->Form->select('DefaultDynamoConfig.aws_region',
+                                    $vv_aws_regions,
+                                    $attrs);
+
+          if($this->Form->isFieldError('aws_region')) {
+            print $this->Form->error('aws_region');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['aws_region'])) {
+            print filter_var($vv_servers[ $oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['aws_region'] ], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.table_name', _txt('pl.oa4mp_client_co_admin_client.dynamo.table_name.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.table_name.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.table_name.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          print $this->Form->input('DefaultDynamoConfig.table_name');
+
+          if($this->Form->isFieldError('table_name')) {
+            print $this->Form->error('table_name');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['table_name'])) {
+            print filter_var($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['table_name'], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.aws_access_key_id', _txt('pl.oa4mp_client_co_admin_client.dynamo.aws_access_key_id.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.aws_access_key_id.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.aws_access_key_id.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          print $this->Form->text('DefaultDynamoConfig.aws_access_key_id');
+
+          if($this->Form->isFieldError('aws_access_key_id')) {
+            print $this->Form->error('aws_access_key_id');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['aws_access_key_id'])) {
+            print filter_var($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['aws_access_key_id'], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.aws_secret_access_key', _txt('pl.oa4mp_client_co_admin_client.dynamo.aws_secret_access_key.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.aws_secret_access_key.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.aws_secret_access_key.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          print $this->Form->text('DefaultDynamoConfig.aws_secret_access_key');
+
+          if($this->Form->isFieldError('aws_secret_access_key')) {
+            print $this->Form->error('aws_secret_access_key');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['aws_secret_access_key'])) {
+            print filter_var($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['aws_secret_access_key'], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.partition_key', _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          $args = array();
+          $args['default'] = 'PartitionKey';
+          print $this->Form->text('DefaultDynamoConfig.partition_key', $args);
+
+          if($this->Form->isFieldError('partition_key')) {
+            print $this->Form->error('partition_key');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['partition_key'])) {
+            print filter_var($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['partition_key'], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.partition_key_template', _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key_template.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key_template.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key_template.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          $args = array();
+          $args['default'] = "identifier#oidcsub#%%CLAIM_VALUE%%";
+          print $this->Form->text('DefaultDynamoConfig.partition_key_template', $args);
+
+          if($this->Form->isFieldError('partition_key_template')) {
+            print $this->Form->error('partition_key_template');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['partition_key_template'])) {
+            print filter_var($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['partition_key_template'], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.partition_key_claim_name', _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key_claim_name.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key_claim_name.fd.name')); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.partition_key_claim_name.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          $args = array();
+          $args['default'] = "sub";
+          print $this->Form->text('DefaultDynamoConfig.partition_key_claim_name', $args);
+
+          if($this->Form->isFieldError('partition_key_claim_name')) {
+            print $this->Form->error('partition_key_claim_name');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['partition_key_claim_name'])) {
+            print filter_var($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['partition_key_claim_name'], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.sort_key', _txt('pl.oa4mp_client_co_admin_client.dynamo.sort_key.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.sort_key.fd.name')); ?>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.sort_key.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          print $this->Form->text('DefaultDynamoConfig.sort_key');
+
+          if($this->Form->isFieldError('sort_key')) {
+            print $this->Form->error('sort_key');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['sort_key'])) {
+            print filter_var($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['sort_key'], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
+        <?php print ($e ? $this->Form->label('DefaultDynamoConfig.sort_key_template', _txt('pl.oa4mp_client_co_admin_client.dynamo.sort_key_template.fd.name')) : _txt('pl.oa4mp_client_co_admin_client.dynamo.sort_key_template.fd.name')); ?>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.dynamo.sort_key_template.fd.description'); ?></div>
+    </div>
+    <div class="field-info">
+      <?php
+        if($e) {
+          print $this->Form->text('DefaultDynamoConfig.sort_key_template');
+
+          if($this->Form->isFieldError('sort_key_template')) {
+            print $this->Form->error('sort_key_template');
+          }
+        } else {
+          if(!empty($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['sort_key_template'])) {
+            print filter_var($oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['sort_key_template'], FILTER_SANITIZE_SPECIAL_CHARS);
+          }
+        }
+      ?>
+    </div>
+  </li>
+
+  <li>
+    <div class="field-name">
+      <div class="field-title">
         <?php print ($e
                      ? $this->Form->label('DefaultLdapConfig.serverurl', _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name'))
                      : _txt('pl.oa4mp_client_co_ldap_config.serverurl.fd.name')); ?>
-        <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.ldap.server.fd.description'); ?></div>
     </div>
     <div class="field-info">
       <?php print ($e
-                   ? $this->Form->input('DefaultLdapConfig.serverurl')
+                   ? $this->Form->input('DefaultLdapConfig.serverurl', array('required' => false))
                    : filter_var($oa4mp_client_co_admin_clients[0]['DefaultLdapConfig']['serverurl'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
     </div>
   </li>
@@ -302,13 +539,12 @@
         <?php print ($e
                      ? $this->Form->label('DefaultLdapConfig.binddn', _txt('pl.oa4mp_client_co_ldap_config.binddn.fd.name'))
                      : _txt('pl.oa4mp_client_co_ldap_config.binddn.fd.name')); ?>
-        <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.ldap.binddn.fd.description'); ?></div>
     </div>
     <div class="field-info">
       <?php print ($e
-                   ? $this->Form->input('DefaultLdapConfig.binddn')
+                   ? $this->Form->input('DefaultLdapConfig.binddn', array('required' => false))
                    : filter_var($oa4mp_client_co_admin_clients[0]['DefaultLdapConfig']['binddn'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
     </div>
   </li>
@@ -319,13 +555,12 @@
         <?php print ($e
                      ? $this->Form->label('DefaultLdapConfig.password', _txt('pl.oa4mp_client_co_ldap_config.password.fd.name'))
                      : _txt('pl.oa4mp_client_co_ldap_config.password.fd.name')); ?>
-        <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.ldap.bindpassword.fd.description'); ?></div>
     </div>
     <div class="field-info">
       <?php print ($e
-                   ? $this->Form->input('DefaultLdapConfig.password')
+                   ? $this->Form->input('DefaultLdapConfig.password', array('required' => false))
                    : filter_var($oa4mp_client_co_admin_clients[0]['DefaultLdapConfig']['password'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
     </div>
   </li>
@@ -336,13 +571,12 @@
         <?php print ($e
                      ? $this->Form->label('DefaultLdapConfig.basedn', _txt('pl.oa4mp_client_co_ldap_config.basedn.fd.name'))
                      : _txt('pl.oa4mp_client_co_ldap_config.basedn.fd.name')); ?>
-        <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.ldap.searchbase.fd.description'); ?></div>
     </div>
     <div class="field-info">
       <?php print ($e
-                   ? $this->Form->input('DefaultLdapConfig.basedn')
+                   ? $this->Form->input('DefaultLdapConfig.basedn', array('required' => false))
                    : filter_var($oa4mp_client_co_admin_clients[0]['DefaultLdapConfig']['basedn'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
     </div>
   </li>

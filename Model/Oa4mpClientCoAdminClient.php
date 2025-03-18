@@ -48,6 +48,12 @@ class Oa4mpClientCoAdminClient extends AppModel {
       'dependent' => true,
       'className' => 'Oa4mpClient.Oa4mpClientCoLdapConfig',
       'foreignKey' => 'admin_id'
+    ),
+    // An Oa4mp admin client has one default Dynamo config
+    "DefaultDynamoConfig" => array(
+      'dependent' => true,
+      'className' => 'Oa4mpClient.Oa4mpClientDynamoConfig',
+      'foreignKey' => 'admin_id'
     )
   );
 

@@ -68,6 +68,7 @@
         <field name="named_config_id" type="I">
             <constraint>REFERENCES cm_oa4mp_client_co_named_configs(id)</constraint>
         </field>
+        <field name="require_active" type="L" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
@@ -209,5 +210,74 @@
         <index name="oa4mp_client_co_named_config_i1">
             <col>admin_id</col>
         </index>
+    </table>
+
+    <table name="oa4mp_client_dynamo_configs">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="admin_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_admin_clients(id)</constraint>
+        </field>
+        <field name="aws_region" type="C" size="64" />
+        <field name="aws_access_key_id" type="C" size="64" />
+        <field name="aws_secret_access_key" type="C" size="64" />
+        <field name="table_name" type="C" size="256" />
+        <field name="partition_key" type="C" size="256" />
+        <field name="partition_key_template" type="C" size="256" />
+        <field name="partition_key_claim_name" type="C" size="256" />
+        <field name="sort_key" type="C" size="256" />
+        <field name="sort_key_template" type="C" size="256" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+    </table>
+
+    <table name="oa4mp_client_claims">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="claim_name" type="C" size="256" />
+        <field name="source_model" type="C" size="64" />
+        <field name="value_field" type="C" size="64" />
+        <field name="value_req" type="C" size="64" />
+        <field name="value_format" type="C" size="2" />
+        <field name="value_string_d" type="C" size="32" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+    </table>
+
+    <table name="oa4mp_client_claim_constraints">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="claim_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_claims(id)</constraint>
+        </field>
+        <field name="field" type="C" size="64" />
+        <field name="value" type="C" size="64" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+    </table>
+
+    <table name="oa4mp_client_dynamo_qdl">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="claim_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_claims(id)</constraint>
+        </field>
+        <field name="code" type="X" size="4096" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
     </table>
 </schema> 

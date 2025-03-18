@@ -53,12 +53,23 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
   function add() {
     // Process POST data
     if($this->request->is('post')) {
+      // We no longer require a default LDAP config so remove it from the
+      // request data if it is empty.
+      $defaultLdapConfig = $this->request->data['DefaultLdapConfig'];
 
-      // We do not currently expose all of the LDAP configuration options
-      // in the form so add default values before validating the data. 
-      $this->request->data['DefaultLdapConfig']['enabled'] = true;
-      $this->request->data['DefaultLdapConfig']['authorization_type'] = 'simple';
-      $this->request->data['DefaultLdapConfig']['search_name'] = 'username';
+      if(empty($defaultLdapConfig['serverurl']) &&
+         empty($defaultLdapConfig['binddn'])    &&
+         empty($defaultLdapConfig['password'])  &&
+         empty($defaultLdapConfig['basedn'])    
+      ){
+        unset($this->request->data['DefaultLdapConfig']);
+      } else {
+        // We do not currently expose all of the LDAP configuration options
+        // in the form so add default values before validating the data. 
+        $this->request->data['DefaultLdapConfig']['enabled'] = true;
+        $this->request->data['DefaultLdapConfig']['authorization_type'] = 'simple';
+        $this->request->data['DefaultLdapConfig']['search_name'] = 'voPersonExternalID';
+      }
     }
 
     parent::add();
@@ -114,6 +125,8 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
     $qdlClaimDefault = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT');
 
     $this->set('qdlClaimDefault', $qdlClaimDefault);
+
+    $this->set('vv_aws_regions', AwsRegionEnum::$allAwsRegions);
     
     parent::beforeRender();
   }

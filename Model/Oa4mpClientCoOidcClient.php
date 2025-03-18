@@ -119,7 +119,11 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'required' => false,
       'on' => 'update',
       'allowEmpty' => true,
+    ),
+    'require_active' => array(
+      'rule' => 'boolean',
+      'required' => false,
+      'allowEmpty' => true
     )
   );
-  
 }

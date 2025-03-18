@@ -1,6 +1,6 @@
 <?php
 /**
- * COmanage Registry Oa4mp Client Plugin Enums
+ * COmanage Registry Oa4mp Client Dynamo QDL Model
  *
  * Portions licensed to the University Corporation for Advanced Internet
  * Development, Inc. ("UCAID") under one or more contributor license agreements.
@@ -20,31 +20,39 @@
  * limitations under the License.
  * 
  * @link          http://www.internet2.edu/comanage COmanage Project
- * @package       registry
- * @since         COmanage Registry v2.0.1
+ * @package       registry-plugin
+ * @since         COmanage Registry v4.4.2
  * @license       Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
  */
 
-class Oa4mpClientScopeEnum
-{
-  const OpenId = 'openid';
-  const Profile = 'profile';
-  const Email = 'email';
-  const OrgCilogonUserInfo = 'org.cilogon.userinfo';
-  const Getcert = 'edu.uiuc.ncsa.myproxy.getcert';
+class Oa4mpClientDynamoQdl extends AppModel {
+  // Define class name for cake
+  public $name = "Oa4mpClientDynamoQdl";
 
-  public static $allScopesArray = array(
-    Oa4mpClientScopeEnum::OpenId,
-    Oa4mpClientScopeEnum::Profile,
-    Oa4mpClientScopeEnum::Email,
-    Oa4mpClientScopeEnum::OrgCilogonUserInfo,
-    Oa4mpClientScopeEnum::Getcert,
+  // Add behaviors
+  public $actsAs = array('Containable');
+
+  // Association rules from this model to other models
+  public $belongsTo = array(
+    // An Oa4mp Client Dynamo QDL is attached to a claim
+    "Oa4mpClient.Oa4mpClientClaim" => array(
+      'foreignKey' => 'claim_id'
+    )
   );
-}
 
-class Oa4mpClientClaimModelEnum
-{
-  const Identifier   = 'Identifier';
-  const Name         = 'Name';
-  const EmailAddress = 'EmailAddress';
+  // Default display field for cake generated views
+  public $displayField = "claim_id";
+
+  // Validation rules for table elements
+  public $validate = array(
+    'claim_id' => array(
+      'rule' => 'numeric',
+      'required' => true,
+      'allowEmpty' => false,
+    ),
+    'code' => array(
+      'rule' => 'notBlank',
+      'required' => true,
+      'allowEmpty' => false
+  );
 }
