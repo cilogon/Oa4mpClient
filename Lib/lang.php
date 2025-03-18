@@ -123,6 +123,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.named_config.fd.description' => 'Configure scopes, claims, and other details using an existing template. Check the box to see available templates.',
   'pl.oa4mp_client_co_oidc_client.wellknown.fd.name' => 'Well-known OpenID Configuration',
   'pl.oa4mp_client_co_oidc_client.wellknown.fd.description' => 'URL for the well-known openid-configuration discovery document',
+  'pl.oa4mp_client_co_oidc_client.dynamo.partition_key_claim_name.fd.name' => 'Authenticated User Search Claim',
+  'pl.oa4mp_client_co_oidc_client.dynamo.partition_key_claim_name.fd.description' => 'Claim holding the authenticated user identifier',
 
   'pl.oa4mp_client_co_oidc_client.public.title' => 'New OIDC Client',
   'pl.oa4mp_client_co_oidc_client.public.text' => 'This is a public OIDC client and therefore it has no client secret.',

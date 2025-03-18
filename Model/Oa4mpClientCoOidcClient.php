@@ -50,6 +50,10 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'foreignKey' => 'client_id',
       'dependent' => true
     ),
+    "Oa4mpClient.Oa4mpClientDynamoConfig" => array(
+      'foreignKey' => 'client_id',
+      'dependent' => true
+    ),
     "Oa4mpClient.Oa4mpClientCoLdapConfig" => array(
       'foreignKey' => 'client_id',
       'dependent' => true

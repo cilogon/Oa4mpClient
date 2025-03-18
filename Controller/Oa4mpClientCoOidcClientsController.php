@@ -49,7 +49,8 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     'Oa4mpClientCoAdminClient' => array(
       'Oa4mpClientCoNamedConfig' => array('Oa4mpClientCoScope'),
       'Oa4mpClientCoEmailAddress',
-      'DefaultLdapConfig'
+      'DefaultLdapConfig',
+      'DefaultDynamoConfig'
     ),
     'Oa4mpClientCoCallback' => array(
       'order' => 'Oa4mpClientCoCallback.id'
@@ -65,6 +66,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         'order' => 'Oa4mpClientCoSearchAttribute.id'
       )
     ),
+    'Oa4mpClientDynamoConfig',
     'Oa4mpClientCoNamedConfig'
   );
 
@@ -86,6 +88,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $args['contain'][] = 'Oa4mpClientCoEmailAddress';
     $args['contain']['Oa4mpClientCoNamedConfig'] = 'Oa4mpClientCoScope';
     $args['contain'][] = 'DefaultLdapConfig';
+    $args['contain'][] = 'DefaultDynamoConfig';
     $adminClients = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('all', $args);
 
     $adminIds = array();
@@ -95,22 +98,8 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     // Process POST data
     if($this->request->is('post')) {
-      $ret = $this->validatePost();
-
-      if(!$ret) {
-        // The call to validatePost() sets $this->Flash if there any validation 
-        // error so just return.
-        return;
-      }
-
       $data = & $this->request->data;
-
-      // If there are no search attribute mappings then remove entirely the necessary
-      // parts of the input data.
-      if(empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
-        unset($data['Oa4mpClientCoLdapConfig'][0]);
-      } 
-
+      
       // Verify that the admin client is available for this CO.
       if(!in_array($data['Oa4mpClientCoOidcClient']['admin_id'], $adminIds)) {
           $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_admin_id'), array('key' => 'error'));
@@ -127,6 +116,20 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
             $adminClient = $c;
         }
       }
+
+      $ret = $this->validatePost($adminClient);
+
+      if(!$ret) {
+        // The call to validatePost() sets $this->Flash if there any validation 
+        // error so just return.
+        return;
+      }
+
+      // If there are no search attribute mappings then remove entirely the necessary
+      // parts of the input data.
+      if(empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
+        unset($data['Oa4mpClientCoLdapConfig'][0]);
+      } 
 
       // Call out to Oa4mp server to create the new client.
       $newClient = $this->oa4mpNewClient($adminClient, $data);
@@ -145,7 +148,20 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       if(!empty($newClient['secret'])) {
         $this->set('vv_client_secret', $newClient['secret']);
       }
-      
+
+      // We need to add DynamoConfig fields from default if values not present because
+      // the user is not an OA4MP admin.
+      $d = & $data['Oa4mpClientDynamoConfig'][0];
+      $d['aws_region'] = $d['aws_region'] ?? $adminClient['DefaultDynamoConfig']['aws_region'];
+      $d['aws_access_key_id'] = $d['aws_access_key_id'] ?? $adminClient['DefaultDynamoConfig']['aws_access_key_id'];
+      $d['aws_secret_access_key'] = $d['aws_secret_access_key'] ?? $adminClient['DefaultDynamoConfig']['aws_secret_access_key'];
+      $d['table_name'] = $d['table_name'] ?? $adminClient['DefaultDynamoConfig']['table_name'];
+      $d['partition_key'] = $d['partition_key'] ?? $adminClient['DefaultDynamoConfig']['partition_key'];
+      $d['partition_key_template'] = $d['partition_key_template'] ?? $adminClient['DefaultDynamoConfig']['partition_key_template'];
+      $d['partition_key_claim_name'] = $d['partition_key_claim_name'] ?? $adminClient['DefaultDynamoConfig']['partition_key_claim_name'];
+      $d['sort_key'] = $d['sort_key'] ?? $adminClient['DefaultDynamoConfig']['sort_key'];
+      $d['sort_key_template'] = $d['sort_key_template'] ?? $adminClient['DefaultDynamoConfig']['sort_key_template'];
+
       // Save the client and associated data.
       $args = array();
       $args['validate'] = false;
@@ -178,7 +194,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
           $this->redirect($args);
         }
 
-        // Set the adminClient to be used for choosing default LDAP
+        // Set the adminClient to be used for choosing default DynamoDB or LDAP
         // config and email address as the one passed in or the only
         // admin client if there is only the single choice.
         foreach($adminClients as $c) {
@@ -193,19 +209,45 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $this->set('vv_admin_id', $adminClient['Oa4mpClientCoAdminClient']['id']);
       $this->set('vv_admin_issuer', $adminClient['Oa4mpClientCoAdminClient']['issuer']);
 
-      // Set the default LDAP configuration.
-      $defaultLdapConfig = $adminClient['DefaultLdapConfig'];
+      // Set the default DynamoDB configuration if there is one. The view will
+      // inspect the permissions array and render or not the DynamoDB configuration
+      // if the user is an OA4MP admin.
+      if(!empty($adminClient['DefaultDynamoConfig'])) {
+        $defaultDynamoConfig = $adminClient['DefaultDynamoConfig'];
 
-      $ldapConfig = array();
-      $ldapConfig['enabled'] = true;
-      $ldapConfig['authorization_type'] = 'simple';
-      $ldapConfig['serverurl'] = $defaultLdapConfig['serverurl'];
-      $ldapConfig['binddn'] = $defaultLdapConfig['binddn'];
-      $ldapConfig['password'] = $defaultLdapConfig['password'];
-      $ldapConfig['basedn'] = $defaultLdapConfig['basedn'];
-      $ldapConfig['search_name'] = 'voPersonExternalID';
+        $dynamoConfig = array();
+        $dynamoConfig['aws_region'] = $defaultDynamoConfig['aws_region'];
+        $dynamoConfig['aws_access_key_id'] = $defaultDynamoConfig['aws_access_key_id'];
+        $dynamoConfig['aws_secret_access_key'] = $defaultDynamoConfig['aws_secret_access_key'];
+        $dynamoConfig['table_name'] = $defaultDynamoConfig['table_name'];
+        $dynamoConfig['partition_key'] = $defaultDynamoConfig['partition_key'];
+        $dynamoConfig['partition_key_template'] = $defaultDynamoConfig['partition_key_template'];
+        $dynamoConfig['partition_key_claim_name'] = $defaultDynamoConfig['partition_key_claim_name'];
+        $dynamoConfig['sort_key'] = $defaultDynamoConfig['sort_key'];
+        $dynamoConfig['sort_key_template'] = $defaultDynamoConfig['sort_key_template'];
 
-      $this->request->data['Oa4mpClientCoLdapConfig'][0] = $ldapConfig;
+        $this->request->data['Oa4mpClientDynamoConfig'][0] = $dynamoConfig;
+      }
+
+      $this->set('vv_aws_regions', AwsRegionEnum::$allAwsRegions);
+
+      // Set the default LDAP configuration if there is one. The view will
+      // inspect the permissions array and render or not the LDAP configuration
+      // if the iser is an OA4MP admin.
+      if(!empty($adminClient['DefaultLdapConfig'])) {
+        $defaultLdapConfig = $adminClient['DefaultLdapConfig'];
+
+        $ldapConfig = array();
+        $ldapConfig['enabled'] = true;
+        $ldapConfig['authorization_type'] = 'simple';
+        $ldapConfig['serverurl'] = $defaultLdapConfig['serverurl'];
+        $ldapConfig['binddn'] = $defaultLdapConfig['binddn'];
+        $ldapConfig['password'] = $defaultLdapConfig['password'];
+        $ldapConfig['basedn'] = $defaultLdapConfig['basedn'];
+        $ldapConfig['search_name'] = 'voPersonExternalID';
+
+        $this->request->data['Oa4mpClientCoLdapConfig'][0] = $ldapConfig;
+      }
 
       // Construct the default contact email address.
       $mail = null;
@@ -411,6 +453,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $adminClient['Oa4mpClientCoEmailAddress'] = $curdata['Oa4mpClientCoAdminClient']['Oa4mpClientCoEmailAddress'];
     $adminClient['Oa4mpClientCoNamedConfig'] = $curdata['Oa4mpClientCoAdminClient']['Oa4mpClientCoNamedConfig'];
     $adminClient['DefaultLdapConfig'] = $curdata['Oa4mpClientCoAdminClient']['DefaultLdapConfig'];
+    $adminClient['DefaultDynamoConfig'] = $curdata['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'];
 
     $this->set('vv_admin_id', $adminClient['Oa4mpClientCoAdminClient']['id']);
     $this->set('vv_admin_issuer', $adminClient['Oa4mpClientCoAdminClient']['issuer']);
@@ -432,7 +475,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // PUT request
     if($this->request->is(array('post','put'))) {
 
-      $ret = $this->validatePost();
+      $ret = $this->validatePost($adminClient);
 
       if(!$ret) {
         // The call to validatePost() sets $this->Flash if there any validation 
@@ -714,6 +757,29 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         }
       }
     }
+
+    // Additionally access to the DynamoDB configuration details
+    // for a client require OA4MP admin.
+    $oa4mpAdminsString = getenv('COMANAGE_REGISTRY_OA4MP_ADMIN_USERS');
+
+    if($oa4mpAdminsString) {
+      $oa4mpAdmins = explode(',', $oa4mpAdminsString);
+    } else {
+      $oa4mpAdmins = array();
+    }
+
+    if($this->Session->check('Auth.User.username')) {
+        $username = $this->Session->read('Auth.User.username');
+    } else {
+      return false;
+    }
+
+    if(in_array($username, $oa4mpAdmins)) {
+      $oa4mpAdmin = true;
+    } else {
+      $oa4mpAdmin = false;
+    }
+    $p['oa4mp_admin'] = $oa4mpAdmin;
 
     // Add a new OIDC client?
     $p['add'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
@@ -1877,10 +1943,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    * Validate and clean POST data from an add or edit action.
    *
    * @since  COmanage Registry 2.0.1
+   * @param  Array $adminClient admin client
    * @return Array of validated data ready for saving or false if not validated.
    */
 
-  private function validatePost() {
+  private function validatePost($adminClient) {
       $data = & $this->request->data;
 
       // Trim leading and trailing whitespace from user input.
@@ -2003,10 +2070,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         return false;
       }
 
-      // If using a named configuration unset the scope and LDAP configurations
+      // If using a named configuration unset the scope, Dynamo, and LDAP configurations
       // since they are managed using the named configuration and then return.
       if($namedConfiguration) {
         unset($data['Oa4mpClientCoScope']);
+        unset($data['Oa4mpClientDynamoConfig']);
         unset($data['Oa4mpClientCoLdapConfig']);
         return true;
       } 
@@ -2048,7 +2116,46 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         }
       }
 
+      // Validate the DynamoDB config.
+      // We need to add from default if values not present because
+      // the user is not an OA4MP admin.
+      $d = array();
+      $d['Oa4mpClientDynamoConfig'] = $data['Oa4mpClientDynamoConfig'] ?? array();
+      $d['Oa4mpClientDynamoConfig']['aws_region'] = $data['Oa4mpClientDynamoConfig']['aws_region'] ?? $adminClient['DefaultDynamoConfig']['aws_region'];
+      $d['Oa4mpClientDynamoConfig']['aws_access_key_id'] = $data['Oa4mpClientDynamoConfig']['aws_access_key_id'] ?? $adminClient['DefaultDynamoConfig']['aws_access_key_id'];
+      $d['Oa4mpClientDynamoConfig']['aws_secret_access_key'] = $data['Oa4mpClientDynamoConfig']['aws_secret_access_key'] ?? $adminClient['DefaultDynamoConfig']['aws_secret_access_key'];
+      $d['Oa4mpClientDynamoConfig']['table_name'] = $data['Oa4mpClientDynamoConfig']['table_name'] ?? $adminClient['DefaultDynamoConfig']['table_name'];
+      $d['Oa4mpClientDynamoConfig']['partition_key'] = $data['Oa4mpClientDynamoConfig']['partition_key'] ?? $adminClient['DefaultDynamoConfig']['partition_key'];
+      $d['Oa4mpClientDynamoConfig']['partition_key_template'] = $data['Oa4mpClientDynamoConfig']['partition_key_template'] ?? $adminClient['DefaultDynamoConfig']['partition_key_template'];
+      $d['Oa4mpClientDynamoConfig']['partition_key_claim_name'] = $data['Oa4mpClientDynamoConfig']['partition_key_claim_name'] ?? $adminClient['DefaultDynamoConfig']['partition_key_claim_name'];
+      $d['Oa4mpClientDynamoConfig']['sort_key'] = $data['Oa4mpClientDynamoConfig']['sort_key'] ?? $adminClient['DefaultDynamoConfig']['sort_key'];
+      $d['Oa4mpClientDynamoConfig']['sort_key_template'] = $data['Oa4mpClientDynamoConfig']['sort_key_template'] ?? $adminClient['DefaultDynamoConfig']['sort_key_template'];
+
+      $this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->set($d);
+
+      $fields = array();
+      $fields[] = 'aws_region';
+      $fields[] = 'aws_access_key_id';
+      $fields[] = 'aws_secret_access_key';
+      $fields[] = 'table_name';
+      $fields[] = 'partition_key';
+      $fields[] = 'partition_key_template';
+      $fields[] = 'partition_key_claim_name';
+      $fields[] = 'sort_key';
+      $fields[] = 'sort_key_template';
+
+      $args = array();
+      $args['fieldList'] = $fields;
+
+      if(!$this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->validates($args)) {
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
+        return false;
+      }
+
       // Validate the LDAP configs.
+      // The outer loop here over indexes of Oa4mpClientCoLdapConfig is a placeholder
+      // for a future where using more than one LDAP as claim mappings is
+      // supported.
       for ($i = 0; $i < 10; $i++) {
         if (empty($data['Oa4mpClientCoLdapConfig'][$i]['serverurl'])) {
           unset($data['Oa4mpClientCoLdapConfig'][$i]);
