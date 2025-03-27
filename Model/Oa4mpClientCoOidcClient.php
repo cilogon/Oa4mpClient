@@ -130,4 +130,100 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'allowEmpty' => true
     )
   );
+
+  /**
+   * Get the current canonical representation of the admin client
+   * for the OIDC client.
+   *
+   * @since  COmanage Registry 4.4.2
+   * @param  Integer $id ID for the Oa4mpClientCoOidcClient object
+   * @return Array The canonical representation including all related models
+   */
+
+  public function admin($id) {
+    $args = array();
+    $args['conditions']['Oa4mpClientCoOidcClient.id'] = $id;
+    $args['contain'] = false;
+
+    $client = $this->find('first', $args);
+
+    if(empty($client)) {
+      return array();
+    }
+
+    $adminId = $client['Oa4mpClientCoOidcClient']['admin_id'];
+
+    $args = array();
+    $args['conditions']['Oa4mpClientCoAdminClient.id'] = $adminId;
+    $args['contain'] = array(
+      'Oa4mpClientCoNamedConfig' => array('Oa4mpClientCoScope'),
+      'Oa4mpClientCoEmailAddress',
+      'DefaultLdapConfig',
+      'DefaultDynamoConfig'
+    );
+
+    $admin = $this->Oa4mpClientCoAdminClient->find('first', $args);
+
+    return $admin;
+  }
+
+  /**
+   * Get the current canonical representation of the OIDC client.
+   *
+   * @since  COmanage Registry 4.4.2
+   * @param  Integer $id ID for the Oa4mpClientCoOidcClient object
+   * @return Array The canonical representation including all related models
+   */
+
+  public function current($id) {
+    $args = array();
+    $args['conditions']['Oa4mpClientCoOidcClient.id'] = $id;
+    $args['contain'] = array(
+      'Oa4mpClientCoAdminClient' => array(
+        'Oa4mpClientCoNamedConfig' => array('Oa4mpClientCoScope'),
+        'Oa4mpClientCoEmailAddress',
+        'DefaultLdapConfig',
+        'DefaultDynamoConfig'
+      ),
+      'Oa4mpClientCoEmailAddress',
+      'Oa4mpClientCoScope',
+      'Oa4mpClientCoCallback',
+      'Oa4mpClientDynamoConfig',
+      'Oa4mpClientCoNamedConfig',
+      'Oa4mpClientCoLdapConfig'
+    );
+
+    $client = $this->find('first', $args);
+
+    if(empty($client)) {
+      return array();
+    }
+
+    // Need to re-order the scopes to fit our checkbox use of them
+    // in the form.
+    $newScopes = array();
+    foreach($client['Oa4mpClientCoScope'] as $s) {
+      switch ($s['scope']) {
+        case Oa4mpClientScopeEnum::OpenId:
+          $newScopes[0] = $s;
+          break;
+        case Oa4mpClientScopeEnum::Profile:
+          $newScopes[1] = $s;
+          break;
+        case Oa4mpClientScopeEnum::Email:
+          $newScopes[2] = $s;
+          break;
+        case Oa4mpClientScopeEnum::OrgCilogonUserInfo:
+          $newScopes[3] = $s;
+          break;
+        case Oa4mpClientScopeEnum::Getcert:
+          $newScopes[4] = $s;
+          break;
+      }
+    }
+
+    $client['Oa4mpClientCoScope'] = $newScopes;
+
+    return $client;
+  }
 }

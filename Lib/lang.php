@@ -105,12 +105,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name' => 'Client ID',
   'pl.oa4mp_client_co_oidc_client.secret.fd.name' => 'Client Secret',
   'pl.oa4mp_client_co_oidc_client.home_url.fd.name' => 'Home URL',
-  'pl.oa4mp_client_co_oidc_client.home_url.fd.description' => 'The Home URL is used as the hyperlink for the client Name',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.name' => 'Refresh Tokens',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.enable_button' => 'Enable',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.disable_button' => 'Disable',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name' => 'Lifetime',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description' => 'Refresh token lifetime in seconds',
+  'pl.oa4mp_client_co_oidc_client.home_url.fd.description' => 'Used as the hyperlink for the client Name on the Identity Provider selection page',
+  'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name' => 'Refresh Token Lifetime',
+  'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description' => 'Token lifetime in seconds',
+  'pl.oa4mp_client_co_oidc_client.callbacks.tab.name' => 'Callbacks',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'Callbacks',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The redirect_uri parameter must exactly match a callback URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
@@ -136,11 +134,14 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_callback.url.fd.name' => 'URL',
 
+  'pl.oa4mp_client_co_scope.scope.tab.name' => 'Scopes',
+  'pl.oa4mp_client_co_scope.scope.edit.name' => 'Edit Scopes for %1$s',
   'pl.oa4mp_client_co_scope.scope.fd.name' => 'Scopes',
   'pl.oa4mp_client_co_scope.scope.fd.description' => '<a href="https://www.cilogon.org/oidc">Information on scopes</a>',
   'pl.oa4mp_client_co_scope.scope.fd.description.public' => 'Public clients may only use the openid scope',
   'pl.oa4mp_client_co_scope.scope.openid.fd.name' => 'openid',
   'pl.oa4mp_client_co_scope.scope.openid.required' => 'openid scope is required',
+  'pl.oa4mp_client_co_scope.scope.flash.success' => 'Scopes Saved',
 
   'pl.oa4mp_client_co_scope.scope.profile.fd.name' => 'profile',
   'pl.oa4mp_client_co_scope.scope.profile.dialog.title' => 'Confirm profile scope',
@@ -233,4 +234,5 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.er.valid_domain' => 'Private-use URI schemes require a valid domain',
   'pl.oa4mp_client_co_oidc_client.er.callback_default' => 'Please provide a valid callback URL',
   'pl.oa4mp_client_co_oidc_client.er.bad_admin_id' => 'The selected OAuth2 server is not available',
+  'pl.oa4mp_client_co_oidc_client.er.id' => 'The OIDC client with ID %1%s cannot be found',
 );

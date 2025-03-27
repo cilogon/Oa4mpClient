@@ -36,9 +36,10 @@
   // Add top links
   $params['topLinks'] = array();
 
+  // TODO
   // The link to add a new client uses a different action
   // depending on how many admin clients the CO has available.
-  $addAction = $this->viewVars['vv_next_action'];
+  //$addAction = $this->viewVars['vv_next_action'];
 
   if($permissions['add']) {
     $params['topLinks'][] = $this->Html->link(
@@ -46,7 +47,7 @@
       array(
         'plugin' => 'oa4mp_client',
         'controller' => 'oa4mp_client_co_oidc_clients',
-        'action' => $addAction,
+        'action' => 'add',
         'co' => $this->params['named']['co']
       ),
       array('class' => 'addbutton')

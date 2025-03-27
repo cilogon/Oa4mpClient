@@ -133,10 +133,11 @@ function js_local_onload() {
   $args = array();
   $args['plugin'] = 'oa4mp_client';
   $args['controller'] = 'oa4mp_client_co_oidc_clients';
-  $args['action'] = 'index';
+  $args['action'] = 'edit';
   if(isset($cur_co)) {
     $args['co'] = $cur_co['Co']['id'];
   }
+  $args[] = $vv_id;
   
   print $this->Html->link(_txt('op.cont'), $args, array('class' => 'co-button btn btn-primary', 'id'=> 'oidc-client-continue'));
   ?>
