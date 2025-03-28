@@ -26,19 +26,19 @@
  */
 ?>
 
-<?php if($this->action == 'edit' || $this->action == 'edit_scopes'): ?>
+<?php 
+  $controller = $this->request->params['controller'];
+  $action = $this->action;
+
+  if(!($controller == 'oa4mp_client_co_oidc_clients' && $action == 'add')): ?>
 
   <nav id="cm-group-subnav-tabs" class="cm-subnav-tabs" aria-label="<?php print _txt('me.menu.subnavigation'); ?>">
     <ul class="nav nav-tabs">
 
       <li class="nav-item">
         <?php
-          // TODO
-          //$this->log("FOO permissions is " . print_r($permissions, true));
-          //$this->log("FOO controller is " . print_r($this->request->params['controller'], true));
-          //$this->log("FOO pass is " . print_r($this->request->params['pass'], true));
           // Properties
-          if ($this->action == 'edit' || $this->action == 'view') {
+          if ($controller == 'oa4mp_client_co_oidc_clients' && $this->action == 'edit') {
             print '<span class="nav-link active">' . _txt('me.properties') . '</span>';
           } else {
             if ($permissions['edit']) {
@@ -70,8 +70,7 @@
       <li class="nav-item">
         <?php
           // Scopes
-          $controller_name = $this->request->params['controller'];
-          if ($controller_name == 'oa4mp_client_co_scopes') {
+          if ($controller == 'oa4mp_client_co_scopes') {
             print '<span class="nav-link active">' . _txt('pl.oa4mp_client_co_scope.scope.tab.name') . '</span>';
           } else {
             if ($permissions['edit']) {
@@ -103,8 +102,7 @@
       <li class="nav-item">
         <?php
           // Callbacks
-          $controller_name = $this->request->params['controller'];
-          if ($controller_name == 'oa4mp_client_co_callbacks') {
+          if ($controller == 'oa4mp_client_co_callbacks') {
             print '<span class="nav-link active">' . _txt('pl.oa4mp_client_co_oidc_client.callbacks.tab.name') . '</span>';
           } else {
             if ($permissions['edit']) {

@@ -39,6 +39,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'ct.oa4mp_client_co_oidc_clients.pl' => 'OIDC Clients',
   'ct.oa4mp_client_co_named_configs.1' => 'Oa4mp Named Configuration',
   'ct.oa4mp_client_co_named_configs.pl' => 'Oa4mp Named Configurations',
+  'ct.oa4mp_client_co_callbacks.1' => 'Callback',
+  'ct.oa4mp_client_co_callbacks.pl' => 'Callbacks',
 
   // Menu
   'pl.oa4mp_client.menu.admin_clients.cmp' => 'Oa4mp Admin Clients',
@@ -109,8 +111,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name' => 'Refresh Token Lifetime',
   'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description' => 'Token lifetime in seconds',
   'pl.oa4mp_client_co_oidc_client.callbacks.tab.name' => 'Callbacks',
-  'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'Callbacks',
-  'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The redirect_uri parameter must exactly match a callback URL',
+  'pl.oa4mp_client_co_oidc_client.callbacks.add.name' => 'Add Callback for %1$s',
+  'pl.oa4mp_client_co_oidc_client.callbacks.edit.name' => 'Edit Callbacks for %1$s',
+  'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'URL',
+  'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The OIDC protocol redirect_uri parameter must exactly match the callback URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
   'pl.oa4mp_client_co_oidc_client.issuer.fd.name' => 'Issuer',
   'pl.oa4mp_client_co_oidc_client.issuer.fd.description' => 'Value asserted by the authorization server in the iss parameter',
@@ -133,6 +137,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.secret.understand' => 'I understand',
 
   'pl.oa4mp_client_co_callback.url.fd.name' => 'URL',
+  'pl.oa4mp_client_co_callback.callback.add.flash.success' => 'Callback Added',
 
   'pl.oa4mp_client_co_scope.scope.tab.name' => 'Scopes',
   'pl.oa4mp_client_co_scope.scope.edit.name' => 'Edit Scopes for %1$s',

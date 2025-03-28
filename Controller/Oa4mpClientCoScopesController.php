@@ -44,39 +44,6 @@ class Oa4mpClientCoScopesController extends StandardController {
   public $requires_co = true;
 
   /**
-   * Determine the CO ID based on some attribute of the request.
-   * This overrides the method defined in AppController.php
-   *
-   * @since  COmanage Registry 4.4.2
-   * @param  Array $data Array of data 
-   * @return Integer CO ID, or null if not implemented or not applicable.
-   */
-  
-  protected function calculateImpliedCoId($data = null) {
-    $coId =  null;
-
-    if($this->action == 'edit'
-       || $this->action == 'view'
-       || $this->action == 'delete') {
-
-       $id = $this->request->pass[0];
-
-       $args = array();
-       $args['conditions']['Oa4mpClientCoOidcClient.id'] = $id;
-       $args['contain'] = 'Oa4mpClientCoAdminClient';
-
-       $found = $this->Oa4mpClientCoOidcClient->find('first', $args);
-
-       if(isset($found['Oa4mpClientCoAdminClient']['co_id'])) {
-         $coId = $found['Oa4mpClientCoAdminClient']['co_id']; 
-       }
-    }
-
-   return $coId; 
-  }
-
-
-  /**
    * Edit the scopes for the client.
    *
    * @since COmanage Registry 4.4.2
