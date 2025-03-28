@@ -57,6 +57,26 @@ class Oa4mpClientCoCallback extends AppModel {
     )
   );
 
+
+  /**
+   */
+
+  function findCoForRecord($id) {
+    $args = array();
+    $args['conditions']['Oa4mpClientCoCallback.id'] = $id;
+    $args['contain'] = array(
+      'Oa4mpClientCoOidcClient' => array(
+        'Oa4mpClientCoAdminClient'
+      )
+    );
+
+    $callback = $this->find('first', $args);
+
+    $coid = $callback['Oa4mpClientCoOidcClient']['Oa4mpClientCoAdminClient']['co_id'];
+
+    return $coid;
+  }
+
   public function validCallbackUri($check) {
     $url = $check['url'];
 

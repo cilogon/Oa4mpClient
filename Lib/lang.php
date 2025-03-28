@@ -112,7 +112,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description' => 'Token lifetime in seconds',
   'pl.oa4mp_client_co_oidc_client.callbacks.tab.name' => 'Callbacks',
   'pl.oa4mp_client_co_oidc_client.callbacks.add.name' => 'Add Callback for %1$s',
-  'pl.oa4mp_client_co_oidc_client.callbacks.edit.name' => 'Edit Callbacks for %1$s',
+  'pl.oa4mp_client_co_oidc_client.callbacks.edit.name' => 'Edit Callback for %1$s',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The OIDC protocol redirect_uri parameter must exactly match the callback URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
@@ -138,6 +138,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_callback.url.fd.name' => 'URL',
   'pl.oa4mp_client_co_callback.callback.add.flash.success' => 'Callback Added',
+  'pl.oa4mp_client_co_callback.callback.edit.flash.success' => 'Callback Updated',
+  'pl.oa4mp_client_co_callback.callback.delete.flash.success' => 'Callback Deleted',
 
   'pl.oa4mp_client_co_scope.scope.tab.name' => 'Scopes',
   'pl.oa4mp_client_co_scope.scope.edit.name' => 'Edit Scopes for %1$s',
