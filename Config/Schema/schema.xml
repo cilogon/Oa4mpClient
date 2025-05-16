@@ -248,7 +248,7 @@
         <field name="source_model" type="C" size="64" />
         <field name="value_field" type="C" size="64" />
         <field name="value_req" type="C" size="64" />
-        <field name="value_format" type="C" size="2" />
+        <field name="value_format" type="C" size="32" />
         <field name="value_string_d" type="C" size="32" />
         <field name="created" type="T" />
         <field name="modified" type="T" />

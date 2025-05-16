@@ -41,6 +41,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'ct.oa4mp_client_co_named_configs.pl' => 'Oa4mp Named Configurations',
   'ct.oa4mp_client_co_callbacks.1' => 'Callback',
   'ct.oa4mp_client_co_callbacks.pl' => 'Callbacks',
+  'ct.oa4mp_client_co_claims.1' => 'Claim',
+  'ct.oa4mp_client_co_claims.pl' => 'Claims',
 
   // Menu
   'pl.oa4mp_client.menu.admin_clients.cmp' => 'Oa4mp Admin Clients',
@@ -110,12 +112,34 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.home_url.fd.description' => 'Used as the hyperlink for the client Name on the Identity Provider selection page',
   'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name' => 'Refresh Token Lifetime',
   'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description' => 'Token lifetime in seconds',
+
   'pl.oa4mp_client_co_oidc_client.callbacks.tab.name' => 'Callbacks',
   'pl.oa4mp_client_co_oidc_client.callbacks.add.name' => 'Add Callback for %1$s',
   'pl.oa4mp_client_co_oidc_client.callbacks.edit.name' => 'Edit Callback for %1$s',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The OIDC protocol redirect_uri parameter must exactly match the callback URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
+
+  'pl.oa4mp_client_co_oidc_client.claims.tab.name' => 'Claims',
+  'pl.oa4mp_client_co_oidc_client.claims.add.name' => 'Add Claim for %1$s',
+  'pl.oa4mp_client_co_oidc_client.claims.edit.name' => 'Edit Claim for %1$s',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_name.name' => 'Name',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_name.description' => 'The name of the claim as it will be asserted in the token',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.source_model.name' => 'Source',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.source_model.description' => 'The Registry object from the user record that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.value_req.name' => 'Selector',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.value_req.description' => 'Use the first value found or all values of the configured type',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.value_format.name' => 'Format',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.value_format.description' => 'How to format the claim value(s) in the token',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.value_string_d.name' => 'String Delineator Character',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.value_string_d.description' => 'Which character(s) to use to delineate token values when formatted as a JSON string',
+
+  'pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.name' => 'Type',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.description' => 'The Identifier type from the user record that is the source of the claim value',
+
+  'pl.oa4mp_client_co_oidc_client.claims.fd.add_button' => 'Add another claim',
+  'pl.oa4mp_client_claim.add.flash.success' => 'Claim Added',
+
   'pl.oa4mp_client_co_oidc_client.issuer.fd.name' => 'Issuer',
   'pl.oa4mp_client_co_oidc_client.issuer.fd.description' => 'Value asserted by the authorization server in the iss parameter',
   'pl.oa4mp_client_co_oidc_client.public_client.fd.name' => 'Public Client',

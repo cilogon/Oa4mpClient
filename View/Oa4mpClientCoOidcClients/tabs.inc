@@ -90,7 +90,8 @@
                 array(
                   'plugin' => 'oa4mp_client',
                   'controller' => 'oa4mp_client_co_scopes',
-                  'action' => 'view'
+                  'action' => 'view',
+                  'clientid' => $vv_client_id
                 ),
                 array('class' => 'nav-link spin')
               );
@@ -121,8 +122,42 @@
                 _txt('pl.oa4mp_client_co_oidc_client.callbacks.tab.name'),
                 array(
                   'plugin' => 'oa4mp_client',
-                  'controller' => 'oa4mp_client_co_scopes',
-                  'action' => 'view'
+                  'controller' => 'oa4mp_client_co_callbacks',
+                  'action' => 'view',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            }
+          }
+        ?>
+      </li>
+
+      <li class="nav-item">
+        <?php
+          // Claims
+          if ($controller == 'oa4mp_client_claims') {
+            print '<span class="nav-link active">' . _txt('pl.oa4mp_client_co_oidc_client.claims.tab.name') . '</span>';
+          } else {
+            if ($permissions['edit']) {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_co_oidc_client.claims.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_claims',
+                  'action' => 'index',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            } else {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_co_oidc_client.claims.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_claims',
+                  'action' => 'view',
+                  'clientid' => $vv_client_id
                 ),
                 array('class' => 'nav-link spin')
               );

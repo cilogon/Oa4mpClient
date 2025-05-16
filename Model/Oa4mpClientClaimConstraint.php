@@ -45,11 +45,11 @@ class Oa4mpClientClaimConstraint extends AppModel {
 
   // Validation rules for table elements
   public $validate = array(
-    'claim_id' => array(
-      'rule' => 'numeric',
-      'required' => true,
-      'allowEmpty' => false,
-    ),
+    //'claim_id' => array(
+    //  'rule' => 'numeric',
+    //  'required' => true,
+    //  'allowEmpty' => false,
+    //),
     'field' => array(
       'rule' => 'notBlank',
       'required' => true,

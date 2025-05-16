@@ -50,6 +50,10 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'foreignKey' => 'client_id',
       'dependent' => true
     ),
+    "Oa4mpClient.Oa4mpClientClaim" => array(
+      'foreignKey' => 'client_id',
+      'dependent' => true
+    ),
     "Oa4mpClient.Oa4mpClientDynamoConfig" => array(
       'foreignKey' => 'client_id',
       'dependent' => true
@@ -188,6 +192,7 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'Oa4mpClientCoEmailAddress',
       'Oa4mpClientCoScope',
       'Oa4mpClientCoCallback',
+      'Oa4mpClientClaim',
       'Oa4mpClientDynamoConfig',
       'Oa4mpClientCoNamedConfig',
       'Oa4mpClientCoLdapConfig'

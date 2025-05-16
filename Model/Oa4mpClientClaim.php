@@ -36,7 +36,8 @@ class Oa4mpClientClaim extends AppModel {
   public $belongsTo = array(
     // An Oa4mp Client Claim may be attached to an OIDC client
     "Oa4mpClient.Oa4mpClientCoOidcClient" => array(
-      'foreignKey' => 'client_id'
+      'foreignKey' => 'client_id',
+      'dependent' => true
     )
   );
 
