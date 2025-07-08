@@ -166,6 +166,141 @@
         ?>
       </li>
 
+      <li class="nav-item">
+        <?php
+          // Refresh Tokens
+          if ($controller == 'oa4mp_client_refresh_tokens') {
+            print '<span class="nav-link active">' . _txt('pl.oa4mp_client_refresh_token.tab.name') . '</span>';
+          } else {
+            if ($permissions['edit']) {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_refresh_token.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_refresh_tokens',
+                  'action' => 'index',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            } else {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_refresh_token.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_refresh_tokens',
+                  'action' => 'view',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            }
+          }
+        ?>
+      </li>
+
+
+      <li class="nav-item">
+        <?php
+          // Access Tokens
+          if ($controller == 'oa4mp_client_access_tokens') {
+            print '<span class="nav-link active">' . _txt('pl.oa4mp_client_access_token.tab.name') . '</span>';
+          } else {
+            if ($permissions['edit']) {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_access_token.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_access_tokens',
+                  'action' => 'index',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            } else {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_access_token.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_access_tokens',
+                  'action' => 'view',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            }
+          }
+        ?>
+      </li>
+
+      <li class="nav-item">
+        <?php
+          // Authorizations
+          if ($controller == 'oa4mp_client_authorizations') {
+            print '<span class="nav-link active">' . _txt('pl.oa4mp_client_authorization.tab.name') . '</span>';
+          } else {
+            if ($permissions['edit']) {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_authorization.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_authorizations',
+                  'action' => 'index',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            } else {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_authorization.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_authorizations',
+                  'action' => 'view',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            }
+          }
+        ?>
+      </li>
+
+      <li class="nav-item">
+        <?php
+          // Access Control
+          if (
+            $controller == 'oa4mp_client_access_controls'
+          ) {
+            print '<span class="nav-link active">' . _txt('pl.oa4mp_client_access_control.tab.name') . '</span>';
+          } else {
+            if ($permissions['edit']) {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_access_control.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_access_controls',
+                  'action' => 'index',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            } else {
+              print $this->Html->link(
+                _txt('pl.oa4mp_client_access_control.tab.name'),
+                array(
+                  'plugin' => 'oa4mp_client',
+                  'controller' => 'oa4mp_client_access_controls',
+                  'action' => 'view',
+                  'clientid' => $vv_client_id
+                ),
+                array('class' => 'nav-link spin')
+              );
+            }
+          }
+        ?>
+      </li>
+
     </ul>
   </nav>
 

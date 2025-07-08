@@ -43,6 +43,12 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'ct.oa4mp_client_co_callbacks.pl' => 'Callbacks',
   'ct.oa4mp_client_co_claims.1' => 'Claim',
   'ct.oa4mp_client_co_claims.pl' => 'Claims',
+  'ct.oa4mp_client_refresh_tokens.1' => 'Refresh Token Configuration',
+  'ct.oa4mp_client_refresh_tokens.pl' => 'Refresh Tokens',
+  'ct.oa4mp_client_access_tokens.1' => 'Access Token',
+  'ct.oa4mp_client_access_tokens.pl' => 'Access Tokens',
+  'ct.oa4mp_client_authorizations.1' => 'Authorizations',
+  'ct.oa4mp_client_authorizations.pl' => 'Authorizations',
 
   // Menu
   'pl.oa4mp_client.menu.admin_clients.cmp' => 'Oa4mp Admin Clients',
@@ -266,4 +272,55 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.er.callback_default' => 'Please provide a valid callback URL',
   'pl.oa4mp_client_co_oidc_client.er.bad_admin_id' => 'The selected OAuth2 server is not available',
   'pl.oa4mp_client_co_oidc_client.er.id' => 'The OIDC client with ID %1%s cannot be found',
+
+  // Tab names
+  'pl.oa4mp_client_refresh_token.tab.name' => 'Refresh Token',
+  'pl.oa4mp_client_access_token.tab.name' => 'Access Token',
+
+  // Field labels and descriptions
+  'pl.oa4mp_client_refresh_token.fd.token_lifetime' => 'Token Lifetime',
+  'pl.oa4mp_client_refresh_token.fd.token_lifetime.desc' => 'The lifetime of refresh tokens in seconds (maximum 31536000 seconds, or one year)',
+  'pl.oa4mp_client_access_token.fd.is_jwt' => 'JWT Format',
+  'pl.oa4mp_client_access_token.fd.is_jwt.desc' => 'Whether access tokens should be issued in JWT format',
+
+  // Flash messages
+  'pl.oa4mp_client_refresh_token.token.add.flash.success' => 'Refresh Token Configuration Added',
+  'pl.oa4mp_client_refresh_token.token.edit.flash.success' => 'Refresh Token Configuration Updated',
+  'pl.oa4mp_client_refresh_token.token.delete.flash.success' => 'Refresh Token Configuration Deleted',
+  'pl.oa4mp_client_access_token.token.add.flash.success' => 'Access Token Configuration Added',
+  'pl.oa4mp_client_access_token.token.edit.flash.success' => 'Access Token Configuration Updated',
+  'pl.oa4mp_client_access_token.token.delete.flash.success' => 'Access Token Configuration Deleted',
+
+  // View titles
+  'pl.oa4mp_client_refresh_token.add.name' => 'Add Refresh Token Configuration for %s',
+  'pl.oa4mp_client_refresh_token.edit.name' => 'Edit Refresh Token Configuration for %s',
+  'pl.oa4mp_client_refresh_token.index.name' => 'Refresh Token Configuration for %s',
+  'pl.oa4mp_client_access_token.add.name' => 'Add Access Token Configuration for %s',
+  'pl.oa4mp_client_access_token.edit.name' => 'Edit Access Token Configuration for %s',
+  'pl.oa4mp_client_access_token.index.name' => 'Access Token Configuration for %s',
+
+  // Tab name
+  'pl.oa4mp_client_authorization.tab.name' => 'Authorization',
+
+  // Field labels and descriptions
+  'pl.oa4mp_client_authorization.fd.authz_co_group_id' => 'CO Group',
+  'pl.oa4mp_client_authorization.fd.authz_co_group_id.desc' => 'COmanage Registry group whose members are authorized for this client',
+
+  // Flash messages
+  'pl.oa4mp_client_authorization.add.flash.success' => 'Authorization Configuration Added',
+  'pl.oa4mp_client_authorization.edit.flash.success' => 'Authorization Configuration Updated',
+  'pl.oa4mp_client_authorization.delete.flash.success' => 'Authorization Configuration Deleted',
+
+  // View titles
+  'pl.oa4mp_client_authorization.add.name' => 'Add Authorization Configuration for %s',
+  'pl.oa4mp_client_authorization.edit.name' => 'Edit Authorization Configuration for %s',
+  'pl.oa4mp_client_authorization.index.name' => 'Authorization Configuration for %s',
+
+  'pl.oa4mp_client_access_control.tab.name' => 'Edit Control',
+  'pl.oa4mp_client_access_control.fd.co_group_id' => 'CO Group',
+  'pl.oa4mp_client_access_control.fd.co_group_id.desc' => 'CO Group whose members may edit this OIDC client',
+  'pl.oa4mp_client_access_control.fd.cou_id' => 'COU',
+  'pl.oa4mp_client_access_control.fd.cou_id.desc' => 'COU whose members may edit this OIDC client',
+  'pl.oa4mp_client_access_control.fd.co_person_id' => 'CO Person',
+  'pl.oa4mp_client_access_control.fd.co_person_id.desc' => 'CO Person who may edit this OIDC client',
 );

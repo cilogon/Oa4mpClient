@@ -69,7 +69,26 @@ class Oa4mpClientCoOidcClient extends AppModel {
     "Oa4mpClient.Oa4mpClientCoEmailAddress" => array(
       'foreignKey' => 'client_id',
       'dependent' => true
+    )
+  );
+
+  public $hasOne = array(
+    "Oa4mpClient.Oa4mpClientRefreshToken" => array(
+      'foreignKey' => 'client_id',
+      'dependent' => true
     ),
+    "Oa4mpClient.Oa4mpClientAccessToken" => array(
+      'foreignKey' => 'client_id',
+      'dependent' => true
+    ),
+    "Oa4mpClient.Oa4mpClientAuthorization" => array(
+      'foreignKey' => 'client_id',
+      'dependent' => true
+    ),
+    "Oa4mpClient.Oa4mpClientAccessControl" => array(
+      'foreignKey' => 'client_id',
+      'dependent' => true
+    )
   );
 
   // Default display field for cake generated views
@@ -189,13 +208,17 @@ class Oa4mpClientCoOidcClient extends AppModel {
         'DefaultLdapConfig',
         'DefaultDynamoConfig'
       ),
+      'Oa4mpClientAccessControl',
+      'Oa4mpClientAccessToken',
+      'Oa4mpClientAuthorization',
+      'Oa4mpClientRefreshToken',
       'Oa4mpClientCoEmailAddress',
       'Oa4mpClientCoScope',
       'Oa4mpClientCoCallback',
       'Oa4mpClientClaim',
-      'Oa4mpClientDynamoConfig',
+      'Oa4mpClientCoLdapConfig',
       'Oa4mpClientCoNamedConfig',
-      'Oa4mpClientCoLdapConfig'
+      'Oa4mpClientDynamoConfig',
     );
 
     $client = $this->find('first', $args);
