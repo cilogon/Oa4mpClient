@@ -68,7 +68,6 @@
         <field name="named_config_id" type="I">
             <constraint>REFERENCES cm_oa4mp_client_co_named_configs(id)</constraint>
         </field>
-        <field name="require_active" type="L" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
@@ -328,6 +327,7 @@
         <field name="authz_co_group_id" type="I">
             <constraint>REFERENCES cm_co_groups(id)</constraint>
         </field>
+        <field name="require_active" type="L" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 

@@ -224,24 +224,6 @@
     </div>
   </li>
 
-  <?php if($this->action == "edit"): ?>
-  <li>
-    <div class="field-name">
-      <div class="field-title">
-        <?php print ($e
-                     ? $this->Form->label('refresh_token_lifetime', _txt('pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name'))
-                     : _txt('pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name')); ?>
-      </div>
-      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description'); ?></div>
-    </div>
-    <div class="field-info">
-      <?php print ($e
-                   ? $this->Form->input('refresh_token_lifetime')
-                   : filter_var($this->request->data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'],FILTER_SANITIZE_SPECIAL_CHARS)); ?>
-    </div>
-  </li>
-  <?php endif; ?>
-
   <?php if($e): ?>
     <li class="fields-submit">
       <div class="field-name"></div>

@@ -178,7 +178,7 @@
                 array(
                   'plugin' => 'oa4mp_client',
                   'controller' => 'oa4mp_client_refresh_tokens',
-                  'action' => 'index',
+                  'action' => 'manage',
                   'clientid' => $vv_client_id
                 ),
                 array('class' => 'nav-link spin')

@@ -44,79 +44,14 @@ class Oa4mpClientRefreshTokensController extends StandardController {
   public $requires_co = true;
 
   /**
-   * Add a refresh token configuration.
-   *
-   * @since  COmanage Registry v4.5.0
-   * @return null
-   */
-
-  function add() {
-    $clientId = $this->request->params['named']['clientid'];
-    $this->set('vv_client_id', $clientId);
-
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
-
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientRefreshToken->Oa4mpClientCoOidcClient->current($clientId);
-    $admin = $this->Oa4mpClientRefreshToken->Oa4mpClientCoOidcClient->admin($clientId);
-
-    // POST or PUT request
-    if($this->request->is(array('post','put'))) {
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, array_merge($client, $this->request->data));
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-      } else {
-        // Update successful so save the new configuration.
-        $ret = $this->Oa4mpClientRefreshToken->save($this->request->data);
-
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_refresh_token.token.add.flash.success'), array('key' => 'success'));
-
-        // Redirect to the index view.
-        $args = array();
-        $args['plugin'] = 'oa4mp_client';
-        $args['controller'] = 'oa4mp_client_refresh_tokens';
-        $args['action'] = 'index';
-        $args['clientid'] = $clientId;
-
-        $this->redirect($args);
-      }
-    } 
-
-    // GET 
-
-    // Verify that this plugin and the OA4MP server representations
-    // of the current client before the edit are synchronized.
-    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
-    if(!$synchronized) {
-      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-      $args = array();
-      $args['action'] = 'index';
-      $args['co'] = $this->cur_co['Co']['id'];
-      $this->redirect($args);
-    }
-
-    $this->set('title_for_layout', _txt('pl.oa4mp_client_refresh_token.add.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-  }
-
-  /**
-   * Edit a refresh token configuration.
+   * Manage a refresh token configuration.
    *
    * @since  COmanage Registry v4.5.0
    * @param  integer $id Oa4mpClientRefreshToken ID
    * @return null
    */
 
-  function edit($id) {
+  function manage() {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
@@ -146,14 +81,14 @@ class Oa4mpClientRefreshTokensController extends StandardController {
         // Set flash successful.
         $this->Flash->set(_txt('pl.oa4mp_client_refresh_token.token.edit.flash.success'), array('key' => 'success'));
 
-        // Redirect to the index view.
-        $args = array();
-        $args['plugin'] = 'oa4mp_client';
-        $args['controller'] = 'oa4mp_client_refresh_tokens';
-        $args['action'] = 'index';
-        $args['clientid'] = $clientId;
+        // Redirect to the manage view.
+       $args = array();
+       $args['plugin'] = 'oa4mp_client';
+       $args['controller'] = 'oa4mp_client_refresh_tokens';
+       $args['action'] = 'manage';
+       $args['clientid'] = $clientId;
 
-        $this->redirect($args);
+       $this->redirect($args);
       }
     }
 
@@ -170,36 +105,10 @@ class Oa4mpClientRefreshTokensController extends StandardController {
       $this->redirect($args);
     }
 
+    $this->request->data = $client;
+
     $this->set('title_for_layout', _txt('pl.oa4mp_client_refresh_token.edit.name',
                array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-  }
-
-  /**
-   * Index page.
-   *
-   * @since  COmanage Registry v4.5.0
-   * @return void
-   */
-
-  function index() {
-    $clientId = $this->request->params['named']['clientid'];
-    $this->set('vv_client_id', $clientId);
-
-    // Get the current client configuration
-    $client = $this->Oa4mpClientRefreshToken->Oa4mpClientCoOidcClient->current($clientId);
-
-    $this->set('title_for_layout', _txt('pl.oa4mp_client_refresh_token.index.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-
-    // Set page title
-    $this->set('vv_oidc_client_name', $client['Oa4mpClientCoOidcClient']['name']);
-
-    // Find all refresh token configurations for this client
-    $args = array();
-    $args['conditions']['Oa4mpClientRefreshToken.client_id'] = $clientId;
-    $args['contain'] = false;
-
-    $this->set('refresh_tokens', $this->Oa4mpClientRefreshToken->find('all', $args));
   }
 
   /**
@@ -218,18 +127,12 @@ class Oa4mpClientRefreshTokensController extends StandardController {
     $p = array();
     
     // Determine what operations this user can perform
-    
-    // Add a new refresh token configuration?
-    $p['add'] = ($roles['cmadmin'] || $roles['coadmin']);
-    
-    // Delete an existing refresh token configuration?
-    $p['delete'] = ($roles['cmadmin'] || $roles['coadmin']);
-    
-    // Edit an existing refresh token configuration?
+
+    // Edit refresh token configuration?
     $p['edit'] = ($roles['cmadmin'] || $roles['coadmin']);
     
-    // View all existing refresh token configurations?
-    $p['index'] = ($roles['cmadmin'] || $roles['coadmin']);
+    // Manage refresh token configuration?
+    $p['manage'] = ($roles['cmadmin'] || $roles['coadmin']);
     
     $this->set('permissions', $p);
     return($p[$this->action]);
@@ -264,5 +167,5 @@ function parseCOID($data = null) {
     $coid = $oidcClient['Oa4mpClientCoAdminClient']['co_id'];
 
     return $coid;
-}
+  }
 } 

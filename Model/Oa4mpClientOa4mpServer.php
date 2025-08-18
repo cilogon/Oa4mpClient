@@ -39,7 +39,6 @@ class Oa4mpClientOa4mpServer extends AppModel {
    */
 
   function isClientDataSynchronized($curData, $oa4mpServerData) {
-
     // Compare basic client details.
     $curClient = $curData['Oa4mpClientCoOidcClient'];
     $oa4mpClient = $oa4mpServerData['Oa4mpClientCoOidcClient'];
@@ -64,12 +63,18 @@ class Oa4mpClientOa4mpServer extends AppModel {
       return false;
     }
 
+    // Compare refresh token lifetime.
+    //
     // The state where the OA4MP server has a refresh token lifetime of exactly
     // zero and our representation does not have a value is considered to be
     // synchronized.
-    if($curClient['refresh_token_lifetime'] != $oa4mpClient['refresh_token_lifetime']) {
-      if(!(is_null($curClient['refresh_token_lifetime']) && ($oa4mpClient['refresh_token_lifetime'] === 0))) {
-        $this->log("Oa4mpClientCoOidcClient refresh_token_lifetime is out of sync");
+
+    $curRefreshToken = $curData['Oa4mpClientRefreshToken'];
+    $oa4mpRefreshToken = $oa4mpServerData['Oa4mpClientRefreshToken'];
+
+    if($curRefreshToken['token_lifetime'] != $oa4mpRefreshToken['token_lifetime']) {
+      if(!(is_null($curRefreshToken['token_lifetime']) && ($oa4mpRefreshToken['token_lifetime'] === 0))) {
+        $this->log("Oa4mpClientRefreshToken token_lifetime is out of sync");
         return false;
       }
     }
@@ -631,10 +636,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
     }
 
-    if(!empty($data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'])) {
-      if(is_numeric($data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'])) {
+    if(!empty($data['Oa4mpClientRefreshToken']['token_lifetime'])) {
+      if(is_numeric($data['Oa4mpClientRefreshToken']['token_lifetime'])) {
         $content['grant_types'][] = 'refresh_token';
-        $content['rt_lifetime'] = $data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'];
+        $content['rt_lifetime'] = $data['Oa4mpClientRefreshToken']['token_lifetime'];
       }
     }
 
@@ -772,6 +777,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $oa4mpClient['Oa4mpClientCoCallback']    = array();
     $oa4mpClient['Oa4mpClientCoLdapConfig']  = array();
     $oa4mpClient['Oa4mpClientCoScope']       = array();
+    $oa4mpClient['Oa4mpClientRefreshToken']  = array();
 
     try {
       // Try to unmarshall the server object and throw exception
@@ -782,7 +788,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $oa4mpClient['Oa4mpClientCoOidcClient']['name'] = $oa4mpObject['client_name'];
 
       if(array_key_exists('rt_lifetime', $oa4mpObject)) {
-        $oa4mpClient['Oa4mpClientCoOidcClient']['refresh_token_lifetime'] = $oa4mpObject['rt_lifetime'];
+        $oa4mpClient['Oa4mpClientRefreshToken']['token_lifetime'] = $oa4mpObject['rt_lifetime'];
       }
 
       if(array_key_exists('comment', $oa4mpObject)) {
@@ -844,57 +850,74 @@ class Oa4mpClientOa4mpServer extends AppModel {
         }
       }
 
-      // Unmarshall the cfg object to obtain the LDAP and search attribute details.
-      if(isset($oa4mpObject['cfg'])){
-        $cfg = $oa4mpObject['cfg'];
+      // Unmarshall the cfg object, if any.
 
-        // Assume QDL syntax and try to unmarshall.
-        $ldapConfigs = $this->oa4mpUnMarshallCfgQdl($cfg);
+      // If no cfg object then we are done.
+      if(!isset($oa4mpObject['cfg'])){
+        $this->log("No cfg object found in oa4mpObject");
+        return $oa4mpClient;
+      }
+  
+      $cfg = $oa4mpObject['cfg'];
+      $this->log("Cast JSON cfg from OA4MP server to " . print_r($cfg, true));
 
-        if(!empty($ldapConfigs)) {
-          $this->log("Unmarshalled cfg QDL syntax to " . print_r($ldapConfigs, true));
-          foreach($ldapConfigs as $ldapConfig) {
-            $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
-          }
-        } else {
-          // If QDL syntax did not work try assuming older deprecated syntax.
-          $ldapConfigs = $this->oa4mpUnMarshallCfgDeprecated($cfg);
+      // Try cfg format 3 first.
+      $configs = $this->oa4mpUnMarshallCfgQdlv3($cfg);
 
-          if(!empty($ldapConfigs)) {
-            $this->log("Unmarshalled deprecated cfg to " . print_r($ldapConfigs, true));
-            foreach($ldapConfigs as $ldapConfig) {
-              $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
+      if(!empty($configs)) {
+        $this->log("Unmarshalled cfg QDLv3 syntax to " . print_r($configs, true));
+        array_merge($oa4mpClient, $configs);
+          
+        return $oa4mpClient;
+      }
+
+      // Try cfg format 2 next.
+      $ldapConfigs = $this->oa4mpUnMarshallCfgQdlv2($cfg);
+
+      if(!empty($ldapConfigs)) {
+        $this->log("Unmarshalled cfg QDL syntax to " . print_r($ldapConfigs, true));
+        foreach($ldapConfigs as $ldapConfig) {
+          $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
+        }
+
+        return $oa4mpClient;
+      } 
+
+      // If QDL syntax did not work try assuming older deprecated syntax.
+      $ldapConfigs = $this->oa4mpUnMarshallCfgDeprecated($cfg);
+
+      if(!empty($ldapConfigs)) {
+        $this->log("Unmarshalled deprecated cfg to " . print_r($ldapConfigs, true));
+        foreach($ldapConfigs as $ldapConfig) {
+          $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
+        }
+
+        // Check the preProcessing block. Currently we should find a sincle claim source
+        // of type 'LDAP' and its config identifier should be consistent with the cfg
+        // object.
+        if(isset($cfg['claims']['preProcessing'])) {
+          $preProcessing = $cfg['claims']['preProcessing'];
+          if(isset($preProcessing[0]['$then'][0]['$set_claim_source'])) {
+            $claim_source = $preProcessing[0]['$then'][0]['$set_claim_source'];
+            if($claim_source[0] != 'LDAP') {
+              throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
             }
-
-            // Check the preProcessing block. Currently we should find a sincle claim source
-            // of type 'LDAP' and its config identifier should be consistent with the cfg
-            // object.
-            if(isset($cfg['claims']['preProcessing'])) {
-              $preProcessing = $cfg['claims']['preProcessing'];
-              if(isset($preProcessing[0]['$then'][0]['$set_claim_source'])) {
-                $claim_source = $preProcessing[0]['$then'][0]['$set_claim_source'];
-                if($claim_source[0] != 'LDAP') {
-                  throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
-                }
-                if($claim_source[1] != $cfg['claims']['sourceConfig'][0]['ldap']['id']) {
-                  throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
-                }
-              }
+            if($claim_source[1] != $cfg['claims']['sourceConfig'][0]['ldap']['id']) {
+              throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.preprocessing'));
             }
           }
         }
-
-        // cfg is set but we are not able to unmarshall it as a defined cfg format
-        // that uses QDL or the deprecated cfg syntax. That is ok, however, since it
-        // may now be a Named Configuration.
       }
-    }
-    catch(Exception $e) {
+      
+      // cfg is set but we are not able to unmarshall it as a defined cfg format
+      // that uses QDL or the deprecated cfg syntax. That is ok, however, since it
+      // may now be a Named Configuration.
+      return $oa4mpClient;
+
+    } catch(Exception $e) {
       $this->log("oa4mpObject: " . print_r($oa4mpObject, true));
       throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.unmarshall') . ': ' . $e->getMessage());
     }
-
-    return $oa4mpClient;
   }
 
   /**
@@ -978,7 +1001,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @param array $cfg oa4mp cfg object
    * @return array of oa4mpClient['Oa4mpClientCoLdapConfig'] objects
    */
-  function oa4mpUnMarshallCfgQdl($cfg) {
+  function oa4mpUnMarshallCfgQdlv2($cfg) {
     // TODO add code to try and verify that the cfg we retrieved
     // is what we expected.
 
@@ -1061,6 +1084,26 @@ class Oa4mpClientOa4mpServer extends AppModel {
     }
 
     return $ldapConfigs;
+  }
+
+  /**
+   * TODO: fix this description.
+   * Unmarshall oa4mp cfg object to oa4mpClient['Oa4mpClientCoLdapConfig'] objects
+   * assuming QDL syntax.
+   *
+   * @since COmanage Registry 4.5.0
+   * @param array $cfg oa4mp cfg object
+   * @return array of oa4mpClient['Oa4mpClientCoLdapConfig'] objects
+   */
+  function oa4mpUnMarshallCfgQdlv3($cfg) {
+
+    // TODO: implement this.
+
+    $oa4mpClient = array();
+
+    $oa4mpClient['Oa4mpClient']['Oa4mpClaim'] = array();
+
+    return $oa4mpClient;
   }
 
   /**

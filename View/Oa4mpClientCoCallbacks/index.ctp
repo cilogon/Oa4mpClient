@@ -27,7 +27,15 @@
 
   // Add breadcrumbs
   print $this->element("coCrumb");
-  $this->Html->addCrumb(_txt('ct.oa4mp_client_co_oidc_clients.pl'));
+  $args = array();
+  $args['plugin'] = 'oa4mp_client';
+  $args['controller'] = 'oa4mp_client_co_oidc_clients';
+  $args['co'] = $cur_co['Co']['id'];
+  $args['action'] = 'index';
+
+  $this->Html->addCrumb(_txt('ct.oa4mp_client_co_oidc_clients.pl'), $args);
+  $crumbTxt = _txt('op.edit-a', array(_txt('ct.oa4mp_client_co_oidc_clients.1')));
+  $this->Html->addCrumb($crumbTxt);
 
   // Add page title
   $params = array();

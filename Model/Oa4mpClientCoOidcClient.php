@@ -124,6 +124,7 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'required' => true,
       'allowEmpty' => false
     ),
+    // refresh_token_lifetime is deprecated and moved to the Oa4mpClientRefreshToken model
     'refresh_token_lifetime' => array(
       'rule1' => array(
         'rule' => array('naturalNumber', true),
@@ -147,11 +148,6 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'on' => 'update',
       'allowEmpty' => true,
     ),
-    'require_active' => array(
-      'rule' => 'boolean',
-      'required' => false,
-      'allowEmpty' => true
-    )
   );
 
   /**

@@ -121,7 +121,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_oidc_client.callbacks.tab.name' => 'Callbacks',
   'pl.oa4mp_client_co_oidc_client.callbacks.add.name' => 'Add Callback for %1$s',
-  'pl.oa4mp_client_co_oidc_client.callbacks.edit.name' => 'Edit Callback for %1$s',
+  'pl.oa4mp_client_co_oidc_client.callbacks.edit.name' => 'Edit Callbacks for %1$s',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The OIDC protocol redirect_uri parameter must exactly match the callback URL',
   'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
@@ -317,6 +317,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_authorization.index.name' => 'Authorization Configuration for %s',
 
   'pl.oa4mp_client_access_control.tab.name' => 'Edit Control',
+  // Manager
+  // Editor
+  // Client Editor
+  // Client Manager
   'pl.oa4mp_client_access_control.fd.co_group_id' => 'CO Group',
   'pl.oa4mp_client_access_control.fd.co_group_id.desc' => 'CO Group whose members may edit this OIDC client',
   'pl.oa4mp_client_access_control.fd.cou_id' => 'COU',

@@ -53,6 +53,11 @@ class Oa4mpClientAuthorization extends AppModel {
       'rule' => 'numeric',
       'required' => true,
       'allowEmpty' => false
+    ),
+    'require_active' => array(
+      'rule' => 'boolean',
+      'required' => false,
+      'allowEmpty' => true
     )
   );
 } 
