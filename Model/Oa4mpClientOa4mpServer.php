@@ -179,9 +179,27 @@ class Oa4mpClientOa4mpServer extends AppModel {
     }
 
     // If this client uses a named configuration than return true here,
-    // else continue to compare the LDAP configurations.
+    // else continue with more detailed comparison.
     if($usesNamedConfig) {
       return true;
+    }
+
+    // Compare access token configuration.
+    if($curData['Oa4mpClientAccessToken'] && $curData['Oa4mpClientAccessToken']['is_jwt'] && !$oa4mpServerData['Oa4mpClientAccessToken']) {
+      $this->log("Oa4mpClientAccessToken plugin has access token configuration but Oa4mp server does not");
+      return false;
+    }
+
+    if(!$curData['Oa4mpClientAccessToken'] && $oa4mpServerData['Oa4mpClientAccessToken']) {
+      $this->log("Oa4mpClientAccessToken Oa4mp server has access token configuration but plugin does not");
+      return false;
+    }
+
+    if($curData['Oa4mpClientAccessToken'] && $oa4mpServerData['Oa4mpClientAccessToken']) {
+      if($curData['Oa4mpClientAccessToken']['is_jwt'] != $oa4mpServerData['Oa4mpClientAccessToken']['is_jwt']) {
+        $this->log("Oa4mpClientAccessToken is_jwt is out of sync");
+        return false;
+      }
     }
 
     // Compare LDAP configurations.
@@ -485,46 +503,31 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @return array cfg object to be sent to oa4mp server
    */
   function oa4mpMarshallCfgQdl($data) {
-    // Use the admin_id passed in with the client data to find the Oa4mpCoAdminClient model
-    // object and from it the QDL paths to use. 
-    $adminClientId = $data['Oa4mpClientCoOidcClient']['admin_id'];
-
-    $args = array();
-    $args['conditions'] = array();
-    $args['conditions']['Oa4mpClientCoAdminClient.id'] = $adminClientId;
-    $args['contain'] = 'Oa4mpClientCoNamedConfig';
-
-    $ret = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
-
     // If using a named configuration then just return the cfg for that 
     // named configuration.
-    if(!empty($data['Oa4mpClientCoOidcClient']['named_config_id'])) {
-      foreach($ret['Oa4mpClientCoNamedConfig'] as $c) {
-        if($c['id'] == $data['Oa4mpClientCoOidcClient']['named_config_id']) {
-          $jsonString = $c['config'];
-          $cfg = json_decode($jsonString, true);
+    if(!empty($data['Oa4mpClientCoNamedConfig']['id'])) {
+      $jsonString = $c['config'];
+      $cfg = json_decode($jsonString, true);
 
-          // Add metadata with URL to the named configuration if not already present.
-          if($cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] ?? true) {
+      // Add metadata with URL to the named configuration if not already present.
+      if($cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] ?? true) {
 
-            $routingArray = array();
-            $routingArray['plugin'] = 'oa4mp_client';
-            $routingArray['controller'] = 'oa4mp_client_co_named_configs';
-            $routingArray['action'] = 'edit';
-            $routingArray[] = $data['Oa4mpClientCoOidcClient']['named_config_id'];
+        $routingArray = array();
+        $routingArray['plugin'] = 'oa4mp_client';
+        $routingArray['controller'] = 'oa4mp_client_co_named_configs';
+        $routingArray['action'] = 'edit';
+        $routingArray[] = $data['Oa4mpClientCoNamedConfig']['id'];
 
-            $cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] = Router::url($routingArray, true);
-          }
-
-          return $cfg;
-        }
+        $cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] = Router::url($routingArray, true);
       }
+
+      return $cfg;
     }
 
     // Older admin clients may not have the QDL path set so use the configured
     // default, or a hard-coded default as a last resort.
-    if(!empty($ret['Oa4mpClientCoAdminClient']['qdl_claim_source'])) {
-      $qdlClaimSourcePath = $ret['Oa4mpClientCoAdminClient']['qdl_claim_source'];
+    if(!empty($data['Oa4mpClientCoAdminClient']['qdl_claim_source'])) {
+      $qdlClaimSourcePath = $data['Oa4mpClientCoAdminClient']['qdl_claim_source'];
     } elseif(!empty(getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT'))) {
       $qdlClaimSourcePath = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT');
     } else{
@@ -533,71 +536,76 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     // Now construct the OA4MP cfg object.
     $cfg = array();
-    
-    // Identity token configuration.
-    $cfg['tokens']['identity']['type'] = 'identity';
 
-    // The QDL value is a list.
-    $cfg['tokens']['identity']['qdl'] = array();
-
-    $qdl = array();
-
-    $qdl['load'] = $qdlClaimSourcePath;
-
-    $qdl['xmd'] = array();
-    $qdl['xmd']['exec_phase'] = array();
-    $qdl['xmd']['exec_phase'][] = 'post_auth';
-    $qdl['xmd']['exec_phase'][] = 'post_refresh';
-    $qdl['xmd']['exec_phase'][] = 'post_token';
-    $qdl['xmd']['exec_phase'][] = 'post_user_info';
-
-    $qdl['args'] = array();
-    $qdl['args']['server_fqdn'] = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_HOST);
-
-    $server_port = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_PORT);
-
-    if(empty($server_port)) {
-      $scheme = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_SCHEME);
-      if($scheme == 'ldap') {
-        $server_port = 389;
-      } elseif($scheme == 'ldaps') {
-        $server_port = 636;
-      }
+    // Access token configuration.
+    if(!empty($data['Oa4mpClientAccessToken']) && $data['Oa4mpClientAccessToken']['is_jwt']) {
+      $cfg['tokens']['access']['type'] = 'access';
     }
 
-    if(empty($server_port)) {
-      throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.marshall'));
-    }
-
-    $qdl['args']['server_port'] = $server_port;
-
-    $qdl['args']['bind_dn'] = $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
-    $qdl['args']['bind_password'] = $data['Oa4mpClientCoLdapConfig'][0]['password'];
-    $qdl['args']['search_base'] = $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
-    $qdl['args']['search_attribute'] = $data['Oa4mpClientCoLdapConfig'][0]['search_name'];
-
-    $qdl['args']['return_attributes'] = array();
-    $qdl['args']['list_attributes'] = array();
-
-    if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
-      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
-        $qdl['args']['return_attributes'][] = $sa['name'];
-
-        if($sa['return_as_list']) {
-          $qdl['args']['list_attributes'][] = $sa['name'];
-        }
-      }
-    }
-
-
-    $qdl['args']['ldap_to_claim_mappings'] = array();
-    if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
-      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
-        $qdl['args']['ldap_to_claim_mappings'][$sa['name']] = $sa['return_name'];
-      }
-    }
-
-    $cfg['tokens']['identity']['qdl'][] = $qdl;
+//    // Identity token configuration.
+//    $cfg['tokens']['identity']['type'] = 'identity';
+//
+//    // The QDL value is a list.
+//    $cfg['tokens']['identity']['qdl'] = array();
+//
+//    $qdl = array();
+//
+//    $qdl['load'] = $qdlClaimSourcePath;
+//
+//    $qdl['xmd'] = array();
+//    $qdl['xmd']['exec_phase'] = array();
+//    $qdl['xmd']['exec_phase'][] = 'post_auth';
+//    $qdl['xmd']['exec_phase'][] = 'post_refresh';
+//    $qdl['xmd']['exec_phase'][] = 'post_token';
+//    $qdl['xmd']['exec_phase'][] = 'post_user_info';
+//
+//    $qdl['args'] = array();
+//    $qdl['args']['server_fqdn'] = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_HOST);
+//
+//    $server_port = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_PORT);
+//
+//    if(empty($server_port)) {
+//      $scheme = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_SCHEME);
+//      if($scheme == 'ldap') {
+//        $server_port = 389;
+//      } elseif($scheme == 'ldaps') {
+//        $server_port = 636;
+//      }
+//    }
+//
+//    if(empty($server_port)) {
+//      throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.marshall'));
+//    }
+//
+//    $qdl['args']['server_port'] = $server_port;
+//
+//    $qdl['args']['bind_dn'] = $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
+//    $qdl['args']['bind_password'] = $data['Oa4mpClientCoLdapConfig'][0]['password'];
+//    $qdl['args']['search_base'] = $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
+//    $qdl['args']['search_attribute'] = $data['Oa4mpClientCoLdapConfig'][0]['search_name'];
+//
+//    $qdl['args']['return_attributes'] = array();
+//    $qdl['args']['list_attributes'] = array();
+//
+//    if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
+//      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
+//        $qdl['args']['return_attributes'][] = $sa['name'];
+//
+//        if($sa['return_as_list']) {
+//          $qdl['args']['list_attributes'][] = $sa['name'];
+//        }
+//      }
+//    }
+//
+//
+//    $qdl['args']['ldap_to_claim_mappings'] = array();
+//    if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
+//      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
+//        $qdl['args']['ldap_to_claim_mappings'][$sa['name']] = $sa['return_name'];
+//      }
+//    }
+//
+//    $cfg['tokens']['identity']['qdl'][] = $qdl;
 
     return $cfg;
   }
@@ -710,8 +718,13 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $content['comment'] = _txt('pl.oa4mp_client_co_oidc_client.signature') . ': ' . $indexUrl;
 
-    if(!empty($data['Oa4mpClientCoLdapConfig']) || !empty($data['Oa4mpClientCoOidcClient']['named_config_id'])) {
-      $content['cfg'] = $this->oa4mpMarshallCfgQdl($data);
+    if(!empty($data['Oa4mpClientCoLdapConfig']) || 
+       !empty($data['Oa4mpClientCoOidcClient']['named_config_id']) ||
+       !empty($data['Oa4mpClientAccessToken'])) {
+      $cfg = $this->oa4mpMarshallCfgQdl($data);
+      if(!empty($cfg)) {
+        $content['cfg'] = $cfg;
+      }
     }
 
     return $content;
@@ -778,6 +791,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $oa4mpClient['Oa4mpClientCoLdapConfig']  = array();
     $oa4mpClient['Oa4mpClientCoScope']       = array();
     $oa4mpClient['Oa4mpClientRefreshToken']  = array();
+    $oa4mpClient['Oa4mpClientAccessToken']   = array();
 
     try {
       // Try to unmarshall the server object and throw exception
@@ -866,7 +880,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
       if(!empty($configs)) {
         $this->log("Unmarshalled cfg QDLv3 syntax to " . print_r($configs, true));
-        array_merge($oa4mpClient, $configs);
+        $oa4mpClient = array_merge($oa4mpClient, $configs);
           
         return $oa4mpClient;
       }
@@ -1096,11 +1110,19 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @return array of oa4mpClient['Oa4mpClientCoLdapConfig'] objects
    */
   function oa4mpUnMarshallCfgQdlv3($cfg) {
-
-    // TODO: implement this.
-
     $oa4mpClient = array();
 
+    // Unmarshall access token configuration.
+    if(!empty($cfg['tokens']['access']['type'])) {
+      if($cfg['tokens']['access']['type'] == 'access') {
+        $oa4mpClient['Oa4mpClientAccessToken'] = array();
+        $oa4mpClient['Oa4mpClientAccessToken']['is_jwt'] = true;
+      }
+    }
+
+    // TODO: implement more of this.
+
+    // This is a placeholder for the claims configuration.
     $oa4mpClient['Oa4mpClient']['Oa4mpClaim'] = array();
 
     return $oa4mpClient;

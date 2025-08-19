@@ -44,79 +44,13 @@ class Oa4mpClientAccessTokensController extends StandardController {
   public $requires_co = true;
 
   /**
-   * Add an access token configuration.
+   * Manage an access token configuration.
    *
-   * @since  COmanage Registry v4.5.0
+   * @since COmanage Registry 4.5.0
    * @return null
    */
 
-  function add() {
-    $clientId = $this->request->params['named']['clientid'];
-    $this->set('vv_client_id', $clientId);
-
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
-
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->current($clientId);
-    $admin = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->admin($clientId);
-
-    // POST or PUT request
-    if($this->request->is(array('post','put'))) {
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, array_merge($client, $this->request->data));
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-      } else {
-        // Update successful so save the new configuration.
-        $ret = $this->Oa4mpClientAccessToken->save($this->request->data);
-
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_access_token.token.add.flash.success'), array('key' => 'success'));
-
-        // Redirect to the index view.
-        $args = array();
-        $args['plugin'] = 'oa4mp_client';
-        $args['controller'] = 'oa4mp_client_access_tokens';
-        $args['action'] = 'index';
-        $args['clientid'] = $clientId;
-
-        $this->redirect($args);
-      }
-    } 
-
-    // GET 
-
-    // Verify that this plugin and the OA4MP server representations
-    // of the current client before the edit are synchronized.
-    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
-    if(!$synchronized) {
-      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-      $args = array();
-      $args['action'] = 'index';
-      $args['co'] = $this->cur_co['Co']['id'];
-      $this->redirect($args);
-    }
-
-    $this->set('title_for_layout', _txt('pl.oa4mp_client_access_token.add.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-  }
-
-  /**
-   * Edit an access token configuration.
-   *
-   * @since  COmanage Registry v4.5.0
-   * @param  integer $id Oa4mpClientAccessToken ID
-   * @return null
-   */
-
-  function edit($id) {
+  function manage() {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
@@ -146,11 +80,11 @@ class Oa4mpClientAccessTokensController extends StandardController {
         // Set flash successful.
         $this->Flash->set(_txt('pl.oa4mp_client_access_token.token.edit.flash.success'), array('key' => 'success'));
 
-        // Redirect to the index view.
+        // Redirect to the manage view.
         $args = array();
         $args['plugin'] = 'oa4mp_client';
         $args['controller'] = 'oa4mp_client_access_tokens';
-        $args['action'] = 'index';
+        $args['action'] = 'manage';
         $args['clientid'] = $clientId;
 
         $this->redirect($args);
@@ -165,41 +99,17 @@ class Oa4mpClientAccessTokensController extends StandardController {
     if(!$synchronized) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
       $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_co_oidc_clients';
       $args['action'] = 'index';
       $args['co'] = $this->cur_co['Co']['id'];
       $this->redirect($args);
     }
 
+    $this->request->data = $client;
+
     $this->set('title_for_layout', _txt('pl.oa4mp_client_access_token.edit.name',
                array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-  }
-
-  /**
-   * Index page.
-   *
-   * @since  COmanage Registry v4.5.0
-   * @return void
-   */
-
-  function index() {
-    $clientId = $this->request->params['named']['clientid'];
-    $this->set('vv_client_id', $clientId);
-
-    // Get the current client configuration
-    $client = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->current($clientId);
-
-    $this->set('title_for_layout', _txt('pl.oa4mp_client_access_token.index.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-
-    // Set page title
-    $this->set('vv_oidc_client_name', $client['Oa4mpClientCoOidcClient']['name']);
-
-    // Find all access token configurations for this client
-    $args = array();
-    $args['conditions']['Oa4mpClientAccessToken.client_id'] = $clientId;
-    $args['contain'] = false;
-
-    $this->set('access_tokens', $this->Oa4mpClientAccessToken->find('all', $args));
   }
 
   /**
@@ -218,18 +128,12 @@ class Oa4mpClientAccessTokensController extends StandardController {
     $p = array();
     
     // Determine what operations this user can perform
-    
-    // Add a new access token configuration?
-    $p['add'] = ($roles['cmadmin'] || $roles['coadmin']);
-    
-    // Delete an existing access token configuration?
-    $p['delete'] = ($roles['cmadmin'] || $roles['coadmin']);
-    
-    // Edit an existing access token configuration?
+
+    // Edit access token configuration?
     $p['edit'] = ($roles['cmadmin'] || $roles['coadmin']);
     
-    // View all existing access token configurations?
-    $p['index'] = ($roles['cmadmin'] || $roles['coadmin']);
+    // Manage access token configuration?
+    $p['manage'] = ($roles['cmadmin'] || $roles['coadmin']);
     
     $this->set('permissions', $p);
     return($p[$this->action]);
