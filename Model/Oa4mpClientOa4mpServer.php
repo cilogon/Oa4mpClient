@@ -202,6 +202,32 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
     }
 
+    // Compare client authorization configuration.
+    if(!empty($curData['Oa4mpClientAuthorization']['id']) && empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
+      $this->log("Oa4mpClientAuthorization plugin has authorization configuration but Oa4mp server does not");
+      return false;
+    }
+
+    if(empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
+      $this->log("Oa4mpClientAuthorization Oa4mp server has authorization configuration but plugin does not");
+      return false;
+    }
+
+    if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
+      if($curData['Oa4mpClientAuthorization']['require_active'] != ($oa4mpServerData['Oa4mpClientAuthorization']['require_active'] ?? null)) {
+        $this->log("Oa4mpClientAuthorization require_active is out of sync");
+        return false;
+      }
+    }
+
+    if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
+      if($curData['Oa4mpClientAuthorization']['authz_co_group_id'] != ($oa4mpServerData['Oa4mpClientAuthorization']['authz_co_group_id'] ?? null)) {
+        $this->log("Oa4mpClientAuthorization authz_co_group_id is out of sync");
+        return false;
+      }
+    }
+
+    // TODO: Remove these LDAP comparisons.
     // Compare LDAP configurations.
     if($curData['Oa4mpClientCoLdapConfig'] && !$oa4mpServerData['Oa4mpClientCoLdapConfig']) {
       $this->log("Oa4mpClientCoLdapConfig plugin has LDAP configuration but Oa4mp server does not");
@@ -542,24 +568,34 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $cfg['tokens']['access']['type'] = 'access';
     }
 
-//    // Identity token configuration.
-//    $cfg['tokens']['identity']['type'] = 'identity';
-//
-//    // The QDL value is a list.
-//    $cfg['tokens']['identity']['qdl'] = array();
-//
-//    $qdl = array();
-//
-//    $qdl['load'] = $qdlClaimSourcePath;
-//
-//    $qdl['xmd'] = array();
-//    $qdl['xmd']['exec_phase'] = array();
-//    $qdl['xmd']['exec_phase'][] = 'post_auth';
-//    $qdl['xmd']['exec_phase'][] = 'post_refresh';
-//    $qdl['xmd']['exec_phase'][] = 'post_token';
-//    $qdl['xmd']['exec_phase'][] = 'post_user_info';
-//
-//    $qdl['args'] = array();
+    // Identity token configuration.
+    $cfg['tokens']['identity']['type'] = 'identity';
+
+    $qdl = array();
+
+    $qdl['load'] = $qdlClaimSourcePath;
+
+    $qdl['xmd'] = array();
+    $qdl['xmd']['exec_phase'] = array();
+    $qdl['xmd']['exec_phase'][] = 'post_auth';
+    $qdl['xmd']['exec_phase'][] = 'post_refresh';
+    $qdl['xmd']['exec_phase'][] = 'post_token';
+    $qdl['xmd']['exec_phase'][] = 'post_user_info';
+
+    $qdl['args'] = array();
+
+    // Client authorization configuration.
+    if(!empty($data['Oa4mpClientAuthorization']) && $data['Oa4mpClientAuthorization']['require_active']) {
+      $qdl['args']['require_active_status'] = $data['Oa4mpClientAuthorization']['require_active'];
+    }
+
+    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_co_group_id'])) {
+      $qdl['args']['authorization_group_id'] = $data['Oa4mpClientAuthorization']['authz_co_group_id'];
+    }
+
+    $cfg['tokens']['identity']['qdl'] = $qdl;
+
+
 //    $qdl['args']['server_fqdn'] = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_HOST);
 //
 //    $server_port = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_PORT);
@@ -720,7 +756,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     if(!empty($data['Oa4mpClientCoLdapConfig']) || 
        !empty($data['Oa4mpClientCoOidcClient']['named_config_id']) ||
-       !empty($data['Oa4mpClientAccessToken'])) {
+       !empty($data['Oa4mpClientAccessToken']) ||
+       !empty($data['Oa4mpClientAuthorization'])) {
       $cfg = $this->oa4mpMarshallCfgQdl($data);
       if(!empty($cfg)) {
         $content['cfg'] = $cfg;
@@ -1117,6 +1154,23 @@ class Oa4mpClientOa4mpServer extends AppModel {
       if($cfg['tokens']['access']['type'] == 'access') {
         $oa4mpClient['Oa4mpClientAccessToken'] = array();
         $oa4mpClient['Oa4mpClientAccessToken']['is_jwt'] = true;
+      }
+    }
+
+    // Unmarshall client authorization configuration.
+    if(!empty($cfg['tokens']['identity']['qdl']['args'])) {
+      $qdlArgs = $cfg['tokens']['identity']['qdl']['args'];
+
+      $authz = array();
+      if(!empty($qdlArgs['require_active_status'])) {
+        $authz['require_active'] = $qdlArgs['require_active_status'];
+      }
+      if(!empty($qdlArgs['authorization_group_id'])) {
+        $authz['authz_co_group_id'] = $qdlArgs['authorization_group_id'];
+      }
+
+      if(!empty($authz)) {
+        $oa4mpClient['Oa4mpClientAuthorization'] = $authz;
       }
     }
 

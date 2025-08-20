@@ -303,8 +303,11 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_authorization.tab.name' => 'Authorization',
 
   // Field labels and descriptions
-  'pl.oa4mp_client_authorization.fd.authz_co_group_id' => 'CO Group',
-  'pl.oa4mp_client_authorization.fd.authz_co_group_id.desc' => 'COmanage Registry group whose members are authorized for this client',
+  'pl.oa4mp_client_authorization.fd.authz_co_group_id' => 'Authorized User Group',
+  'pl.oa4mp_client_authorization.fd.authz_co_group_id.desc' => 'Members of this group may access this client',
+  'pl.oa4mp_client_authorization.fd.authz_co_group_id.select.empty' => '-- Select Group (or leave for no group) --',
+  'pl.oa4mp_client_authorization.fd.require_active' => 'Require Active Status',
+  'pl.oa4mp_client_authorization.fd.require_active.desc' => 'User record must have active status to access this client',
 
   // Flash messages
   'pl.oa4mp_client_authorization.add.flash.success' => 'Authorization Configuration Added',

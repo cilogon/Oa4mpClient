@@ -51,8 +51,8 @@ class Oa4mpClientAuthorization extends AppModel {
     ),
     'authz_co_group_id' => array(
       'rule' => 'numeric',
-      'required' => true,
-      'allowEmpty' => false
+      'required' => false,
+      'allowEmpty' => true
     ),
     'require_active' => array(
       'rule' => 'boolean',

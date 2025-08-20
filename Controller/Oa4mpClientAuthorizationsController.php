@@ -44,13 +44,14 @@ class Oa4mpClientAuthorizationsController extends StandardController {
   public $requires_co = true;
 
   /**
-   * Add an authorization configuration.
+   * Manage an authorization configuration.
    *
-   * @since  COmanage Registry v4.5.0
+   * @since COmanage Registry 4.5.0
+   * @param integer $id Oa4mpClientAuthorization ID
    * @return null
    */
 
-  function add() {
+  function manage() {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
@@ -60,71 +61,23 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $client = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->admin($clientId);
 
-    // POST or PUT request
-    if($this->request->is(array('post','put'))) {
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, array_merge($client, $this->request->data));
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-      } else {
-        // Update successful so save the new configuration.
-        $ret = $this->Oa4mpClientAuthorization->save($this->request->data);
+    // Pull the available groups.
+    $args = array();
+    $args['conditions']['ManageCoGroup.co_id'] = $admin['Oa4mpClientCoAdminClient']['co_id'];
+    $args['conditions']['ManageCoGroup.status'] = SuspendableStatusEnum::Active;
+    $args['order'] = array('ManageCoGroup.name ASC');
+    $args['contain'] = false;
 
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_authorization.add.flash.success'), array('key' => 'success'));
+    $availableGroups = $this->Oa4mpClientAuthorization
+                            ->Oa4mpClientCoOidcClient
+                            ->Oa4mpClientCoAdminClient
+                            ->ManageCoGroup
+                            ->find("list", $args);
 
-        // Redirect to the index view.
-        $args = array();
-        $args['plugin'] = 'oa4mp_client';
-        $args['controller'] = 'oa4mp_client_authorizations';
-        $args['action'] = 'index';
-        $args['clientid'] = $clientId;
+    // Add blank option to allow unsetting the group
+    $availableGroupsWithBlank = array('' => _txt('pl.oa4mp_client_authorization.fd.authz_co_group_id.select.empty')) + $availableGroups;
 
-        $this->redirect($args);
-      }
-    } 
-
-    // GET 
-
-    // Verify that this plugin and the OA4MP server representations
-    // of the current client before the edit are synchronized.
-    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
-    if(!$synchronized) {
-      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-      $args = array();
-      $args['action'] = 'index';
-      $args['co'] = $this->cur_co['Co']['id'];
-      $this->redirect($args);
-    }
-
-    $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.add.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-  }
-
-  /**
-   * Edit an authorization configuration.
-   *
-   * @since  COmanage Registry v4.5.0
-   * @param  integer $id Oa4mpClientAuthorization ID
-   * @return null
-   */
-
-  function edit($id) {
-    $clientId = $this->request->params['named']['clientid'];
-    $this->set('vv_client_id', $clientId);
-
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
-
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->current($clientId);
-    $admin = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->admin($clientId);
+    $this->set('vv_available_groups', $availableGroupsWithBlank);
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
@@ -146,11 +99,11 @@ class Oa4mpClientAuthorizationsController extends StandardController {
         // Set flash successful.
         $this->Flash->set(_txt('pl.oa4mp_client_authorization.edit.flash.success'), array('key' => 'success'));
 
-        // Redirect to the index view.
+        // Redirect to the manage view.
         $args = array();
         $args['plugin'] = 'oa4mp_client';
         $args['controller'] = 'oa4mp_client_authorizations';
-        $args['action'] = 'index';
+        $args['action'] = 'manage';
         $args['clientid'] = $clientId;
 
         $this->redirect($args);
@@ -165,41 +118,17 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     if(!$synchronized) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
       $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_co_oidc_clients';
       $args['action'] = 'index';
       $args['co'] = $this->cur_co['Co']['id'];
       $this->redirect($args);
     }
 
+    $this->request->data = $client;
+
     $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.edit.name',
                array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-  }
-
-  /**
-   * Index page.
-   *
-   * @since  COmanage Registry v4.5.0
-   * @return void
-   */
-
-  function index() {
-    $clientId = $this->request->params['named']['clientid'];
-    $this->set('vv_client_id', $clientId);
-
-    // Get the current client configuration
-    $client = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->current($clientId);
-
-    $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.index.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
-
-    // Set page title
-    $this->set('vv_oidc_client_name', $client['Oa4mpClientCoOidcClient']['name']);
-
-    // Find all authorization configurations for this client
-    $args = array();
-    $args['conditions']['Oa4mpClientAuthorization.client_id'] = $clientId;
-    $args['contain'] = false;
-
-    $this->set('authorizations', $this->Oa4mpClientAuthorization->find('all', $args));
   }
 
   /**
@@ -218,18 +147,12 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $p = array();
     
     // Determine what operations this user can perform
-    
-    // Add a new authorization configuration?
-    $p['add'] = ($roles['cmadmin'] || $roles['coadmin']);
-    
-    // Delete an existing authorization configuration?
-    $p['delete'] = ($roles['cmadmin'] || $roles['coadmin']);
-    
-    // Edit an existing authorization configuration?
+
+    // Edit authorization configuration?
     $p['edit'] = ($roles['cmadmin'] || $roles['coadmin']);
     
-    // View all existing authorization configurations?
-    $p['index'] = ($roles['cmadmin'] || $roles['coadmin']);
+    // Manage authorization configuration?
+    $p['manage'] = ($roles['cmadmin'] || $roles['coadmin']);
     
     $this->set('permissions', $p);
     return($p[$this->action]);
