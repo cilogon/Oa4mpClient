@@ -57,6 +57,51 @@
 ?>
 
 <script type="text/javascript">
+function js_local_onload() {
+  // Initialize the visibility of both conditional fields
+  toggleGroupRedirectUrlField();
+  toggleRequireActiveRedirectUrlField();
+  
+  // Add change event listener to the group dropdown
+  $("#Oa4mpClientAuthorizationAuthzCoGroupId").change(function() {
+    toggleGroupRedirectUrlField();
+  });
+  
+  // Add change event listener to the require active checkbox
+  $("#Oa4mpClientAuthorizationRequireActive").change(function() {
+    toggleRequireActiveRedirectUrlField();
+  });
+}
+
+function toggleGroupRedirectUrlField() {
+  var selectedGroup = $("#Oa4mpClientAuthorizationAuthzCoGroupId").val();
+  var groupRedirectField = $("#authz_group_redirect_url_field");
+  var groupRedirectInput = $("#Oa4mpClientAuthorizationAuthzGroupRedirectUrl");
+  
+  if (selectedGroup && selectedGroup !== '') {
+    // Group is selected, show the redirect URL field
+    groupRedirectField.show();
+  } else {
+    // No group selected, hide the field and clear its value
+    groupRedirectField.hide();
+    groupRedirectInput.val('');
+  }
+}
+
+function toggleRequireActiveRedirectUrlField() {
+  var requireActiveChecked = $("#Oa4mpClientAuthorizationRequireActive").is(':checked');
+  var requireActiveRedirectField = $("#require_active_redirect_url_field");
+  var requireActiveRedirectInput = $("#Oa4mpClientAuthorizationRequireActiveRedirectUrl");
+  
+  if (requireActiveChecked) {
+    // Require active is checked, show the redirect URL field
+    requireActiveRedirectField.show();
+  } else {
+    // Require active is not checked, hide the field and clear its value
+    requireActiveRedirectField.hide();
+    requireActiveRedirectInput.val('');
+  }
+}
 </script>
 
 <?php
@@ -84,6 +129,20 @@ if(!empty($authorization['id'])) {
     </div>
   </li>
 
+  <li id="authz_group_redirect_url_field">
+    <div class="field-name">
+      <div class="field-title">
+        <?php print $this->Form->label('authz_group_redirect_url', _txt('pl.oa4mp_client_authorization.fd.authz_group_redirect_url')) ?>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_authorization.fd.authz_group_redirect_url.desc'); ?></div>
+    </div>
+    <div class="field-info">
+      <span class="field-info-prefix">
+        <?php print $this->Form->input('authz_group_redirect_url', array('type' => 'text', 'size' => 80)) ?>
+      </span>
+    </div>
+  </li>
+
   <li>
     <div class="field-name">
       <div class="field-title">
@@ -97,6 +156,20 @@ if(!empty($authorization['id'])) {
           $checked = isset($authorization['require_active']) ? $authorization['require_active'] : true;
           print $this->Form->input('require_active', array('type' => 'checkbox', 'value' => 1, 'checked' => $checked)) 
         ?>
+      </span>
+    </div>
+  </li>
+
+  <li id="require_active_redirect_url_field">
+    <div class="field-name">
+      <div class="field-title">
+        <?php print $this->Form->label('require_active_redirect_url', _txt('pl.oa4mp_client_authorization.fd.require_active_redirect_url')) ?>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_authorization.fd.require_active_redirect_url.desc'); ?></div>
+    </div>
+    <div class="field-info">
+      <span class="field-info-prefix">
+        <?php print $this->Form->input('require_active_redirect_url', array('type' => 'text', 'size' => 80)) ?>
       </span>
     </div>
   </li>

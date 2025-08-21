@@ -203,7 +203,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
     }
 
     // Compare client authorization configuration.
-    if(!empty($curData['Oa4mpClientAuthorization']['id']) && empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
+    if(!empty($curData['Oa4mpClientAuthorization']['id']) && 
+        empty($oa4mpServerData['Oa4mpClientAuthorization']) &&
+        ($curData['Oa4mpClientAuthorization']['require_active'] == true)) {
       $this->log("Oa4mpClientAuthorization plugin has authorization configuration but Oa4mp server does not");
       return false;
     }
@@ -223,6 +225,20 @@ class Oa4mpClientOa4mpServer extends AppModel {
     if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
       if($curData['Oa4mpClientAuthorization']['authz_co_group_id'] != ($oa4mpServerData['Oa4mpClientAuthorization']['authz_co_group_id'] ?? null)) {
         $this->log("Oa4mpClientAuthorization authz_co_group_id is out of sync");
+        return false;
+      }
+    }
+
+    if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
+      if($curData['Oa4mpClientAuthorization']['authz_group_redirect_url'] != ($oa4mpServerData['Oa4mpClientAuthorization']['authz_group_redirect_url'] ?? null)) {
+        $this->log("Oa4mpClientAuthorization authz_group_redirect_url is out of sync");
+        return false;
+      }
+    }
+    
+    if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
+      if($curData['Oa4mpClientAuthorization']['require_active_redirect_url'] != ($oa4mpServerData['Oa4mpClientAuthorization']['require_active_redirect_url'] ?? null)) {
+        $this->log("Oa4mpClientAuthorization require_active_redirect_url is out of sync");
         return false;
       }
     }
@@ -591,6 +607,14 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_co_group_id'])) {
       $qdl['args']['authorization_group_id'] = $data['Oa4mpClientAuthorization']['authz_co_group_id'];
+    }
+
+    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_group_redirect_url'])) {
+      $qdl['args']['authorization_group_redirect_url'] = $data['Oa4mpClientAuthorization']['authz_group_redirect_url'];
+    }
+
+    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['require_active_redirect_url'])) {
+      $qdl['args']['require_active_redirect_url'] = $data['Oa4mpClientAuthorization']['require_active_redirect_url'];
     }
 
     $cfg['tokens']['identity']['qdl'] = $qdl;
@@ -1157,16 +1181,23 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
     }
 
-    // Unmarshall client authorization configuration.
     if(!empty($cfg['tokens']['identity']['qdl']['args'])) {
       $qdlArgs = $cfg['tokens']['identity']['qdl']['args'];
 
       $authz = array();
+
+    // Unmarshall client authorization configuration.
       if(!empty($qdlArgs['require_active_status'])) {
         $authz['require_active'] = $qdlArgs['require_active_status'];
       }
       if(!empty($qdlArgs['authorization_group_id'])) {
         $authz['authz_co_group_id'] = $qdlArgs['authorization_group_id'];
+      }
+      if(!empty($qdlArgs['authorization_group_redirect_url'])) {
+        $authz['authz_group_redirect_url'] = $qdlArgs['authorization_group_redirect_url'];
+      }
+      if(!empty($qdlArgs['require_active_redirect_url'])) {
+        $authz['require_active_redirect_url'] = $qdlArgs['require_active_redirect_url'];
       }
 
       if(!empty($authz)) {

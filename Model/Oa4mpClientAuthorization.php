@@ -58,6 +58,18 @@ class Oa4mpClientAuthorization extends AppModel {
       'rule' => 'boolean',
       'required' => false,
       'allowEmpty' => true
+    ),
+    'authz_group_redirect_url' => array(
+      'rule' => 'url',
+      'required' => false,
+      'allowEmpty' => true,
+      'message' => 'Please supply a valid https:// URL'
+    ),
+    'require_active_redirect_url' => array(
+      'rule' => 'url',
+      'required' => false,
+      'allowEmpty' => true,
+      'message' => 'Please supply a valid https:// URL'
     )
   );
 } 
