@@ -516,6 +516,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     // Add a new OIDC client?
     $p['add'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
+    $p['select_admin'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
 
     // Delete an existing OIDC client?
     $p['delete'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
