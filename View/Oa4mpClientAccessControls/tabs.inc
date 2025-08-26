@@ -1,1 +1,1 @@
-../Oa4mpClientAccessTokens/tabs.inc
+../Oa4mpClientCoOidcClients/tabs.inc

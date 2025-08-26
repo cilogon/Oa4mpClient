@@ -323,15 +323,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_authorization.edit.name' => 'Edit Authorization Configuration for %s',
   'pl.oa4mp_client_authorization.index.name' => 'Authorization Configuration for %s',
 
-  'pl.oa4mp_client_access_control.tab.name' => 'Edit Control',
-  // Manager
-  // Editor
-  // Client Editor
-  // Client Manager
-  'pl.oa4mp_client_access_control.fd.co_group_id' => 'CO Group',
-  'pl.oa4mp_client_access_control.fd.co_group_id.desc' => 'CO Group whose members may edit this OIDC client',
-  'pl.oa4mp_client_access_control.fd.cou_id' => 'COU',
-  'pl.oa4mp_client_access_control.fd.cou_id.desc' => 'COU whose members may edit this OIDC client',
-  'pl.oa4mp_client_access_control.fd.co_person_id' => 'CO Person',
-  'pl.oa4mp_client_access_control.fd.co_person_id.desc' => 'CO Person who may edit this OIDC client',
+  'pl.oa4mp_client_access_control.tab.name' => 'Editors',
+  'pl.oa4mp_client_access_control.manage.name' => 'Editor configuration for %s',
+  'pl.oa4mp_client_access_control.manage.flash.success' => 'Editor configuration updated',
+  'pl.oa4mp_client_access_control.fd.co_group_id' => 'Editor Group',
+  'pl.oa4mp_client_access_control.fd.co_group_id.desc' => 'Group whose members may edit this OIDC client configuration. Default is CO admins and delegated client managers',
+  'pl.oa4mp_client_access_control.fd.co_group_id.select.empty' => '-- Select Group (or leave for no group) --',
 );

@@ -32,6 +32,8 @@ class Oa4mpClientCoScopesController extends StandardController {
   // Class name, used by Cake
   public $name = "Oa4mpClientCoScopes";
 
+  public $components = array('Oa4mpClient.Oa4mpClientAuthz');
+
   // Establish pagination parameters for HTML views
   public $paginate = array(
     'limit' => 25,
@@ -153,63 +155,22 @@ class Oa4mpClientCoScopesController extends StandardController {
   function isAuthorized() {
     $roles = $this->Role->calculateCMRoles();
 
-    // Construct the permission set for this user, which will also be passed to the view.
-    $p = array();
-    
-    // All operations require platform or CO administrator, or
-    // membership in the delegated management group if set.
-    $manager = false;
-    if(!empty($this->cur_co['Co']['id'])) {
-      $args = array();
-      $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $this->cur_co['Co']['id'];
-      $args['contain'] = false;
-      $adminClient = $this->Oa4mpClientCoScope->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->find('first', $args);
-      $manageGroupId = $adminClient['Oa4mpClientCoAdminClient']['manage_co_group_id'];
+    $coId = $this->cur_co['Co']['id'];
 
-      $coPersonId = $this->Session->read('Auth.User.co_person_id');
+    $coPersonId = $this->Session->read('Auth.User.co_person_id');
 
-      if(!empty($coPersonId) && !empty($manageGroupId)){
-        if($this->Role->isCoGroupMember($coPersonId, $manageGroupId)){
-          $manager = true;
-        }
-      }
-    }
-
-    // Additionally access to the DynamoDB configuration details
-    // for a client require OA4MP admin and our included tabs render
-    // or not depending on OA4MP admin.
-    $oa4mpAdminsString = getenv('COMANAGE_REGISTRY_OA4MP_ADMIN_USERS');
-
-    if($oa4mpAdminsString) {
-      $oa4mpAdmins = explode(',', $oa4mpAdminsString);
-    } else {
-      $oa4mpAdmins = array();
-    }
-
-    if($this->Session->check('Auth.User.username')) {
-        $username = $this->Session->read('Auth.User.username');
-    } else {
+    // If the user is not logged in, return false.
+    if(empty($coPersonId)) {
+      $this->set('permissions', $p);
       return false;
     }
 
-    if(in_array($username, $oa4mpAdmins)) {
-      $oa4mpAdmin = true;
-    } else {
-      $oa4mpAdmin = false;
-    }
-    $p['oa4mp_admin'] = $oa4mpAdmin;
-
-    // Edit the existing scopes?
-    $p['edit'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
-    $p['edit_scopes'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
-
-    // View the existing scopes?
-    $p['view'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager); 
+    $p = $this->Oa4mpClientAuthz->permissionSet($coId, $coPersonId, $roles, $this->request->params);
 
     $this->set('permissions', $p);
     return $p[$this->action];
   }
-
+  
   /**
    * Find the provided CO ID.
    * This overrides the method defined in AppController.php

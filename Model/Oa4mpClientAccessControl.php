@@ -36,6 +36,9 @@ class Oa4mpClientAccessControl extends AppModel {
   public $belongsTo = array(
     "Oa4mpClient.Oa4mpClientCoOidcClient" => array(
       'foreignKey' => 'client_id'
+    ),
+    "CoGroup" => array(
+      'foreignKey' => 'co_group_id'
     )
   );
   
@@ -50,16 +53,6 @@ class Oa4mpClientAccessControl extends AppModel {
       'allowEmpty' => false
     ),
     'co_group_id' => array(
-      'rule' => 'numeric',
-      'required' => false,
-      'allowEmpty' => true
-    ),
-    'cou_id' => array(
-      'rule' => 'numeric',
-      'required' => false,
-      'allowEmpty' => true
-    ),
-    'co_person_id' => array(
       'rule' => 'numeric',
       'required' => false,
       'allowEmpty' => true

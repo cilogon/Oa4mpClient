@@ -32,6 +32,8 @@ class Oa4mpClientAccessTokensController extends StandardController {
   // Class name, used by Cake
   public $name = "Oa4mpClientAccessTokens";
 
+  public $components = array('Oa4mpClient.Oa4mpClientAuthz');
+
   // Establish pagination parameters for HTML views
   public $paginate = array(
     'limit' => 25,
@@ -122,21 +124,23 @@ class Oa4mpClientAccessTokensController extends StandardController {
    */
 
   function isAuthorized() {
-    $roles = $this->Role->calculateCMRoles();             // Get all the roles the user has
-    
     // Construct the permission set for this user, which will also be passed to the view.
-    $p = array();
-    
-    // Determine what operations this user can perform
+    $roles = $this->Role->calculateCMRoles();
 
-    // Edit access token configuration?
-    $p['edit'] = ($roles['cmadmin'] || $roles['coadmin']);
-    
-    // Manage access token configuration?
-    $p['manage'] = ($roles['cmadmin'] || $roles['coadmin']);
-    
+    $coId = $this->cur_co['Co']['id'];
+
+    $coPersonId = $this->Session->read('Auth.User.co_person_id');
+
+    // If the user is not logged in, return false.
+    if(empty($coPersonId)) {
+      $this->set('permissions', array());
+      return false;
+    }
+
+    $p = $this->Oa4mpClientAuthz->permissionSet($coId, $coPersonId, $roles, $this->request->params);
+
     $this->set('permissions', $p);
-    return($p[$this->action]);
+    return $p[$this->action];
   }
 
   /**
