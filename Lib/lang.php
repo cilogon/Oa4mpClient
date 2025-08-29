@@ -309,9 +309,9 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_authorization.fd.require_active' => 'Require Active Status',
   'pl.oa4mp_client_authorization.fd.require_active.desc' => 'User record must have active status to access this client',
   'pl.oa4mp_client_authorization.fd.authz_group_redirect_url' => 'Group authorization Redirect URL',
-  'pl.oa4mp_client_authorization.fd.authz_group_redirect_url.desc' => 'URL to redirect users to when they are not members of the authorization group to use this client',
+  'pl.oa4mp_client_authorization.fd.authz_group_redirect_url.desc' => 'URL to redirect users to when they are not members of the authorization group to use this client. If not set the client receives a standard protocol error message.',
   'pl.oa4mp_client_authorization.fd.require_active_redirect_url' => 'Active Status Redirect URL',
-  'pl.oa4mp_client_authorization.fd.require_active_redirect_url.desc' => 'URL to redirect users to when they do not have active status',
+  'pl.oa4mp_client_authorization.fd.require_active_redirect_url.desc' => 'URL to redirect users to when they do not have active status. If not set the client receives a standard protocol error message.',
 
   // Flash messages
   'pl.oa4mp_client_authorization.add.flash.success' => 'Authorization Configuration Added',

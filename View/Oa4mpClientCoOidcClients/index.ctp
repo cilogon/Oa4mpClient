@@ -87,7 +87,7 @@ function js_local_onload() {
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_oidc_clients',
-              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              'action' => 'edit',
               $c['Oa4mpClientCoOidcClient']['id']
             )
           );
@@ -100,7 +100,7 @@ function js_local_onload() {
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_oidc_clients',
-              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              'action' => 'edit',
               $c['Oa4mpClientCoOidcClient']['id']
             )
           );
@@ -114,7 +114,7 @@ function js_local_onload() {
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_oidc_clients',
-              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              'action' => 'edit',
               $c['Oa4mpClientCoOidcClient']['id']
             )
           );
@@ -128,7 +128,6 @@ function js_local_onload() {
       </td>
       <td>
         <?php
-          if($permissions['edit']) {
             print $this->Html->link(
                 _txt('op.edit'),
                 array(
@@ -137,8 +136,6 @@ function js_local_onload() {
                   'action' => 'edit', $c['Oa4mpClientCoOidcClient']['id']
                 ),
                 array('class' => 'editbutton')) . "\n";
-          }
-          if($permissions['delete']) {
             print '<button type="button" class="deletebutton" title="' . _txt('op.delete')
               . '" onclick="javascript:js_confirm_generic(\''
               . _txt('js.remove') . '\',\''    // dialog body text
@@ -157,7 +154,6 @@ function js_local_onload() {
               . '\']);">'
               . _txt('op.delete')
               . '</button>';
-          }
         ?>
         <?php ; ?>
       </td>

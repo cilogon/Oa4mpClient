@@ -464,8 +464,35 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    */
 
    function index() {
-    // TODO: Filter the list of clients to display in the index view.
-    parent::index();
+    // Set page title
+    $this->set('title_for_layout', _txt('ct.oa4mp_client_co_oidc_clients.pl'));
+
+    // Configure server side pagination. This leverages code from the parent
+    // class that sets the current CO ID.
+    $local = $this->paginationConditions();
+    $this->paginate['conditions'] = $local['conditions'];
+    $this->Paginator->settings = $this->paginate;
+
+    // Find all the clients for the current CO.
+    $clients = $this->Paginator->paginate('Oa4mpClientCoOidcClient', array(), array());
+
+    // If the user is not a platform admin or CO admin, remove the clients for which they are not an editor.
+    $roles = $this->Role->calculateCMRoles();
+    if(empty($roles['cmadmin']) && empty($roles['coadmin'])) {
+      $coPersonId = $this->Session->read('Auth.User.co_person_id');
+      foreach($clients as $key => $client) {
+        if(!empty($client['Oa4mpClientAccessControl']['co_group_id'])) {
+          if(!$this->Role->isCoGroupMember($coPersonId, $client['Oa4mpClientAccessControl']['co_group_id'])) {
+            unset($clients[$key]);
+          }
+        } else {
+          unset($clients[$key]);
+        }
+      }
+    }
+
+    $this->set('oa4mp_client_co_oidc_clients', $clients);
+
    }
 
   /**

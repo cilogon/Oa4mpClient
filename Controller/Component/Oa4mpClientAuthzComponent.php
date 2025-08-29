@@ -26,6 +26,7 @@
  */
 
 App::uses("Oa4mpClientCoOidcClient", "Oa4mpClient.Model");
+App::uses("Oa4mpClientCoAdminClient", "Oa4mpClient.Model");
  
 class Oa4mpClientAuthzComponent extends Component {
   public $components = array("Session", "Role");
@@ -43,7 +44,7 @@ class Oa4mpClientAuthzComponent extends Component {
 
     if(!empty($params['pass'][0])) {
       $clientId = $params['pass'][0];
-    } else {
+    } elseif(!empty($params['named']['clientid'])) {
       $clientId = $params['named']['clientid'];
     }
 
@@ -120,7 +121,7 @@ class Oa4mpClientAuthzComponent extends Component {
   }
 
   /**
-   * Determine if the user is an editor.
+   * Determine if the user is an editor for a specific client.
    *
    * @param array $params The parameters passed to the controller.
    * @param integer $coPersonId The CO person ID.
@@ -133,7 +134,7 @@ class Oa4mpClientAuthzComponent extends Component {
 
     if(!empty($params['pass'][0])) {
       $clientId = $params['pass'][0];
-    } else {
+    } elseif(!empty($params['named']['clientid'])) {
       $clientId = $params['named']['clientid'];
     }
 
@@ -142,6 +143,38 @@ class Oa4mpClientAuthzComponent extends Component {
       $currentClient = $Oa4mpClientCoOidcClient->current($clientId);
       if(!empty($currentClient['Oa4mpClientAccessControl']['co_group_id'])) {
         $editor = $this->Role->isCoGroupMember($coPersonId, $currentClient['Oa4mpClientAccessControl']['co_group_id']);
+      }
+    }
+
+    return $editor;
+  }
+
+  /**
+   * Determine if the user is an editor for any client.
+   *
+   * @param integer $coPersonId The CO person ID.
+   * @param integer $coId The CO ID.
+   * @return boolean True if the user is an editor for any client, false otherwise.
+   */
+
+  private function isEditorForAnyClient($coPersonId, $coId) {
+    $editor = false;
+
+    $args = array();
+    $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $coId;
+    $args['contain']['Oa4mpClientCoOidcClient'] = 'Oa4mpClientAccessControl';
+
+    $Oa4mpClientCoAdminClient = new Oa4mpClientCoAdminClient();
+    $adminClients = $Oa4mpClientCoAdminClient->find('all', $args);
+
+    foreach($adminClients as $adminClient) {
+      foreach($adminClient['Oa4mpClientCoOidcClient'] as $client) {
+        if(!empty($client['Oa4mpClientAccessControl']['co_group_id'])) {
+          if($this->Role->isCoGroupMember($coPersonId, $client['Oa4mpClientAccessControl']['co_group_id'])) {
+            $editor = true;
+            break;
+          }
+        }
       }
     }
 
@@ -167,6 +200,8 @@ class Oa4mpClientAuthzComponent extends Component {
 
     $editor = $this->isEditor($params, $coPersonId);
 
+    $editorForAnyClient = $this->isEditorForAnyClient($coPersonId, $coId);
+
     $clientAuthzGroupExists = $this->clientAuthzGroupExists($params);
 
     // Platform admins, CO admins, and managers can add new clients.
@@ -189,7 +224,7 @@ class Oa4mpClientAuthzComponent extends Component {
 
     // Platform admins, CO admins, managers, and editors can view the list of existing OIDC clients.
     // The index action filters the list of clients to display in the index view.
-    $p['index'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager || $editor);
+    $p['index'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager || $editorForAnyClient);
 
     // Platform admins, CO admins, managers (if no authorization group exists), 
     // and editors (if an authorization group exists) can manage refresh tokens, access tokens,
