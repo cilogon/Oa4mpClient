@@ -75,6 +75,24 @@ class Oa4mpClientAccessControlsController extends StandardController {
                             ->ManageCoGroup
                             ->find("list", $args);
 
+    // If the user is not a platform admin or CO admin, remove the groups that the user is not a member of.
+    $roles = $this->Role->calculateCMRoles();
+    if(empty($roles['cmadmin']) && empty($roles['coadmin'])) {
+      $coPersonId = $this->Session->read('Auth.User.co_person_id');
+
+      foreach(array_keys($availableGroups) as $groupId) {
+        $isMember = $this->Oa4mpClientAccessControl
+                         ->Oa4mpClientCoOidcClient
+                         ->Oa4mpClientCoAdminClient
+                         ->ManageCoGroup
+                         ->CoGroupMember
+                         ->isMember($groupId, $coPersonId);
+        if(!$isMember) {
+          unset($availableGroups[$groupId]);
+        }
+      }
+    }
+
     // Add blank option to allow unsetting the group
     $availableGroupsWithBlank = array('' => _txt('pl.oa4mp_client_access_control.fd.co_group_id.select.empty')) + $availableGroups;
 
