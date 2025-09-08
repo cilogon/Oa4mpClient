@@ -486,7 +486,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
             unset($clients[$key]);
           }
         } else {
-          unset($clients[$key]);
+          // No access control so filter out clients if the user is not in the delegated management group.
+          $coId = $this->cur_co['Co']['id'];
+          if(!$this->Oa4mpClientAuthz->isManager($coId, $coPersonId)) {
+            unset($clients[$key]);
+          }
         }
       }
     }

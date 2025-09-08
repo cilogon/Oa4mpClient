@@ -91,7 +91,7 @@ class Oa4mpClientAuthzComponent extends Component {
    * @return boolean True if the user is a manager, false otherwise.
    */
 
-  private function isManager($coId, $coPersonId) {
+  public function isManager($coId, $coPersonId) {
     // Managers are members of the delegated management group
     // and can create new clients. A manager can also edit
     // an existing client unless the client has an authorization
