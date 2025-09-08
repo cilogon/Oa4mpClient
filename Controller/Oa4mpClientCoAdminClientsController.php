@@ -26,7 +26,6 @@
  */
 
 App::uses("StandardController", "Controller");
-App::uses("HttpSocket", "Network/Http");
 
 class Oa4mpClientCoAdminClientsController extends StandardController {
   // Class name, used by Cake
@@ -36,8 +35,10 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
   public $paginate = array(
     'limit' => 25,
     'order' => array(
-      'Oa4mpClientCoAdminClient.id' => 'asc'
-    )
+      //'Oa4mpClientCoAdminClient.id' => 'asc'
+      'Co.name' => 'asc'
+    ),
+    'contain' => array('Co')
   );
 
   // This controller does not need a CO to be set
