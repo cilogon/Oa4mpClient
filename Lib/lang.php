@@ -104,6 +104,22 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_admin_client.er.delete_error' => 'Unable to delete OIDC client',
   'pl.oa4mp_client_co_admin_client.er.edit_error' => 'Unable to edit OIDC client',
 
+  // Delegate action
+  'pl.oa4mp_client_co_admin_client.delegate.title' => 'Delegate Management of %1$s Clients',
+  'pl.oa4mp_client_co_admin_client.delegate.button' => 'Edit Delegated Management Group',
+  'pl.oa4mp_client_co_admin_client.delegate.breadcrumb' => 'Delegate Management',
+  'pl.oa4mp_client_co_admin_client.delegate.no_clients' => 'No admin clients found for this CO',
+  'pl.oa4mp_client_co_admin_client.delegate.success' => 'Successfully updated %1$s delegations',
+  'pl.oa4mp_client_co_admin_client.delegate.no_changes' => 'No changes were made to admin client delegations',
+  'pl.oa4mp_client_co_admin_client.delegate.error' => 'An error occurred while updating admin client delegations',
+  'pl.oa4mp_client_co_admin_client.fd.name' => 'Admin Client Name',
+  'pl.oa4mp_client_co_admin_client.fd.admin_identifier' => 'Admin Client ID',
+  'pl.oa4mp_client_co_admin_client.fd.current_group' => 'Current Management Group',
+  'pl.oa4mp_client_co_admin_client.fd.manage_co_group_id' => 'Management Group',
+  'pl.oa4mp_client_co_admin_client.fd.manage_co_group_id.desc' => 'Group members allowed to manage OIDC clients',
+  'pl.oa4mp_client_co_admin_client.fd.manage_co_group_id.select.empty' => '-- Select Group (or leave for no delegation) --',
+  'pl.oa4mp_client_co_admin_client.fd.no_group' => 'No delegation group assigned',
+
   'pl.oa4mp_client_co_oidc_client.admin_id.fd.name' => 'OAuth2 Server and Issuer',
   'pl.oa4mp_client_co_oidc_client.admin_id.fd.name.select' => 'Select OAuth2 Server and Issuer for New Client',
   'pl.oa4mp_client_co_oidc_client.admin_id.fd.issuer' => 'Issuer',

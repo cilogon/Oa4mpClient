@@ -76,7 +76,7 @@ class Oa4mpClientCoAdminClient extends AppModel {
   );
 
   // Default display field for cake generated views
-  public $displayField = "admin_identifier";
+  public $displayField = "name";
 
   // Validation rules for table elements
   public $validate = array(

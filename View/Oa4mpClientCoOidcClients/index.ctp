@@ -41,6 +41,19 @@
   // depending on how many admin clients the CO has available.
   //$addAction = $this->viewVars['vv_next_action'];
 
+  if($permissions['delegate']) {
+    $params['topLinks'][] = $this->Html->link(
+      _txt('pl.oa4mp_client_co_admin_client.delegate.button'),
+      array(
+        'plugin' => 'oa4mp_client',
+        'controller' => 'oa4mp_client_co_admin_clients',
+        'action' => 'delegate',
+        $this->params['named']['co']
+      ),
+      array('class' => 'editbutton')
+    );
+  }
+
   if($permissions['add']) {
     $params['topLinks'][] = $this->Html->link(
       _txt('op.add.new', array(_txt('ct.oa4mp_client_co_oidc_clients.1'))),

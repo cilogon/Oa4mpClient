@@ -207,8 +207,9 @@ class Oa4mpClientAuthzComponent extends Component {
     // Platform admins, CO admins, and managers can add new clients.
     $p['add'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
 
-    // TODO
-    $p['select_admin'] = ($roles['cmadmin'] || $roles['coadmin'] || $manager);
+    // Platform admins and CO admins can use the delegate action to
+    // configure the management group for an existing admin client.
+    $p['delegate'] = ($roles['cmadmin'] || $roles['coadmin']);
 
     // Platform admins, CO admins, managers (if no authorization group exists), 
     // and editors (if an authorization group exists) can delete an existing OIDC client.
