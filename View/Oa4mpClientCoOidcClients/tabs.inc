@@ -198,6 +198,27 @@
         ?>
       </li>
 
+      <li class="nav-item">
+        <?php
+          // Named Configurations
+          if ($controller == 'oa4mp_client_co_named_configs') {
+            print '<span class="nav-link active">' . _txt('pl.oa4mp_client_co_named_config.tab.name') . '</span>';
+          }
+          else {
+            print $this->Html->link(
+              _txt('pl.oa4mp_client_co_named_config.tab.name'),
+              array(
+                'plugin' => 'oa4mp_client',
+                'controller' => 'oa4mp_client_co_named_configs',
+                'action' => 'manage',
+                'clientid' => $vv_client_id
+              ),
+              array('class' => 'nav-link spin')
+            );
+          }
+        ?>
+      </li>
+
     </ul>
   </nav>
 

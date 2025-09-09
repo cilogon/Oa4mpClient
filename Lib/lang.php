@@ -263,6 +263,21 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_named_config.no_auto_update.dialog.title' => 'No Clients Will Be Updated',
   'pl.oa4mp_client_co_named_config.no_auto_update.dialog.text' => 'Editing the Named Configuration does NOT cause the cfg for any client to be automatically updated. You must edit and re-save any client that uses the Named Configuration you just edited.',
 
+  // Manage action
+  'pl.oa4mp_client_co_named_config.tab.name' => 'Named Configuration',
+  'pl.oa4mp_client_co_named_config.manage.name' => 'Named Configuration for %s',
+  'pl.oa4mp_client_co_named_config.manage.flash.success' => 'Named configuration updated successfully',
+  'pl.oa4mp_client_co_named_config.manage.flash.error' => 'An error occurred while updating the named configuration',
+  'pl.oa4mp_client_co_named_config.fd.config_name' => 'Named Configuration',
+  'pl.oa4mp_client_co_named_config.fd.config_name.desc' => 'Select a named configuration to apply to this OIDC client',
+  'pl.oa4mp_client_co_named_config.fd.config_name.select.empty' => '-- Select Configuration (or leave for no configuration) --',
+  'pl.oa4mp_client_co_named_config.fd.no_config' => 'No Named Configuration',
+  'pl.oa4mp_client_co_named_config.fd.no_config.desc' => 'Do not use a named configuration',
+  'pl.oa4mp_client_co_named_config.fd.no_description' => 'No description available',
+  'pl.oa4mp_client_co_named_config.fd.no_configs_available' => 'No Named Configurations Available',
+  'pl.oa4mp_client_co_named_config.fd.no_configs_available.desc' => 'There are no named configurations available for this admin client',
+  'pl.oa4mp_client_co_named_config.fd.contact_admin' => 'Contact an administrator to create named configurations',
+
   // Enumerations
   'pl.oa4mp_client.en.scope' => array(
     Oa4mpClientScopeEnum::OpenId             => 'openid',
