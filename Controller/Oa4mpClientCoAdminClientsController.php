@@ -195,8 +195,6 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
 
     $adminClients = $this->Oa4mpClientCoAdminClient->find('all', $args);
 
-    $this->log("FOO adminClients is " . print_r($adminClients, true));
-
     if(empty($adminClients)) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.delegate.no_clients'), array('key' => 'error'));
       $this->redirect(array('action' => 'index'));
