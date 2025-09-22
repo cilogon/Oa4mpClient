@@ -276,8 +276,6 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
         $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = $this->request->data['Oa4mpClientCoNamedConfig']['selected_config_id'];
       }
 
-      $this->log("FOO updatedClient is " . print_r($updatedClient, true));
-
       // Call out to oa4mp server.
       // Return value of 0 indicates an error saving the edit.
       // Return value of 2 indicates the plugin representation of the client
@@ -422,7 +420,14 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     // The isAuthorized function will enforce that the authenticated
     // user is authorized within that CO to edit the client.
     try {
-      $clientId = $this->request->params['named']['clientid'];
+      // The manage action requires passing the OIDC client ID as
+      // a named parameter, but the other actions do not, so if it
+      // is not present, just return -1.
+      $clientId = $this->request->params['named']['clientid'] ?? null;
+
+      if(empty($clientId)) {
+        return -1;
+      }
 
       $oidcClient = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->current($clientId);
 
@@ -479,6 +484,10 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
 
     // Validate the standard scope fields and remove empty values.
     for ($i = 0; $i < 50; $i++) {
+      if(!isset($data['Oa4mpClientCoScope'][$i])) {
+        continue;
+      }
+
       $scope = $data['Oa4mpClientCoScope'][$i];
       if(empty($scope['scope'])) {
         unset($data['Oa4mpClientCoScope'][$i]);

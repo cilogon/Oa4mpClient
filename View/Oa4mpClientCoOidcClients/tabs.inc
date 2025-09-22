@@ -30,7 +30,19 @@
   $controller = $this->request->params['controller'];
   $action = $this->action;
 
-  if(!($controller == 'oa4mp_client_co_oidc_clients' && $action == 'add')): ?>
+  $renderTabs = true;
+
+  // Do not render tabs for the add action on the OIDC clients controller.
+  if($controller == 'oa4mp_client_co_oidc_clients' && $action == 'add') {
+    $renderTabs = false;
+  }
+
+  // Do not render tabs for the add or edit action on the named configurations controller.
+  if($controller == 'oa4mp_client_co_named_configs' && ($action == 'add' || $action == 'edit')) {
+    $renderTabs = false;
+  }
+
+  if($renderTabs): ?>
 
   <nav id="cm-group-subnav-tabs" class="cm-subnav-tabs" aria-label="<?php print _txt('me.menu.subnavigation'); ?>">
     <ul class="nav nav-tabs">

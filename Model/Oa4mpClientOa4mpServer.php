@@ -545,14 +545,48 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @return array cfg object to be sent to oa4mp server
    */
   function oa4mpMarshallCfgQdl($data) {
-    // If using a named configuration then just return the cfg for that 
-    // named configuration.
-    if(!empty($data['Oa4mpClientCoNamedConfig']['id'])) {
-      $jsonString = $c['config'];
-      $cfg = json_decode($jsonString, true);
+    // Construct the OA4MP cfg object.
+    $cfg = array();
+
+    // Access token configuration. Note that access token configuration is
+    // orthogonal to using a named configuration. That is, a client can
+    // use a named configuration and still have an access token configuration.
+    if(!empty($data['Oa4mpClientAccessToken']) && $data['Oa4mpClientAccessToken']['is_jwt']) {
+      $cfg['tokens']['access']['type'] = 'access';
+    }
+
+    // Client authorization configuration. Note that client authorization configuration is
+    // orthogonal to using a named configuration. That is, a client can
+    // use a named configuration and still have a client authorization configuration.
+    if(!empty($data['Oa4mpClientAuthorization']) && $data['Oa4mpClientAuthorization']['require_active']) {
+      $cfg['tokens']['identity']['qdl']['args']['require_active_status'] = $data['Oa4mpClientAuthorization']['require_active'];
+    }
+
+    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_co_group_id'])) {
+      $cfg['tokens']['identity']['qdl']['args']['authorization_group_id'] = $data['Oa4mpClientAuthorization']['authz_co_group_id'];
+    }
+
+    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_group_redirect_url'])) {
+      $cfg['tokens']['identity']['qdl']['args']['authorization_group_redirect_url'] = $data['Oa4mpClientAuthorization']['authz_group_redirect_url'];
+    }
+
+    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['require_active_redirect_url'])) {
+      $cfg['tokens']['identity']['qdl']['args']['require_active_redirect_url'] = $data['Oa4mpClientAuthorization']['require_active_redirect_url'];
+    }
+
+    // If using a named configuration then just add the cfg for that
+    // named configuration and then return the cfg.
+    if(!empty($data['Oa4mpClientCoOidcClient']['named_config_id'])) {
+      foreach($data['Oa4mpClientCoAdminClient']['Oa4mpClientCoNamedConfig'] as $config) {
+        if($config['id'] == $data['Oa4mpClientCoOidcClient']['named_config_id']) {
+          $jsonString = $config['config'];
+          $namedCfg = json_decode($jsonString, true);
+          break;
+        }
+      }
 
       // Add metadata with URL to the named configuration if not already present.
-      if($cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] ?? true) {
+      if($namedCfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] ?? true) {
 
         $routingArray = array();
         $routingArray['plugin'] = 'oa4mp_client';
@@ -560,8 +594,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
         $routingArray['action'] = 'edit';
         $routingArray[] = $data['Oa4mpClientCoNamedConfig']['id'];
 
-        $cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] = Router::url($routingArray, true);
+        $namedCfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] = Router::url($routingArray, true);
       }
+
+      $cfg = array_merge_recursive($cfg, $namedCfg);
 
       return $cfg;
     }
@@ -576,16 +612,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $qdlClaimSourcePath = 'COmanageRegistry/default/ldap_claims.qdl';
     }
 
-    // Now construct the OA4MP cfg object.
-    $cfg = array();
 
-    // Access token configuration.
-    if(!empty($data['Oa4mpClientAccessToken']) && $data['Oa4mpClientAccessToken']['is_jwt']) {
-      $cfg['tokens']['access']['type'] = 'access';
-    }
 
     // Identity token configuration.
-    $cfg['tokens']['identity']['type'] = 'identity';
+//    $cfg['tokens']['identity']['type'] = 'identity';
 
     $qdl = array();
 
@@ -600,24 +630,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $qdl['args'] = array();
 
-    // Client authorization configuration.
-    if(!empty($data['Oa4mpClientAuthorization']) && $data['Oa4mpClientAuthorization']['require_active']) {
-      $qdl['args']['require_active_status'] = $data['Oa4mpClientAuthorization']['require_active'];
-    }
 
-    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_co_group_id'])) {
-      $qdl['args']['authorization_group_id'] = $data['Oa4mpClientAuthorization']['authz_co_group_id'];
-    }
-
-    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_group_redirect_url'])) {
-      $qdl['args']['authorization_group_redirect_url'] = $data['Oa4mpClientAuthorization']['authz_group_redirect_url'];
-    }
-
-    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['require_active_redirect_url'])) {
-      $qdl['args']['require_active_redirect_url'] = $data['Oa4mpClientAuthorization']['require_active_redirect_url'];
-    }
-
-    $cfg['tokens']['identity']['qdl'] = $qdl;
+//    $cfg['tokens']['identity']['qdl'] = $qdl;
 
 
 //    $qdl['args']['server_fqdn'] = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_HOST);
@@ -1239,6 +1253,14 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $response = $http->request($request);
 
     $this->log("Response is " . print_r($response, true));
+
+    $contentType = $response->getHeader('Content-Type');
+
+    if(str_contains($contentType, 'ISO-8859-1')) {
+      $oa4mpObject = json_decode(mb_convert_encoding($response->body(), 'UTF-8', 'ISO-8859-1'), true);
+    } else {
+      $oa4mpObject = json_decode($response->body(), true);
+    }
 
     $oa4mpObject = json_decode($response->body(), true);
 
