@@ -90,4 +90,30 @@ class Oa4mpClientClaim extends AppModel {
       'allowEmpty' => true
     )
   );
+
+  /**
+   * Find the CO ID for a claim.
+   *
+   * @since  COmanage Registry v4.4.2
+   * @param  integer Record to retrieve for
+   * @return integer Corresponding CO ID, or NULL if record has no corresponding CO ID
+   * @throws InvalidArgumentException
+   * @throws RuntimeException
+   */
+
+  function findCoForRecord($id) {
+    $args = array();
+    $args['conditions']['Oa4mpClientClaim.id'] = $id;
+    $args['contain'] = array(
+      'Oa4mpClientCoOidcClient' => array(
+        'Oa4mpClientCoAdminClient'
+      )
+    );
+
+    $claim = $this->find('first', $args);
+
+    $coid = $claim['Oa4mpClientCoOidcClient']['Oa4mpClientCoAdminClient']['co_id'];
+
+    return $coid;
+  }
 }

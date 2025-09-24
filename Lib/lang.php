@@ -161,6 +161,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   'pl.oa4mp_client_co_oidc_client.claims.fd.add_button' => 'Add another claim',
   'pl.oa4mp_client_claim.add.flash.success' => 'Claim Added',
+  'pl.oa4mp_client_claim.edit.flash.success' => 'Claim Updated',
 
   'pl.oa4mp_client_co_oidc_client.issuer.fd.name' => 'Issuer',
   'pl.oa4mp_client_co_oidc_client.issuer.fd.description' => 'Value asserted by the authorization server in the iss parameter',

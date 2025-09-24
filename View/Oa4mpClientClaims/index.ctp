@@ -103,7 +103,7 @@
                 _txt('op.edit'),
                 array(
                   'plugin' => 'oa4mp_client',
-                  'controller' => 'oa4mp_client_co_claims',
+                  'controller' => 'oa4mp_client_claims',
                   'action' => 'edit', $c['id'],
                   'clientid' => $this->params['named']['clientid']
                 ),
@@ -125,7 +125,7 @@
               . _txt('op.remove') . '\',\''    // dialog confirm button
               . _txt('op.cancel') . '\',\''    // dialog cancel button
               . _txt('op.remove') . '\',[\''   // dialog title
-              . filter_var(_jtxt($c['url']),FILTER_SANITIZE_STRING)  // dialog body text replacement strings
+              . filter_var(_jtxt($c['claim_name']),FILTER_SANITIZE_STRING)  // dialog body text replacement strings
               . '\']);">'
               . _txt('op.delete')
               . '</button>';

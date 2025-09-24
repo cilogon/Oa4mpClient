@@ -18,7 +18,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * @link          http://www.internet2.edu/comanage COmanage Project
  * @package       registry
  * @since         COmanage Registry v4.4.2
@@ -115,9 +115,9 @@ class Oa4mpClientClaimsController extends StandardController {
 //
 //        $this->redirect($args);
 //      }
-    } 
+    }
 
-    // GET 
+    // GET
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
@@ -142,10 +142,99 @@ class Oa4mpClientClaimsController extends StandardController {
                                       ->CoPerson
                                       ->Identifier
                                       ->types($this->cur_co['Co']['id'], 'type'));
-
-    
   }
 
+  /**
+   * Edit a claim.
+   *
+   * @since  COmanage Registry v4.4.2
+   * @param  integer $id Oa4mpClientClaim ID
+   * @return null
+   */
+
+  function edit($id) {
+    $clientId = $this->request->params['named']['clientid'];
+    $this->set('vv_client_id', $clientId);
+
+    $oa4mpServer = new Oa4mpClientOa4mpServer();
+
+    // Get the current client and admin configurations
+    $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
+    $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // POST or PUT request
+    if($this->request->is(array('post','put'))) {
+      $newClient = $client;
+
+      foreach($client['Oa4mpClientClaim'] as $i => $c) {
+        if($c['id'] == $id) {
+          $newClient['Oa4mpClientClaim'][$i] = $this->request->data['Oa4mpClientClaim'];
+          break;
+        }
+      }
+
+      // Call out to oa4mp server.
+      // Return value of 0 indicates an error saving the edit.
+      // Return value of 2 indicates the plugin representation of the client
+      // and the Oa4mp server representation of the client are out of sync.
+      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
+      if($ret == 0) {
+        // Set flash and fall through to the GET logic.
+        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+      } elseif($ret == 2) {
+        // Set flash and fall through to the GET logic.
+        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      } else {
+        // Update successful so save the edited claim.
+        $ret = $this->Oa4mpClientClaim->save($this->request->data);
+
+        // Set flash successful.
+        $this->Flash->set(_txt('pl.oa4mp_client_claim.edit.flash.success'), array('key' => 'success'));
+
+        // Redirect to the index view.
+        $args = array();
+        $args['plugin'] = 'oa4mp_client';
+        $args['controller'] = 'oa4mp_client_claims';
+        $args['action'] = 'index';
+        $args['clientid'] = $clientId;
+
+        $this->redirect($args);
+      }
+    }
+
+    // GET
+
+    // Verify that this plugin and the OA4MP server representations
+    // of the current client before the edit are synchronized.
+    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
+    if(!$synchronized) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      $args = array();
+      $args['action'] = 'index';
+      $args['co'] = $this->cur_co['Co']['id'];
+      $this->redirect($args);
+    }
+
+    $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.claims.edit.name',
+               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+
+    // Set the identifier types for the view
+    $this->set('vv_identifier_types', $this
+                                      ->Oa4mpClientClaim
+                                      ->Oa4mpClientCoOidcClient
+                                      ->Oa4mpClientCoAdminClient
+                                      ->Co
+                                      ->CoPerson
+                                      ->Identifier
+                                      ->types($this->cur_co['Co']['id'], 'type'));
+
+    foreach($client['Oa4mpClientClaim'] as $i => $c) {
+      if($c['id'] == $id) {
+        $this->request->data = array('Oa4mpClientClaim' => $client['Oa4mpClientClaim'][$i]);
+        return;
+      }
+    }
+  }
 
   /**
    * Obtain all claims.
@@ -190,7 +279,7 @@ class Oa4mpClientClaimsController extends StandardController {
    * @since  COmanage Registry 4.4.2
    * @return Array Permissions
    */
-  
+
   function isAuthorized() {
     // Construct the permission set for this user, which will also be passed to the view.
     $roles = $this->Role->calculateCMRoles();
@@ -219,7 +308,7 @@ class Oa4mpClientClaimsController extends StandardController {
    * @param  Array $data Array of data for calculating implied CO ID
    * @return Integer The CO ID if found, or -1 if not
    */
-  
+
   function parseCOID($data = null) {
     // This controller requires passing the OIDC client ID as
     // a named parameter. We can use it to infer the CO ID.
