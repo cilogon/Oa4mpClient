@@ -133,7 +133,6 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       // Call out to Oa4mp server to create the new client.
       $oa4mpServer = new Oa4mpClientOa4mpServer();
-      //$newClient = $this->oa4mpNewClient($adminClient, $data);
       $newClient = $oa4mpServer->oa4mpNewClient($adminClient, $data);
 
       if(empty($newClient)) {
@@ -153,6 +152,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       // For now we set proxy_limited to always be false.
       $data['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
+
+      // For now we set the DynamoDB configuration to the default.
+      $data['Oa4mpClientDynamoConfig'] = $adminClient['DefaultDynamoConfig'];
+      unset($data['Oa4mpClientDynamoConfig']['id']);
+      unset($data['Oa4mpClientDynamoConfig']['admin_id']);
 
       // Save the client and associated data.
       $args = array();

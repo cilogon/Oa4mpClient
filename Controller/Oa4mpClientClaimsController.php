@@ -63,73 +63,58 @@ class Oa4mpClientClaimsController extends StandardController {
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
 
     // POST or PUT request
-    // TODO
     if($this->request->is(array('post','put'))) {
 
-      $this->log("FOO data is " . print_r($this->request->data, true));
+      $claims = $client['Oa4mpClientClaim'];
 
+      $newClaim = $this->request->data['Oa4mpClientClaim'];
+      $newClaim['Oa4mpClientClaimConstraint'] = $this->request->data['Oa4mpClientClaimConstraint'];
 
-      // Update successful so save the claim and related constraints.
-      $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
+      $claims[] = $newClaim;
 
-      $this->log("FOO validationErrors is " . print_r($this->Oa4mpClientClaim->validationErrors, true));
+      $newClient = array_replace($client, array('Oa4mpClientClaim' => $claims));
 
-      // Set flash successful.
-      $this->Flash->set(_txt('pl.oa4mp_client_claim.add.flash.success'), array('key' => 'success'));
+      // Call out to oa4mp server.
+      // Return value of 0 indicates an error saving the edit.
+      // Return value of 2 indicates the plugin representation of the client
+      // and the Oa4mp server representation of the client are out of sync.
+      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
+      if($ret == 0) {
+        // Set flash and fall through to the GET logic.
+        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+      } elseif($ret == 2) {
+        // Set flash and fall through to the GET logic.
+        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      } else {
+        // Update successful so save the claim and related constraints.
+        $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
 
-      // Redirect to the index view.
-      $args = array();
-      $args['plugin'] = 'oa4mp_client';
-      $args['controller'] = 'oa4mp_client_claims';
-      $args['action'] = 'index';
-      $args['clientid'] = $clientId;
+        // Set flash successful.
+        $this->Flash->set(_txt('pl.oa4mp_client_claim.add.flash.success'), array('key' => 'success'));
 
-      $this->redirect($args);
+        // Redirect to the index view.
+        $args = array();
+        $args['plugin'] = 'oa4mp_client';
+        $args['controller'] = 'oa4mp_client_claims';
+        $args['action'] = 'index';
+        $args['clientid'] = $clientId;
 
-//      $newClient = array_replace($client, array('Oa4mpClientCoCallback' => $newCallbacks));
-//
-//      // Call out to oa4mp server.
-//      // Return value of 0 indicates an error saving the edit.
-//      // Return value of 2 indicates the plugin representation of the client
-//      // and the Oa4mp server representation of the client are out of sync.
-//      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
-//      if($ret == 0) {
-//        // Set flash and fall through to the GET logic.
-//        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-//      } elseif($ret == 2) {
-//        // Set flash and fall through to the GET logic.
-//        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-//      } else {
-//        // Update successful so save the new callback.
-//        $ret = $this->Oa4mpClientCoCallback->save($this->request->data);
-//
-//        // Set flash successful.
-//        $this->Flash->set(_txt('pl.oa4mp_client_co_callback.callback.add.flash.success'), array('key' => 'success'));
-//
-//        // Redirect to the index view.
-//        $args = array();
-//        $args['plugin'] = 'oa4mp_client';
-//        $args['controller'] = 'oa4mp_client_co_callbacks';
-//        $args['action'] = 'index';
-//        $args['clientid'] = $clientId;
-//
-//        $this->redirect($args);
-//      }
+        $this->redirect($args);
+      }
     }
 
     // GET
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
-    // TODO
-//    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
-//    if(!$synchronized) {
-//      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-//      $args = array();
-//      $args['action'] = 'index';
-//      $args['co'] = $this->cur_co['Co']['id'];
-//      $this->redirect($args);
-//    }
+    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
+    if(!$synchronized) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      $args = array();
+      $args['action'] = 'index';
+      $args['co'] = $this->cur_co['Co']['id'];
+      $this->redirect($args);
+    }
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.claims.add.name',
                array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
@@ -142,6 +127,62 @@ class Oa4mpClientClaimsController extends StandardController {
                                       ->CoPerson
                                       ->Identifier
                                       ->types($this->cur_co['Co']['id'], 'type'));
+  }
+
+  /**
+   * Delete a claim.
+   *
+   * @since  COmanage Registry v4.4.2
+   * @param  integer $id Oa4mpClientClaim ID
+   * @return null
+   */
+
+  function delete($id) {
+    $clientId = $this->request->params['named']['clientid'];
+    $this->set('vv_client_id', $clientId);
+
+    // Get the current client and admin configurations
+    $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
+    $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    $oa4mpServer = new Oa4mpClientOa4mpServer();
+
+    $newClient = $client;
+
+    foreach($client['Oa4mpClientClaim'] as $i => $c) {
+      if($c['id'] == $id) {
+        unset($newClient['Oa4mpClientClaim'][$i]);
+        break;
+      }
+    }
+
+    // Call out to oa4mp server.
+    // Return value of 0 indicates an error saving the edit.
+    // Return value of 2 indicates the plugin representation of the client
+    // and the Oa4mp server representation of the client are out of sync.
+    $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
+    if($ret == 0) {
+      // Set flash and fall through to render again.
+      $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+    } elseif($ret == 2) {
+      // Set flash and fall through to render again.
+      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+    } else {
+      // Update successful so delete the claim.
+      $ret = $this->Oa4mpClientClaim->delete($id);
+
+      // Set flash successful.
+      $this->Flash->set(_txt('pl.oa4mp_client_claim.delete.flash.success'), array('key' => 'success'));
+
+      // Redirect to the index view.
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_claims';
+      $args['action'] = 'index';
+      $args['clientid'] = $clientId;
+
+      $this->redirect($args);
+    }
   }
 
   /**
@@ -169,6 +210,9 @@ class Oa4mpClientClaimsController extends StandardController {
       foreach($client['Oa4mpClientClaim'] as $i => $c) {
         if($c['id'] == $id) {
           $newClient['Oa4mpClientClaim'][$i] = $this->request->data['Oa4mpClientClaim'];
+          if(!empty($this->request->data['Oa4mpClientClaimConstraint'][0])) {
+            $newClient['Oa4mpClientClaim'][$i]['Oa4mpClientClaimConstraint'][0] = $this->request->data['Oa4mpClientClaimConstraint'][0];
+          }
           break;
         }
       }
@@ -230,7 +274,18 @@ class Oa4mpClientClaimsController extends StandardController {
 
     foreach($client['Oa4mpClientClaim'] as $i => $c) {
       if($c['id'] == $id) {
-        $this->request->data = array('Oa4mpClientClaim' => $client['Oa4mpClientClaim'][$i]);
+        // For edit mode, we need to load the claim with its constraints
+        $args = array();
+        $args['conditions']['Oa4mpClientClaim.id'] = $id;
+        $args['contain'] = array('Oa4mpClientClaimConstraint');
+
+        $claimWithConstraints = $this->Oa4mpClientClaim->find('first', $args);
+
+        if(!empty($claimWithConstraints)) {
+          $this->request->data = $claimWithConstraints;
+        } else {
+          $this->request->data = array('Oa4mpClientClaim' => $client['Oa4mpClientClaim'][$i]);
+        }
         return;
       }
     }

@@ -116,7 +116,7 @@
               . $this->Html->url(              // dialog confirm URL
                 array(
                   'plugin' => 'oa4mp_client',
-                  'controller' => 'oa4mp_client_co_claims',
+                  'controller' => 'oa4mp_client_claims',
                   'action' => 'delete',
                   $c['id'],
                   'clientid' => $this->params['named']['clientid']

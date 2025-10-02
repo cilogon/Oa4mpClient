@@ -54,10 +54,6 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'foreignKey' => 'client_id',
       'dependent' => true
     ),
-    "Oa4mpClient.Oa4mpClientDynamoConfig" => array(
-      'foreignKey' => 'client_id',
-      'dependent' => true
-    ),
     "Oa4mpClient.Oa4mpClientCoLdapConfig" => array(
       'foreignKey' => 'client_id',
       'dependent' => true
@@ -73,6 +69,10 @@ class Oa4mpClientCoOidcClient extends AppModel {
   );
 
   public $hasOne = array(
+    "Oa4mpClient.Oa4mpClientDynamoConfig" => array(
+      'foreignKey' => 'client_id',
+      'dependent' => true
+    ),
     "Oa4mpClient.Oa4mpClientRefreshToken" => array(
       'foreignKey' => 'client_id',
       'dependent' => true
@@ -211,7 +211,7 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'Oa4mpClientCoEmailAddress',
       'Oa4mpClientCoScope',
       'Oa4mpClientCoCallback',
-      'Oa4mpClientClaim',
+      'Oa4mpClientClaim' => array('Oa4mpClientClaimConstraint'),
       'Oa4mpClientCoLdapConfig',
       'Oa4mpClientCoNamedConfig',
       'Oa4mpClientDynamoConfig',

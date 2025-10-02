@@ -96,6 +96,27 @@
 
   }
 
+  // For edit mode, ensure proper visibility based on existing data
+  function js_local_onload() {
+    <?php if($this->action == 'edit' && !empty($claim['source_model'])): ?>
+      // Call the update function to show appropriate fields for existing data
+      var sourceModelElement = document.getElementById('Oa4mpClientClaimSourceModel');
+      if(sourceModelElement) {
+        update_source_model_select(sourceModelElement);
+      }
+
+      // For edit mode, ensure hidden fields are set if they don't already exist
+      <?php if($claim['source_model'] == 'Identifier'): ?>
+        if(!document.getElementById('Oa4mpClientClaimValueField')) {
+          $("#Oa4mpClientClaimClientId").after('<input id="Oa4mpClientClaimValueField" type="hidden" name="data[Oa4mpClientClaim][value_field]" value="identifier">');
+        }
+        if(!document.getElementById('Oa4mpClientClaimConstraint0Field')) {
+          $("#Oa4mpClientClaimValueField").after('<input id="Oa4mpClientClaimConstraint0Field" type="hidden" name="data[Oa4mpClientClaimConstraint][0][field]" value="type">');
+        }
+      <?php endif; ?>
+    <?php endif; ?>
+  }
+
 </script>
 
 <ul id="<?php print $this->action; ?>_oa4mp_client_co_oidc_claim" class="fields form-list form-list-admin">
@@ -148,7 +169,7 @@
   </li>
 
   <!-- Identifier -->
-  <li id="Identifier_ClaimConstraint0Value" style="display:none;">
+  <li id="Identifier_ClaimConstraint0Value" style="<?php echo ($this->action == 'edit' && !empty($claim['source_model']) && $claim['source_model'] == 'Identifier') ? 'display:block;' : 'display:none;'; ?>">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('Oa4mpClientClaimConstraint.0.value', _txt('pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.name')) ?>
@@ -161,7 +182,16 @@
       <?php
         $attrs = array();
         $attrs['id'] = 'Oa4mpClientClaimConstraint0Value_Identifier';
-        $attrs['value'] = $claim['Oa4mpClientClaimConstraint'][0]['value'] ?? "";
+
+        // Handle constraint value from either the claim's constraints or from direct request data
+        $constraintValue = "";
+        if(!empty($claim['Oa4mpClientClaimConstraint'][0]['value'])) {
+          $constraintValue = $claim['Oa4mpClientClaimConstraint'][0]['value'];
+        } elseif(!empty($this->request->data['Oa4mpClientClaimConstraint'][0]['value'])) {
+          $constraintValue = $this->request->data['Oa4mpClientClaimConstraint'][0]['value'];
+        }
+
+        $attrs['value'] = $constraintValue;
         $attrs['empty'] = true;
         $attrs['onChange'] = 'claim_constraint_0_value_identifier_select();';
 
@@ -175,7 +205,7 @@
     </div>
   </li>
 
-  <li id="Identifier_value_req" style="display:none;">
+  <li id="Identifier_value_req" style="<?php echo ($this->action == 'edit' && !empty($claim['source_model']) && $claim['source_model'] == 'Identifier') ? 'display:block;' : 'display:none;'; ?>">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('value_req', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.value_req.name')) ?>
@@ -204,7 +234,7 @@
     </div>
   </li>
 
-  <li id="Identifier_value_format" style="display:none;">
+  <li id="Identifier_value_format" style="<?php echo ($this->action == 'edit' && !empty($claim['source_model']) && $claim['source_model'] == 'Identifier') ? 'display:block;' : 'display:none;'; ?>">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('value_format', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.value_format.name')) ?>
@@ -233,7 +263,7 @@
     </div>
   </li>
 
-  <li id="Identifier_value_string_d" style="display:none;">
+  <li id="Identifier_value_string_d" style="<?php echo ($this->action == 'edit' && !empty($claim['value_string_d'])) ? 'display:block;' : 'display:none;'; ?>">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('value_string_d', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.value_string_d.name')) ?>

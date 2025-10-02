@@ -31,6 +31,49 @@ class Oa4mpClientOa4mpServer extends AppModel {
   public $useTable = false;
 
   /**
+   * Return the base64 encoded claim mapping source to be
+   * decoded and then interpreted on the OA4MP server.
+   *
+   * @param array $claim The Oa4mpClientClaim object and associated Oa4mpClientClaimConstraint objects.
+   * @return array An array where the first element is the base64 encoded claim mapping source to be decoded
+   *               and then interpreted on the OA4MP server and the second element is a comment.
+   */
+
+  private function claimMappingSource($claim) {
+    $mappingString = '';
+    $comment = '';
+
+    if($claim['source_model'] == 'Identifier') {
+      $mappingString .= 'registry#dynamodb#identifier(item., ';
+      foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
+        if($constraint['field'] == 'type') {
+          $mappingString .= "'" . $constraint['value'] . "')";
+        }
+      }
+    }
+
+    if($claim['value_req'] == 'first') {
+      $mappingString .= '.0';
+    }
+
+    // Ensure the mapping string ends with a semicolon for QDL parsing.
+    if(!str_ends_with($mappingString, ';')) {
+      $mappingString .= ';';
+    }
+
+    $comment = $mappingString;
+
+    // Remove single quotes from the comment so that the OA4MP server
+    // can parse the JSON.
+    $comment = str_replace("'", "", $comment);
+
+    // Base64 encode the mapping string.
+    $mappingString = base64_encode($mappingString);
+
+    return array($mappingString, $comment);
+  }
+
+  /**
    * Determine if our representation of the client and the Oa4mp server
    * representation of the client is synchronized, in order to detect
    * if the client has been changed outside of this plugin.
@@ -239,6 +282,42 @@ class Oa4mpClientOa4mpServer extends AppModel {
     if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
       if($curData['Oa4mpClientAuthorization']['require_active_redirect_url'] != ($oa4mpServerData['Oa4mpClientAuthorization']['require_active_redirect_url'] ?? null)) {
         $this->log("Oa4mpClientAuthorization require_active_redirect_url is out of sync");
+        return false;
+      }
+    }
+
+    // Compare DynamoDB configurations.
+    if(!empty($curData['Oa4mpClientDynamoConfig']) && !empty($oa4mpServerData['Oa4mpClientDynamoConfig'])) {
+      if($curData['Oa4mpClientDynamoConfig']['aws_region'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_region']) {
+        $this->log("Oa4mpClientDynamoConfig aws_region is out of sync");
+        return false;
+      }
+      if($curData['Oa4mpClientDynamoConfig']['aws_access_key_id'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_access_key_id']) {
+        $this->log("Oa4mpClientDynamoConfig aws_access_key_id is out of sync");
+        return false;
+      }
+      if($curData['Oa4mpClientDynamoConfig']['table_name'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['table_name']) {
+        $this->log("Oa4mpClientDynamoConfig table_name is out of sync");
+        return false;
+      }
+      if($curData['Oa4mpClientDynamoConfig']['partition_key'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key']) {
+        $this->log("Oa4mpClientDynamoConfig partition_key is out of sync");
+        return false;
+      }
+      if($curData['Oa4mpClientDynamoConfig']['partition_key_template'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_template']) {
+        $this->log("Oa4mpClientDynamoConfig partition_key_template is out of sync");
+        return false;
+      }
+      if($curData['Oa4mpClientDynamoConfig']['partition_key_claim_name'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_claim_name']) {
+        $this->log("Oa4mpClientDynamoConfig partition_key_claim_name is out of sync");
+        return false;
+      }
+      if($curData['Oa4mpClientDynamoConfig']['sort_key'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key']) {
+        $this->log("Oa4mpClientDynamoConfig sort_key is out of sync");
+        return false;
+      }
+      if($curData['Oa4mpClientDynamoConfig']['sort_key_template'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key_template']) {
+        $this->log("Oa4mpClientDynamoConfig sort_key_template is out of sync");
         return false;
       }
     }
@@ -609,18 +688,18 @@ class Oa4mpClientOa4mpServer extends AppModel {
     } elseif(!empty(getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT'))) {
       $qdlClaimSourcePath = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT');
     } else{
-      $qdlClaimSourcePath = 'COmanageRegistry/default/ldap_claims.qdl';
+      $qdlClaimSourcePath = 'COmanageRegistry/default/dynamodb_claims.qdl';
     }
 
-
-
     // Identity token configuration.
-//    $cfg['tokens']['identity']['type'] = 'identity';
+    $cfg['tokens']['identity']['type'] = 'identity';
 
-    $qdl = array();
+    $qdl = $cfg['tokens']['identity']['qdl'] ?? array();
 
+    // Configure the QDL script file to load.
     $qdl['load'] = $qdlClaimSourcePath;
 
+    // Configure the execution phases.
     $qdl['xmd'] = array();
     $qdl['xmd']['exec_phase'] = array();
     $qdl['xmd']['exec_phase'][] = 'post_auth';
@@ -628,10 +707,41 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $qdl['xmd']['exec_phase'][] = 'post_token';
     $qdl['xmd']['exec_phase'][] = 'post_user_info';
 
-    $qdl['args'] = array();
+    // Configure the arguments to pass to the QDL script.
+    $qdl['args'] = $qdl['args'] ?? array();
+
+    if(!empty($data['Oa4mpClientDynamoConfig'])) {
+      $dynamoConfig = $data['Oa4mpClientDynamoConfig'];
+    } else {
+      $dynamoConfig = $data['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'];
+    }
+
+    // Add the Dynamo module configuration.
+
+    $dynamoModuleConfig = array();
+    $dynamoModuleConfig['region'] = $dynamoConfig['aws_region'];
+    $dynamoModuleConfig['access_key_id'] = $dynamoConfig['aws_access_key_id'];
+    $dynamoModuleConfig['secret_access_key'] = $dynamoConfig['aws_secret_access_key'];
+    $dynamoModuleConfig['table_name'] = $dynamoConfig['table_name'];
+    $dynamoModuleConfig['partition_key'] = $dynamoConfig['partition_key'];
+
+    $qdl['args']['dynamo_module_config'] = $dynamoModuleConfig;
+
+    // Add the partition key pattern and claim name.
+    $qdl['args']['partition_key_pattern'] = $dynamoConfig['partition_key_template'];
+    $qdl['args']['partition_key_claim_name'] = $dynamoConfig['partition_key_claim_name'];
+
+    // Add the claims configuration.
+    $qdl['args']['claim_mappings'] = array();
+    foreach($data['Oa4mpClientClaim'] as $claim) {
+      $mapping = array();
+      $mapping['name'] = $claim['claim_name'];
+      [$mapping['source'], $mapping['comment']] = $this->claimMappingSource($claim);
+      $qdl['args']['claim_mappings'][] = $mapping;
+    }
 
 
-//    $cfg['tokens']['identity']['qdl'] = $qdl;
+    $cfg['tokens']['identity']['qdl'] = $qdl;
 
 
 //    $qdl['args']['server_fqdn'] = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_HOST);
@@ -795,7 +905,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
     if(!empty($data['Oa4mpClientCoLdapConfig']) || 
        !empty($data['Oa4mpClientCoOidcClient']['named_config_id']) ||
        !empty($data['Oa4mpClientAccessToken']) ||
-       !empty($data['Oa4mpClientAuthorization'])) {
+       !empty($data['Oa4mpClientAuthorization']) ||
+       !empty($data['Oa4mpClientClaim'])) {
       $cfg = $this->oa4mpMarshallCfgQdl($data);
       if(!empty($cfg)) {
         $content['cfg'] = $cfg;
@@ -1219,6 +1330,28 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
     }
 
+    // Unmarshall DynamoDB configuration.
+    if(!empty($cfg['qdl']['args']['dynamo_module_config'])) {
+      $oa4mpClient['Oa4mpClientDynamoConfig']['aws_region'] = $cfg['qdl']['args']['dynamo_module_config']['region'];
+      $oa4mpClient['Oa4mpClientDynamoConfig']['aws_access_key_id'] = $cfg['qdl']['args']['dynamo_module_config']['access_key_id'];
+      $oa4mpClient['Oa4mpClientDynamoConfig']['aws_secret_access_key'] = $cfg['qdl']['args']['dynamo_module_config']['secret_access_key'];
+      $oa4mpClient['Oa4mpClientDynamoConfig']['table_name'] = $cfg['qdl']['args']['dynamo_module_config']['table_name'];
+      $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key'] = $cfg['qdl']['args']['dynamo_module_config']['partition_key'];
+    }
+
+    if(!empty($cfg['qdl']['args']['partition_key_pattern'])) {
+      $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key_template'] = $cfg['qdl']['args']['partition_key_pattern'];
+    }
+    if(!empty($cfg['qdl']['args']['partition_key_claim_name'])) {
+      $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key_claim_name'] = $cfg['qdl']['args']['partition_key_claim_name'];
+    }
+    if(!empty($cfg['qdl']['args']['sort_key_template'])) {
+      $oa4mpClient['Oa4mpClientDynamoConfig']['sort_key_template'] = $cfg['qdl']['args']['sort_key_template'];
+    }
+    if(!empty($cfg['qdl']['args']['sort_key'])) {
+      $oa4mpClient['Oa4mpClientDynamoConfig']['sort_key'] = $cfg['qdl']['args']['sort_key'];
+    }
+
     // TODO: implement more of this.
 
     // This is a placeholder for the claims configuration.
@@ -1246,13 +1379,13 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $client_id = $curClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
     $request['uri']['query'] = array('client_id' => $client_id);
 
-    $this->log("Request URI is " . print_r($request['uri'], true));
-    $this->log("Request method is " . print_r($request['method'], true));
-    $this->log("Request body is " . print_r(null, true));
+    $this->log("OA4MP Server request URI is " . print_r($request['uri'], true));
+    $this->log("OA4MP Server request method is " . print_r($request['method'], true));
+    $this->log("OA4MP Server request body is " . print_r(null, true));
 
     $response = $http->request($request);
 
-    $this->log("Response is " . print_r($response, true));
+    $this->log("OA4MP Server response is " . print_r($response, true));
 
     $contentType = $response->getHeader('Content-Type');
 
