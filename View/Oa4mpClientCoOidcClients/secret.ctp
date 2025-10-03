@@ -130,14 +130,13 @@ function js_local_onload() {
 
   <?php 
 
+  // After adding a new client redirect to the Oa4mpClientCoScopes edit view
+  // so the user can immediately start adding scopes.
   $args = array();
   $args['plugin'] = 'oa4mp_client';
-  $args['controller'] = 'oa4mp_client_co_oidc_clients';
-  $args['action'] = 'edit';
-  if(isset($cur_co)) {
-    $args['co'] = $cur_co['Co']['id'];
-  }
-  $args[] = $vv_id;
+  $args['controller'] = 'oa4mp_client_co_scopes';
+  $args['action'] = 'edit_scopes';
+  $args['clientid'] = $vv_id;
   
   print $this->Html->link(_txt('op.cont'), $args, array('class' => 'co-button btn btn-primary', 'id'=> 'oidc-client-continue'));
   ?>

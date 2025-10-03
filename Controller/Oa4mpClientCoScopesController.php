@@ -118,6 +118,16 @@ class Oa4mpClientCoScopesController extends StandardController {
         // Set flash successful.
         $this->Flash->set(_txt('pl.oa4mp_client_co_scope.scope.flash.success'), array('key' => 'success'));
 
+        // If no callbacks are configured redirect to the callbacks add view.
+        if(empty($client['Oa4mpClientCoCallback'])) {
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_co_callbacks';
+          $args['action'] = 'add';
+          $args['clientid'] = $clientId;
+          $this->redirect($args);
+        }
+
         // Read the client state again and fall through to the GET.
         $client = $this->Oa4mpClientCoScope->Oa4mpClientCoOidcClient->current($clientId);
       }
