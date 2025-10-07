@@ -45,6 +45,14 @@
   $args['action'] = 'index';
 
   $this->Html->addCrumb(_txt('ct.oa4mp_client_co_oidc_clients.pl'), $args);
+
+  $args = array();
+  $args['plugin'] = 'oa4mp_client';
+  $args['controller'] = 'oa4mp_client_claims';
+  $args['action'] = 'index';
+  $args['clientid'] = $vv_client_id;
+  $this->Html->addCrumb(_txt('ct.oa4mp_client_co_claims.pl'), $args);
+
   $crumbTxt = _txt('op.' . $this->action . '-a', array(_txt('ct.oa4mp_client_co_claims.1')));
   $this->Html->addCrumb($crumbTxt);
 
