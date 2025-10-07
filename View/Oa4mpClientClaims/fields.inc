@@ -59,6 +59,16 @@
   print $this->Html->css("Oa4mpClient.oa4mpclient");
 
   $claim = $this->request->data['Oa4mpClientClaim'] ?? null;
+  $constraint0 = $this->request->data['Oa4mpClientClaimConstraint'][0] ?? null;
+  $constraint1 = $this->request->data['Oa4mpClientClaimConstraint'][1] ?? null;
+
+  $this->log("FOO request data is " . print_r($this->request->data, true));
+  $this->log("FOO claim is " . print_r($claim, true));
+  $this->log("FOO constraint0 is " . print_r($constraint0, true));
+  $this->log("FOO constraint1 is " . print_r($constraint1, true));
+
+  // Unlock the Oa4mpClientClaimConstraint.0.value field since it is dynamically populated.
+  print $this->Form->unlockField('Oa4mpClientClaimConstraint.0.value');
 
   // Include the current client ID if it is available.
   if($e) {
@@ -67,7 +77,6 @@
     }
   }
 
-
   // Include the current ID if it is available.
   if($e) {
     if(!empty($this->request->data['Oa4mpClientClaim']['id'])) {
@@ -75,36 +84,66 @@
     }
   }
 
-  // These form fields are inserted dynamically using Javascript based
-  // on other selections so we need to unlock them to prevent the
-  // form submission from being blackholed.
-  $this->Form->unlockField("value_field");
-  $this->Form->unlockField("Oa4mpClientClaimConstraint.0.field");
-
   $l = 1;
 ?>
 <script type="text/javascript">
   // JS specific to these fields
+
+  function identifier_set_options_claim_constraint_0_value() {
+    console.log("identifier_set_options_claim_constraint_0_value");
+    let options = new Map();
+
+    <?php
+      foreach($vv_identifier_types as $type => $label) {
+        print "options.set('" . $type . "', '" . $label . "');";
+        print "\n";
+      }
+    ?>
+
+    let parent = $("#Oa4mpClientClaimConstraint0Value");
+
+    options.forEach((value, key) => {
+     if (parent.children('option[value="' + key + '"]').length === 0) {
+      parent.append($("<option></option>").attr("value", key).text(value));
+     }
+    });
+  }
   
   function update_source_model_select(element) {
+    // TODO
     console.log(element.value);
 
-    
-
     switch (element.value) {
-    case "Identifier":
-      $("#Identifier_ClaimConstraint0Value").show();
-      $("#Identifier_value_req").show();
-      $("#Identifier_value_format").show();
+      case "Identifier":
+        identifier_set_options_claim_constraint_0_value();
 
-      $("#Oa4mpClientClaimClientId").after('<input id="Oa4mpClientClaimValueField" type="hidden" name="data[Oa4mpClientClaim][value_field]" value="identifier">');
-      $("#Oa4mpClientClaimValueField").after('<input id="Oa4mpClientClaimConstraint0Field" type="hidden" name="data[Oa4mpClientClaimConstraint][0][field]" value="type">');
+        $("#ClaimConstraint0Value_li").show();
+        $("#ClaimValueReq_li").show();
+        $("#ClaimValueFormat_li").show();
+
+        $("#ClaimValueField").val("identifier");
+        $("#ClaimConstraint0Field").val("type");
+      break;
+
+      case "EmailAddress":
+        $("#ClaimConstraint0Value_li").show();
+        $("#ClaimValueReq_li").show();
+        $("#ClaimValueFormat_li").show();
+
+        $("#ClaimValueField").val("mail");
+        $("#ClaimConstraint0Field").val("type");
+
+        $("#ClaimConstraint1Field").val("verified");
+        $("#ClaimConstraint1Value").val("true");
+
+        $("#ClaimConstraint1Value").attr("type", "checkbox");
+
+        $("#ClaimConstraint1Value_li").show();
       break;
     }
 
   }
 
-  // For edit mode, ensure proper visibility based on existing data
   function js_local_onload() {
     <?php if($this->action == 'edit' && !empty($claim['source_model'])): ?>
       // Call the update function to show appropriate fields for existing data
@@ -113,15 +152,6 @@
         update_source_model_select(sourceModelElement);
       }
 
-      // For edit mode, ensure hidden fields are set if they don't already exist
-      <?php if($claim['source_model'] == 'Identifier'): ?>
-        if(!document.getElementById('Oa4mpClientClaimValueField')) {
-          $("#Oa4mpClientClaimClientId").after('<input id="Oa4mpClientClaimValueField" type="hidden" name="data[Oa4mpClientClaim][value_field]" value="identifier">');
-        }
-        if(!document.getElementById('Oa4mpClientClaimConstraint0Field')) {
-          $("#Oa4mpClientClaimValueField").after('<input id="Oa4mpClientClaimConstraint0Field" type="hidden" name="data[Oa4mpClientClaimConstraint][0][field]" value="type">');
-        }
-      <?php endif; ?>
     <?php endif; ?>
   }
 
@@ -129,6 +159,7 @@
 
 <ul id="<?php print $this->action; ?>_oa4mp_client_co_oidc_claim" class="fields form-list form-list-admin">
 
+  <!-- Oa4mpClientClaim['claim_name'] -->
   <li>
     <div class="field-name">
       <div class="field-title">
@@ -146,6 +177,7 @@
     </div>
   </li>
 
+  <!-- Oa4mpClientClaim['source_model'] -->
   <li>
     <div class="field-name">
       <div class="field-title">
@@ -176,8 +208,36 @@
     </div>
   </li>
 
-  <!-- Identifier -->
-  <li id="Identifier_ClaimConstraint0Value" style="<?php echo ($this->action == 'edit' && !empty($claim['source_model']) && $claim['source_model'] == 'Identifier') ? 'display:block;' : 'display:none;'; ?>">
+  <!-- Oa4mpClientClaim['value_field'] -->
+  <li style="display:none;">
+    <?php
+      $attrs = array();
+      $attrs['id'] = 'ClaimValueField';
+      $attrs['value'] = $claim['value_field'] ?? "";
+
+      $options = array();
+      $options['hidden'] = 'hidden';
+
+      print $this->Form->input('value_field', $attrs, $options);
+    ?>
+  </li>
+
+  <!-- Oa4mpClientClaimConstraint.0.field -->
+  <li style="display:none;">
+    <?php
+      $attrs = array();
+      $attrs['id'] = 'ClaimConstraint0Field';
+      $attrs['value'] = $constraint0['field'] ?? "";
+
+      print $this->Form->input('Oa4mpClientClaimConstraint.0.field', $attrs);
+    ?>
+  </li>
+
+  <!-- Oa4mpClientClaimConstraint.0.value -->
+  <?php
+    $style = $this->action == 'edit' && !empty($claim['source_model']) ? 'display:block;' : 'display:none;';
+  ?>
+  <li id="ClaimConstraint0Value_li" style="<?php echo $style; ?>">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('Oa4mpClientClaimConstraint.0.value', _txt('pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.name')) ?>
@@ -188,23 +248,17 @@
     <div class="field-info">
       <span class="field-info-prefix">
       <?php
+        $options = array();
         $attrs = array();
-        $attrs['id'] = 'Oa4mpClientClaimConstraint0Value_Identifier';
 
-        // Handle constraint value from either the claim's constraints or from direct request data
-        $constraintValue = "";
-        if(!empty($claim['Oa4mpClientClaimConstraint'][0]['value'])) {
-          $constraintValue = $claim['Oa4mpClientClaimConstraint'][0]['value'];
-        } elseif(!empty($this->request->data['Oa4mpClientClaimConstraint'][0]['value'])) {
-          $constraintValue = $this->request->data['Oa4mpClientClaimConstraint'][0]['value'];
+        if(!empty($claim['source_model']) && $claim['source_model'] == "Identifier") {
+          $options = $vv_identifier_types;
         }
 
-        $attrs['value'] = $constraintValue;
-        $attrs['empty'] = true;
-        $attrs['onChange'] = 'claim_constraint_0_value_identifier_select();';
+        if(!empty($constraint0['value'])) {
+          $attrs['value'] = $constraint0['value'];
+        }
 
-        $options = $vv_identifier_types;
-        
         if($e) {
           print $this->Form->select('Oa4mpClientClaimConstraint.0.value', $options, $attrs);
         }
@@ -213,7 +267,41 @@
     </div>
   </li>
 
-  <li id="Identifier_value_req" style="<?php echo ($this->action == 'edit' && !empty($claim['source_model']) && $claim['source_model'] == 'Identifier') ? 'display:block;' : 'display:none;'; ?>">
+  <!-- Oa4mpClientClaimConstraint.1.field -->
+  <li style="display:none;">
+    <?php
+      $attrs = array();
+      $attrs['id'] = 'ClaimConstraint1Field';
+      $attrs['value'] = $constraint1['field'] ?? "";
+      $attrs['required'] = false;
+
+      $options = array();
+      $options['hidden'] = 'hidden';
+
+      print $this->Form->input('Oa4mpClientClaimConstraint.1.field', $attrs, $options);
+    ?>
+  </li>
+
+  <!-- Oa4mpClientClaimConstraint.1.value -->
+  <li id="ClaimConstraint1Value_li" style="display:none;">
+    <?php
+      $attrs = array();
+      $attrs['id'] = 'ClaimConstraint1Value';
+      $attrs['value'] = $constraint1['value'] ?? "";
+      $attrs['required'] = false;
+
+      $options = array();
+      $options['hidden'] = 'hidden';
+
+      print $this->Form->input('Oa4mpClientClaimConstraint.1.value', $attrs, $options);
+    ?>
+  </li>
+
+  <!-- Oa4mpClientClaim['value_req'] -->
+  <?php
+    $style = $this->action == 'edit' && !empty($claim['source_model']) ? 'display:block;' : 'display:none;';
+  ?>
+  <li id="ClaimValueReq_li" style="<?php echo $style; ?>">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('value_req', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.value_req.name')) ?>
@@ -225,10 +313,8 @@
       <span class="field-info-prefix">
       <?php
         $attrs = array();
-        $attrs['id'] = 'Oa4mpClientClaimValueReq_Identifier';
         $attrs['value'] = $claim['value_req'] ?? "";
         $attrs['empty'] = true;
-        $attrs['onChange'] = 'value_req_identifier_select();';
 
         $options = array();
         $options['first'] = 'First value found';
@@ -242,7 +328,11 @@
     </div>
   </li>
 
-  <li id="Identifier_value_format" style="<?php echo ($this->action == 'edit' && !empty($claim['source_model']) && $claim['source_model'] == 'Identifier') ? 'display:block;' : 'display:none;'; ?>">
+  <!-- Oa4mpClientClaim['value_format'] -->
+  <?php
+    $style = $this->action == 'edit' && !empty($claim['source_model']) ? 'display:block;' : 'display:none;';
+  ?>
+  <li id="ClaimValueFormat_li" style="<?php echo $style; ?>">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('value_format', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.value_format.name')) ?>
@@ -254,10 +344,8 @@
       <span class="field-info-prefix">
       <?php
         $attrs = array();
-        $attrs['id'] = 'Oa4mpClientClaimValueFormat_Identifier';
         $attrs['value'] = $claim['value_format'] ?? "";
         $attrs['empty'] = true;
-        $attrs['onChange'] = 'value_format_identifier_select();';
 
         $options = array();
         $options['string'] = 'JSON string';
@@ -271,7 +359,11 @@
     </div>
   </li>
 
-  <li id="Identifier_value_string_d" style="<?php echo ($this->action == 'edit' && !empty($claim['value_string_d'])) ? 'display:block;' : 'display:none;'; ?>">
+  <!-- Oa4mpClientClaim['value_string_d'] -->
+  <?php
+    $style = $this->action == 'edit' && !empty($claim['value_string_d']) ? 'display:block;' : 'display:none;';
+  ?>
+  <li id="ClaimValueStringD_li" style="<?php echo $style; ?>">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('value_string_d', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.value_string_d.name')) ?>
@@ -283,9 +375,7 @@
       <span class="field-info-prefix">
       <?php
         $attrs = array();
-        $attrs['id'] = 'Oa4mpClientClaimValueStringD_Identifier';
         $attrs['value'] = $claim['value_string_d'] ?? null;
-        $attrs['onChange'] = 'value_format_string_d_identifier_select();';
 
         if($e) {
           print $this->Form->input('value_string_d', $attrs);
@@ -294,8 +384,6 @@
       </span>
     </div>
   </li>
-
-  <!-- EmailAddress -->
 
   <?php if($e): ?>
     <li class="fields-submit">
