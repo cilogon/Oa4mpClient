@@ -197,7 +197,7 @@
         // Hide the claim value format field and set the value to "JSON string" since EmailAddress values are always strings
         // and never numbers.
         $("#ClaimValueFormat_li").hide();
-        $("#ClaimValueFormat_li").val("string");
+        $("#Oa4mpClientClaimValueFormat").val("string");
 
         // Set the claim value field to "mail" and the constraint 0 field to "type".
         $("#ClaimValueField").val("mail");
@@ -209,12 +209,15 @@
 
         // Cast the claim constraint 1 value to a checkbox and set the value to "true" to
         // default to only verified EmailAddress values being included in the claim.
+        // Also, add a hidden field to the form with the value set to "false" so that if the box is
+        // unchecked, the value is set to "false" when the form is submitted.
         // Then set the name and description of the claim constraint 1 value field appropriately
         // for managing the verified EmailAddress values, and finally display the claim constraint 1 value field.
         $("#ClaimConstraint1Value").val("true");
         $("#ClaimConstraint1Value").attr("type", "checkbox");
         $("#ClaimConstraint1Value").prop("checked", true);
         $("#ClaimConstraint1Value").removeAttr("maxlength");
+        $("#ClaimConstraint1Value").before($("<input type=\"hidden\" name=\"data[Oa4mpClientClaimConstraint][1][value]\" value=\"false\">"));
         $("#ClaimConstraint1Value_li").find(".field-title").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.name.email'); ?>");
         $("#ClaimConstraint1Value_li").find(".field-title").append(" <span class=\"required\">*</span>");
         $("#ClaimConstraint1Value_li").find(".field-desc").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.email'); ?>");
@@ -245,6 +248,13 @@
       }
 
     <?php endif; ?>
+
+    // Add form submit handler to remove multiple_value_format field before submission
+    $('form').on('submit', function(e) {
+      // Remove multiple_value_format radio buttons from form data before submission
+      // since this is a UI control field and not part of the model
+      $('input[name="multiple_value_format"]').remove();
+    });
   }
 
 </script>
