@@ -157,7 +157,15 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.claims.fd.value_string_d.description' => 'Which character(s) to use to delineate token values when formatted as a JSON string',
 
   'pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.name' => 'Type',
-  'pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.description' => 'The Identifier type from the user record that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.description.identifier' => 'The Identifier type from the user record that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.description.email' => 'The EmailAddress type from the user record that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint.fd.value.description.name' => 'The Name type from the user record that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.name.email' => 'Verified',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.email' => 'Only assert verified email addresses',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_format.name' => 'Multiple Value Format',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_format.description' => 'How to format the claim value(s) in the token',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_format.json_array' => 'JSON Array',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_format.delimited_string' => 'Delimited String',
 
   'pl.oa4mp_client_co_oidc_client.claims.fd.add_button' => 'Add another claim',
   'pl.oa4mp_client_claim.add.flash.success' => 'Claim Added',
