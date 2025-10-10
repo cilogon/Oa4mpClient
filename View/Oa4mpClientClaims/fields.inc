@@ -71,17 +71,23 @@
   print $this->Form->unlockField('Oa4mpClientClaimConstraint.0.value');
 
   // Include the current client ID if it is available.
-  if($e) {
-    if(!empty($vv_client_id)) {
-      print $this->Form->hidden('client_id', array('value' => $vv_client_id));
-    }
+  if(!empty($vv_client_id)) {
+    print $this->Form->hidden('client_id', array('value' => $vv_client_id));
   }
 
-  // Include the current ID if it is available.
-  if($e) {
-    if(!empty($this->request->data['Oa4mpClientClaim']['id'])) {
-      print $this->Form->hidden('id');
-    }
+  // Include the current Oa4mpClientClaim ID if it is available.
+  if(!empty($this->request->data['Oa4mpClientClaim']['id'])) {
+    print $this->Form->hidden('id');
+  }
+
+  // Include the current Oa4mpClientClaimConstraint[0].id if it is available.
+  if(!empty($this->request->data['Oa4mpClientClaimConstraint'][0]['id'])) {
+    print $this->Form->hidden('Oa4mpClientClaimConstraint.0.id');
+  }
+
+  // Include the current Oa4mpClientClaimConstraint[1].id if it is available.
+  if(!empty($this->request->data['Oa4mpClientClaimConstraint'][1]['id'])) {
+    print $this->Form->hidden('Oa4mpClientClaimConstraint.1.id');
   }
 
   $l = 1;
@@ -207,15 +213,24 @@
         // allow selection of whether only verified EmailAddress values are included in the claim.
         $("#ClaimConstraint1Field").val("verified");
 
-        // Cast the claim constraint 1 value to a checkbox and set the value to "true" to
-        // default to only verified EmailAddress values being included in the claim.
+        // Cast the claim constraint 1 value to a checkbox.
+        $("#ClaimConstraint1Value").attr("type", "checkbox");
+
+        // If the value is not set, set it to "true" to default to only verified EmailAddress values being included in the claim.
+        if($("#ClaimConstraint1Value").val() == "") {
+          $("#ClaimConstraint1Value").val("true");
+          $("#ClaimConstraint1Value").prop("checked", true);
+        } else if ($("#ClaimConstraint1Value").val() == "false") {
+          $("#ClaimConstraint1Value").prop("checked", false);
+        } else if ($("#ClaimConstraint1Value").val() == "true") {
+          $("#ClaimConstraint1Value").prop("checked", true);
+        }
+
         // Also, add a hidden field to the form with the value set to "false" so that if the box is
         // unchecked, the value is set to "false" when the form is submitted.
         // Then set the name and description of the claim constraint 1 value field appropriately
         // for managing the verified EmailAddress values, and finally display the claim constraint 1 value field.
-        $("#ClaimConstraint1Value").val("true");
-        $("#ClaimConstraint1Value").attr("type", "checkbox");
-        $("#ClaimConstraint1Value").prop("checked", true);
+
         $("#ClaimConstraint1Value").removeAttr("maxlength");
         $("#ClaimConstraint1Value").before($("<input type=\"hidden\" name=\"data[Oa4mpClientClaimConstraint][1][value]\" value=\"false\">"));
         $("#ClaimConstraint1Value_li").find(".field-title").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.name.email'); ?>");
@@ -223,6 +238,24 @@
         $("#ClaimConstraint1Value_li").find(".field-desc").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.email'); ?>");
         $("#ClaimConstraint1Value_li").show();
       break;
+    }
+
+    // If Oa4mpClientClaimValueReq is set to "all", show the multiple value format selector field.
+    if($("#Oa4mpClientClaimValueReq").val() == "all") {
+      $("#MultipleValueFormatSelector_li").show();
+    } else {
+      $("#MultipleValueFormatSelector_li").hide();
+    }
+
+    // If Oa4mpClientClaimValueStringD is set, show the claim value string delimiter field and
+    // show the multiple value format selector field with the value set to "delimited_string".
+    if($("#Oa4mpClientClaimValueStringD").val() != "") {
+      $("#ClaimValueStringD_li").show();
+      $("#MultipleValueFormatSelector_json_array").prop("checked", false);
+      $("#MultipleValueFormatSelector_delimited_string").prop("checked", true);
+      $("#MultipleValueFormatSelector_li").show();
+    } else {
+      $("#ClaimValueStringD_li").hide();
     }
 
   }
@@ -236,6 +269,7 @@
       $("#MultipleValueFormatSelector_li").show();
     } else {
       console.log("first");
+      $("#MultipleValueFormatSelector_li").hide();
     }
   }
 

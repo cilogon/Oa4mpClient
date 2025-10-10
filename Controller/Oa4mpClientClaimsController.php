@@ -64,6 +64,7 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
+      $this->log("FOO POST/PUT request data is " . print_r($this->request->data, true));
 
       $claims = $client['Oa4mpClientClaim'];
 
@@ -87,7 +88,15 @@ class Oa4mpClientClaimsController extends StandardController {
         $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
       } else {
         // Update successful so save the claim and related constraints.
+
+        // Remove any empty claim constraints.
+        $this->request->data['Oa4mpClientClaimConstraint'] = array_filter($this->request->data['Oa4mpClientClaimConstraint'], function($c) {
+          return !empty($c['field']) && !empty($c['value']);
+        });
+
         $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
+
+        $this->log("FOO validation errors are " . print_r($this->Oa4mpClientClaim->validationErrors, true));
 
         // Set flash successful.
         $this->Flash->set(_txt('pl.oa4mp_client_claim.add.flash.success'), array('key' => 'success'));
@@ -116,9 +125,13 @@ class Oa4mpClientClaimsController extends StandardController {
       $this->redirect($args);
     }
 
+    // Clear any request data that may have been set during a failed POST/PUT request.
+    $this->request->data = null;
+
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.claims.add.name',
                array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
 
+    // Set the identifier types for the view
     $this->set('vv_identifier_types', $this
                                       ->Oa4mpClientClaim
                                       ->Oa4mpClientCoOidcClient
@@ -126,6 +139,26 @@ class Oa4mpClientClaimsController extends StandardController {
                                       ->Co
                                       ->CoPerson
                                       ->Identifier
+                                      ->types($this->cur_co['Co']['id'], 'type'));
+
+    // Set the email types for the view
+    $this->set('vv_email_types', $this
+                                      ->Oa4mpClientClaim
+                                      ->Oa4mpClientCoOidcClient
+                                      ->Oa4mpClientCoAdminClient
+                                      ->Co
+                                      ->CoPerson
+                                      ->EmailAddress
+                                      ->types($this->cur_co['Co']['id'], 'type'));
+
+    // Set the name types for the view
+    $this->set('vv_name_types', $this
+                                      ->Oa4mpClientClaim
+                                      ->Oa4mpClientCoOidcClient
+                                      ->Oa4mpClientCoAdminClient
+                                      ->Co
+                                      ->CoPerson
+                                      ->Name
                                       ->types($this->cur_co['Co']['id'], 'type'));
   }
 
@@ -205,6 +238,7 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
+      $this->log("FOO POST/PUT request data is " . print_r($this->request->data, true));
       $newClient = $client;
 
       foreach($client['Oa4mpClientClaim'] as $i => $c) {
@@ -229,8 +263,16 @@ class Oa4mpClientClaimsController extends StandardController {
         // Set flash and fall through to the GET logic.
         $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
       } else {
-        // Update successful so save the edited claim.
-        $ret = $this->Oa4mpClientClaim->save($this->request->data);
+        // Update successful so save the edited claim and associated constraints.
+
+        // Remove any empty claim constraints.
+        $this->request->data['Oa4mpClientClaimConstraint'] = array_filter($this->request->data['Oa4mpClientClaimConstraint'], function($c) {
+          return !empty($c['field']) && !empty($c['value']);
+        });
+
+        $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
+
+        $this->log("FOO validation errors are " . print_r($this->Oa4mpClientClaim->validationErrors, true));
 
         // Set flash successful.
         $this->Flash->set(_txt('pl.oa4mp_client_claim.edit.flash.success'), array('key' => 'success'));
@@ -270,6 +312,26 @@ class Oa4mpClientClaimsController extends StandardController {
                                       ->Co
                                       ->CoPerson
                                       ->Identifier
+                                      ->types($this->cur_co['Co']['id'], 'type'));
+
+    // Set the email types for the view
+    $this->set('vv_email_types', $this
+                                      ->Oa4mpClientClaim
+                                      ->Oa4mpClientCoOidcClient
+                                      ->Oa4mpClientCoAdminClient
+                                      ->Co
+                                      ->CoPerson
+                                      ->EmailAddress
+                                      ->types($this->cur_co['Co']['id'], 'type'));
+
+    // Set the name types for the view
+    $this->set('vv_name_types', $this
+                                      ->Oa4mpClientClaim
+                                      ->Oa4mpClientCoOidcClient
+                                      ->Oa4mpClientCoAdminClient
+                                      ->Co
+                                      ->CoPerson
+                                      ->Name
                                       ->types($this->cur_co['Co']['id'], 'type'));
 
     foreach($client['Oa4mpClientClaim'] as $i => $c) {
