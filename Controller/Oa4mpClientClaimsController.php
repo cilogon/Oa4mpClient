@@ -160,6 +160,11 @@ class Oa4mpClientClaimsController extends StandardController {
                                       ->CoPerson
                                       ->Name
                                       ->types($this->cur_co['Co']['id'], 'type'));
+
+    // Set the SSH key types for the view
+    $sshClass = new ReflectionClass(SshKeyTypeEnum::class);
+    $sshConstants = $sshClass->getConstants();
+    $this->set('vv_ssh_key_types', array_flip($sshConstants));
   }
 
   /**
@@ -333,6 +338,11 @@ class Oa4mpClientClaimsController extends StandardController {
                                       ->CoPerson
                                       ->Name
                                       ->types($this->cur_co['Co']['id'], 'type'));
+
+    // Set the SSH key types for the view
+    $sshClass = new ReflectionClass(SshKeyTypeEnum::class);
+    $sshConstants = $sshClass->getConstants();
+    $this->set('vv_ssh_key_types', array_flip($sshConstants));
 
     foreach($client['Oa4mpClientClaim'] as $i => $c) {
       if($c['id'] == $id) {

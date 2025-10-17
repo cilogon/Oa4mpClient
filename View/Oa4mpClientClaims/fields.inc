@@ -182,6 +182,30 @@
     });
   }
 
+  // Set the options for the claim constraint 0 value appropriately
+  // for the SshKey type.
+  function ssh_key_set_options_claim_constraint_0_value() {
+    console.log("ssh_key_set_options_claim_constraint_0_value");
+    let options = new Map();
+    <?php
+      foreach($vv_ssh_key_types as $type => $label) {
+        print "options.set('" . $type . "', '" . $label . "');";
+        print "\n";
+      }
+    ?>
+
+    let parent = $("#Oa4mpClientClaimConstraint0Value");
+    parent.empty();
+    parent.append($("<option></option>").attr("value", "").text(""));
+    parent.append($("<option></option>").attr("value", "all").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key.all'); ?>"));
+
+    options.forEach((value, key) => {
+      if (parent.children('option[value="' + key + '"]').length === 0) {
+        parent.append($("<option></option>").attr("value", key).text(value));
+      }
+    });
+  }
+
   // Reset the claim constraint 0 value field to the empty default.
   function reset_claim_constraint_0_value() {
     $("#Oa4mpClientClaimConstraint0Value_li").empty();
@@ -246,6 +270,7 @@
     // and remove customizations here that were specific to the previous source model
     // and let the case statement below show and hide the appropriate fields.
     $("#NameFieldSelector_li").hide();
+    $("#SshKeyFieldSelector_li").hide();
     $("#Oa4mpClientClaimConstraint1Value_li").hide();
     $("#Oa4mpClientClaimSourceModelClaimValueField").val("");
     reset_claim_constraint_0_value();
@@ -486,6 +511,48 @@
         $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").hide();
         $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val("");
       break;
+
+      case "SshKey":
+        // Hide the claim value JSON format field and set the value to "JSON string" since all components of
+        // the SshKey model are strings.
+        $("#Oa4mpClientClaimClaimValueJsonFormat_li").hide();
+        $("#Oa4mpClientClaimClaimValueJsonFormat").val("string");
+
+        // Show the SSH key field selector field.
+        $("#SshKeyFieldSelector_li").show();
+
+        // Cast the claim constraint 0 value to a select.
+        $old = $("#Oa4mpClientClaimConstraint0Value");
+        attrs = {
+          id: $old.attr("id"),
+          name: $old.attr("name"),
+          required: $old.attr("required")
+        }
+        $new = $("<select></select>", attrs);
+        $old.replaceWith($new);
+
+        // Set the options for the claim constraint 0 value appropriately
+        // for the SshKey type.
+        ssh_key_set_options_claim_constraint_0_value();
+
+        // If ClaimSourceModelClaimValueField is not set, set it to "all" as the default.
+        if($("#Oa4mpClientClaimSourceModelClaimValueField").val() == "") {
+          $("#Oa4mpClientClaimSourceModelClaimValueField").val("all");
+        }
+
+        // Set the label for the claim constraint 0 value with text appropriate for the SshKey type
+        // and display the claim constraint 0 value field.
+        label = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key'); ?>"
+        description = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.ssh_key'); ?>"
+        $("#Oa4mpClientClaimConstraint0Value_li .field-name .field-title label").text(label);
+        $("#Oa4mpClientClaimConstraint0Value_li .field-name .field-desc").text(description);
+        $("#Oa4mpClientClaimConstraint0Value_li").show();
+
+        // Set the constraint 0 constraint_field to "type".
+        $("#Oa4mpClientClaimConstraint0ConstraintField").val("type");
+
+        // Show the claim value requirement field with choices of "First value found" and "All values found".
+        $("#Oa4mpClientClaimClaimValueSelection_li").show();
     }
 
     // If Oa4mpClientClaimClaimValueSelection is set to "all", show the multiple value format selector field.
@@ -513,6 +580,13 @@
   // Update the value field after a name field selector is changed.
   function update_value_field_for_name(value) {
     console.log("update_value_field_for_name");
+    console.log(value);
+    $("#Oa4mpClientClaimSourceModelClaimValueField").val(value);
+  }
+
+  // Update the value field after a SSH key field selector is changed.
+  function update_value_field_for_ssh_key(value) {
+    console.log("update_value_field_for_ssh_key");
     console.log(value);
     $("#Oa4mpClientClaimSourceModelClaimValueField").val(value);
   }
@@ -550,6 +624,10 @@
       // Remove name_field_selector radio buttons from form data before submission
       // since this is a UI control field and not part of the model
       $('input[name="name_field_selector"]').remove();
+
+      // Remove ssh_key_field_selector radio buttons from form data before submission
+      // since this is a UI control field and not part of the model
+      $('input[name="ssh_key_field_selector"]').remove();
     });
   }
 
@@ -597,6 +675,7 @@
         $options['CoGroupMember'] = 'Groups';
         $options['Identifier'] = 'Identifier';
         $options['Name'] = 'Name';
+        $options['SshKey'] = 'SSH Key';
 
 
         if($e) {
@@ -653,6 +732,56 @@
                />
         <label for="NameFieldSelector_family"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.family'); ?></label>
 
+      </span>
+    </div>
+  </li>
+
+  <!-- SSH Key field selector -->
+  <li id="SshKeyFieldSelector_li" style="display:none;">
+    <div class="field-name">
+      <div class="field-title">
+        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.name'); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc">
+        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.description'); ?>
+      </div>
+    </div>
+    <div class="field-info">
+      <span class="field-info-prefix">
+        <input type="radio"
+               id="SshKeyFieldSelector_all"
+               name="ssh_key_field_selector"
+               value="all"
+               onclick="update_value_field_for_ssh_key(this.value)"
+               checked
+               />
+        <label for="SshKeyFieldSelector_all"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.all'); ?></label>
+
+        <input type="radio"
+               id="SshKeyFieldSelector_skey"
+               name="ssh_key_field_selector"
+               value="skey"
+               onclick="update_value_field_for_ssh_key(this.value)"
+               />
+        <label for="SshKeyFieldSelector_skey"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.skey'); ?></label>
+
+        <input type="radio"
+               id="SshKeyFieldSelector_comment"
+               name="ssh_key_field_selector"
+               value="comment"
+               onclick="update_value_field_for_ssh_key(this.value)"
+               />
+        <label for="SshKeyFieldSelector_comment"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.comment'); ?></label>
+
+
+        <input type="radio"
+               id="SshKeyFieldSelector_type"
+               name="ssh_key_field_selector"
+               value="type"
+               onclick="update_value_field_for_ssh_key(this.value)"
+               />
+        <label for="SshKeyFieldSelector_type"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.type'); ?></label>
       </span>
     </div>
   </li>
