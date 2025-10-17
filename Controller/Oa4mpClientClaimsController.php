@@ -91,7 +91,7 @@ class Oa4mpClientClaimsController extends StandardController {
 
         // Remove any empty claim constraints.
         $this->request->data['Oa4mpClientClaimConstraint'] = array_filter($this->request->data['Oa4mpClientClaimConstraint'], function($c) {
-          return !empty($c['field']) && !empty($c['value']);
+          return !empty($c['constraint_field']) && !empty($c['constraint_value']);
         });
 
         $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
@@ -267,7 +267,7 @@ class Oa4mpClientClaimsController extends StandardController {
 
         // Remove any empty claim constraints.
         $this->request->data['Oa4mpClientClaimConstraint'] = array_filter($this->request->data['Oa4mpClientClaimConstraint'], function($c) {
-          return !empty($c['field']) && !empty($c['value']);
+          return !empty($c['constraint_field']) && !empty($c['constraint_value']);
         });
 
         $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);

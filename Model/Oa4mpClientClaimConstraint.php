@@ -50,12 +50,12 @@ class Oa4mpClientClaimConstraint extends AppModel {
     //  'required' => true,
     //  'allowEmpty' => false,
     //),
-    'field' => array(
+    'constraint_field' => array(
       'rule' => 'notBlank',
       'required' => true,
       'allowEmpty' => false
     ),
-    'value' => array(
+    'constraint_value' => array(
       'rule' => 'notBlank',
       'required' => true,
       'allowEmpty' => false

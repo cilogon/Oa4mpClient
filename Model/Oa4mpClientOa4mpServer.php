@@ -46,13 +46,13 @@ class Oa4mpClientOa4mpServer extends AppModel {
     if($claim['source_model'] == 'Identifier') {
       $mappingString .= 'registry#dynamodb#identifier(item., ';
       foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
-        if($constraint['field'] == 'type') {
-          $mappingString .= "'" . $constraint['value'] . "')";
+        if($constraint['constraint_field'] == 'type') {
+          $mappingString .= "'" . $constraint['constraint_value'] . "')";
         }
       }
     }
 
-    if($claim['value_req'] == 'first') {
+    if($claim['claim_value_selection'] == 'first') {
       $mappingString .= '.0';
     }
 

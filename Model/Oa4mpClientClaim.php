@@ -69,22 +69,27 @@ class Oa4mpClientClaim extends AppModel {
       'required' => 'true',
       'allowEmpty' => false
     ),
-    'value_field' => array(
+    'source_model_claim_value_field' => array(
       'rule' => 'notBlank',
       'required' => 'true',
       'allowEmpty' => false
     ),
-    'value_req' => array(
+    'claim_value_selection' => array(
       'rule' => 'notBlank',
       'required' => 'false',
       'allowEmpty' => true
     ),
-    'value_format' => array(
+    'claim_value_json_format' => array(
       'rule' => 'notBlank',
       'required' => 'true',
       'allowEmpty' => false
     ),
-    'value_string_d' => array(
+    'claim_multiple_value_serialization' => array(
+      'rule' => 'notBlank',
+      'required' => 'false',
+      'allowEmpty' => true
+    ),
+    'claim_value_string_serialization_delimiter' => array(
       'rule' => 'notBlank',
       'required' => 'false',
       'allowEmpty' => true

@@ -245,10 +245,11 @@
         </field>
         <field name="claim_name" type="C" size="256" />
         <field name="source_model" type="C" size="64" />
-        <field name="value_field" type="C" size="64" />
-        <field name="value_req" type="C" size="64" />
-        <field name="value_format" type="C" size="32" />
-        <field name="value_string_d" type="C" size="32" />
+        <field name="source_model_claim_value_field" type="C" size="64" />
+        <field name="claim_value_selection" type="C" size="64" />
+        <field name="claim_value_json_format" type="C" size="32" />
+        <field name="claim_multiple_value_serialization" type="C" size="32" />
+        <field name="claim_value_string_serialization_delimiter" type="C" size="32" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
     </table>
@@ -261,8 +262,8 @@
         <field name="claim_id" type="I">
             <constraint>REFERENCES cm_oa4mp_client_claims(id)</constraint>
         </field>
-        <field name="field" type="C" size="64" />
-        <field name="value" type="C" size="64" />
+        <field name="constraint_field" type="C" size="64" />
+        <field name="constraint_value" type="C" size="64" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
     </table>
