@@ -111,13 +111,13 @@
   }
 
   // Set the options for the claim constraint 0 value appropriately
-  // for the Name type.
-  function name_set_options_claim_constraint_0_value() {
-    console.log("name_set_options_claim_constraint_0_value");
+  // for the EmailAddress type.
+  function email_set_options_claim_constraint_0_value() {
+    console.log("email_set_options_claim_constraint_0_value");
     let options = new Map();
 
     <?php
-      foreach($vv_name_types as $type => $label) {
+      foreach($vv_email_types as $type => $label) {
         print "options.set('" . $type . "', '" . $label . "');";
         print "\n";
       }
@@ -126,6 +126,7 @@
     let parent = $("#Oa4mpClientClaimConstraint0ConstraintValue");
     parent.empty();
     parent.append($("<option></option>").attr("value", "").text(""));
+    parent.append($("<option></option>").attr("value", "all").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email.all'); ?>"));
 
     options.forEach((value, key) => {
       if (parent.children('option[value="' + key + '"]').length === 0) {
@@ -150,6 +151,7 @@
     let parent = $("#Oa4mpClientClaimConstraint0ConstraintValue");
     parent.empty();
     parent.append($("<option></option>").attr("value", "").text(""));
+    parent.append($("<option></option>").attr("value", "all").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier.all'); ?>"));
 
     options.forEach((value, key) => {
      if (parent.children('option[value="' + key + '"]').length === 0) {
@@ -159,13 +161,13 @@
   }
 
   // Set the options for the claim constraint 0 value appropriately
-  // for the EmailAddress type.
-  function email_set_options_claim_constraint_0_value() {
-    console.log("email_set_options_claim_constraint_0_value");
+  // for the Name type.
+  function name_set_options_claim_constraint_0_value() {
+    console.log("name_set_options_claim_constraint_0_value");
     let options = new Map();
 
     <?php
-      foreach($vv_email_types as $type => $label) {
+      foreach($vv_name_types as $type => $label) {
         print "options.set('" . $type . "', '" . $label . "');";
         print "\n";
       }
@@ -174,6 +176,7 @@
     let parent = $("#Oa4mpClientClaimConstraint0ConstraintValue");
     parent.empty();
     parent.append($("<option></option>").attr("value", "").text(""));
+    parent.append($("<option></option>").attr("value", "all").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name.all'); ?>"));
 
     options.forEach((value, key) => {
       if (parent.children('option[value="' + key + '"]').length === 0) {
@@ -181,6 +184,7 @@
       }
     });
   }
+
 
   // Set the options for the claim constraint 0 value appropriately
   // for the SshKey type.
@@ -284,41 +288,6 @@
     let $new;
 
     switch (element.value) {
-      case "Identifier":
-        // Cast the claim constraint 0 value to a select.
-        $old = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-        attrs = {
-          id: $old.attr("id"),
-          name: $old.attr("name"),
-          required: $old.attr("required")
-        }
-        $new = $("<select></select>", attrs);
-        $old.replaceWith($new);
-
-        // Set the options for the claim constraint 0 value appropriately
-        // for the Identifier type.
-        identifier_set_options_claim_constraint_0_value();
-
-        // Set the label for the claim constraint 0 value with text appropriate for the Identifier type
-        // and display the claim constraint 0 value field.
-        label = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier'); ?>"
-        description = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.identifier'); ?>"
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-title label").text(label);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-desc").text(description);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
-
-        // Show the claim value requirement field with choices of "First value found" and "All values found".
-        $("#Oa4mpClientClaimClaimValueSelection_li").show();
-
-        // Show the claim value JSON format field with choices of "JSON string" and "JSON number" since
-        // an Identifier value can be a string or a number.
-        $("#Oa4mpClientClaimClaimValueJsonFormat_li").show();
-
-        // Set the claim source_model_claim_value_field to "identifier" and the constraint 0 constraint_field to "type".
-        $("#Oa4mpClientClaimSourceModelClaimValueField").val("identifier");
-        $("#Oa4mpClientClaimConstraint0ConstraintField").val("type");
-        break;
-
       case "CoPersonRole":
         // If Oa4mpClientClaimSourceModelClaimValueField is not set, set it to "all" as the default.
         if($("#Oa4mpClientClaimSourceModelClaimValueField").val() == "") {
@@ -475,6 +444,42 @@
         $("#Oa4mpClientClaimConstraint0ConstraintValue_li").find(".field-desc").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_group_member'); ?>");
         $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
         break;
+
+      case "Identifier":
+        // Cast the claim constraint 0 value to a select.
+        $old = $("#Oa4mpClientClaimConstraint0ConstraintValue");
+        attrs = {
+          id: $old.attr("id"),
+          name: $old.attr("name"),
+          required: $old.attr("required")
+        }
+        $new = $("<select></select>", attrs);
+        $old.replaceWith($new);
+
+        // Set the options for the claim constraint 0 value appropriately
+        // for the Identifier type.
+        identifier_set_options_claim_constraint_0_value();
+
+        // Set the label for the claim constraint 0 value with text appropriate for the Identifier type
+        // and display the claim constraint 0 value field.
+        label = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier'); ?>"
+        description = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.identifier'); ?>"
+        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-title label").text(label);
+        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-desc").text(description);
+        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
+
+        // Show the claim value requirement field with choices of "First value found" and "All values found".
+        $("#Oa4mpClientClaimClaimValueSelection_li").show();
+
+        // Show the claim value JSON format field with choices of "JSON string" and "JSON number" since
+        // an Identifier value can be a string or a number.
+        $("#Oa4mpClientClaimClaimValueJsonFormat_li").show();
+
+        // Set the claim source_model_claim_value_field to "identifier" and the constraint 0 constraint_field to "type".
+        $("#Oa4mpClientClaimSourceModelClaimValueField").val("identifier");
+        $("#Oa4mpClientClaimConstraint0ConstraintField").val("type");
+        break;
+
 
       case "Name":
         // Cast the claim constraint 0 value to a select.

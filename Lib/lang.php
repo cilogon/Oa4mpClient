@@ -177,6 +177,9 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key.all' => 'Use all types',
   'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.co_person_role' => 'Active Status',
   'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_person_role' => 'Only include active CoPersonRole values',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email.all' => 'Use all types',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier.all' => 'Use all types',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name.all' => 'Use all types',
 
   'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.name.email' => 'Verified',
   'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.email' => 'Only assert verified email addresses',
