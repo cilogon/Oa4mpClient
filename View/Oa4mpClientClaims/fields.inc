@@ -604,6 +604,18 @@
         // Show the claim value requirement field with choices of "First value found" and "All values found".
         $("#Oa4mpClientClaimClaimValueSelection_li").show();
         break;
+
+      case "UnixClusterAccount":
+        // Show the Unix Cluster Account field selector field.
+        $("#UnixClusterAccountFieldSelector_li").show();
+
+        // Show the claim value requirement field with choices of "First value found" and "All values found".
+        $("#Oa4mpClientClaimClaimValueSelection_li").show();
+
+        // Show the claim value JSON format field with choices of "JSON string" and "JSON number" since
+        // a Unix Cluster Account value can be a string or a number.
+        $("#Oa4mpClientClaimClaimValueJsonFormat_li").show();
+        break;
     }
 
     // If Oa4mpClientClaimClaimValueSelection is set to "all", show the multiple value format selector field.
@@ -640,6 +652,16 @@
     console.log("update_value_field_for_ssh_key");
     console.log(value);
     $("#Oa4mpClientClaimSourceModelClaimValueField").val(value);
+  }
+
+  // Update the value field after a Unix Cluster Account field selector is changed.
+  function update_value_field_for_unix_cluster_account(value) {
+    console.log("update_value_field_for_unix_cluster_account");
+    console.log(value);
+    $("#Oa4mpClientClaimSourceModelClaimValueField").val(value);
+
+    if(value == "all") {
+    }
   }
 
   // Update the multiple value format selector field to be shown or hidden based on the value of the claim value selection field.
@@ -732,6 +754,7 @@
         $options['Name'] = 'Name';
         $options['CoPersonRole'] = 'Role';
         $options['SshKey'] = 'SSH Key';
+        $options['UnixClusterAccount'] = 'Unix Cluster Account';
 
 
         if($e) {
@@ -867,6 +890,36 @@
                <option value="title"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.title'); ?></option>
                <option value="o"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.o'); ?></option>
                <option value="ou"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.ou'); ?></option>
+        </select>
+      </span>
+    </div>
+  </li>
+
+  <!-- Unix Cluster Account field selector -->
+  <li id="UnixClusterAccountFieldSelector_li" style="display:none;">
+    <div class="field-name">
+      <div class="field-title">
+        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.name'); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc">
+        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.description'); ?>
+      </div>
+    </div>
+    <div class="field-info">
+      <span class="field-info-prefix">
+        <select 
+               id="UnixClusterAccountFieldSelector"
+               name="unix_cluster_account_field_selector"
+               onclick="update_value_field_for_unix_cluster_account(this.value)"
+               >
+               <option value=""><?php print ""; ?></option>
+               <option value="all"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.all'); ?></option>
+               <option value="username"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.username'); ?></option>
+               <option value="uid"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.uid'); ?></option>
+               <option value="gecos"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.gecos'); ?></option>
+               <option value="login_shell"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.login_shell'); ?></option>
+               <option value="home_directory"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.home_directory'); ?></option>
         </select>
       </span>
     </div>
