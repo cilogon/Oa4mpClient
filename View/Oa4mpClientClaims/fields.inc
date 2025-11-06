@@ -83,6 +83,8 @@
   $this->Form->unlockField('Oa4mpClientClaimConstraint.0.constraint_value');
   $this->Form->unlockField('Oa4mpClientClaimConstraint.1.constraint_field');
   $this->Form->unlockField('Oa4mpClientClaimConstraint.1.constraint_value');
+  $this->Form->unlockField('Oa4mpClientClaim.claim_value_selection');
+  $this->Form->unlockField('Oa4mpClientClaim.claim_multiple_value_serialization');
 
   // Build option sets for constraint 0 selections
   $emailConstraintOptions = array('' => '');
@@ -280,6 +282,21 @@
       'multipleSerialization' => array('mode' => 'auto', 'allowDelimited' => true),
       'stringDelimiter' => array('mode' => 'auto')
     ),
+    'CoTAndCAgreement' => array(
+      'showFields' => array('valueSelection', 'multipleSerialization'),
+      'selectors' => array(),
+      'constraint0' => null,
+      'defaults' => array(
+        'sourceValueField' => 'all',
+        'valueSelection' => 'all',
+        'multipleSerialization' => 'json_array',
+        'jsonFormat' => 'string'
+      ),
+      'jsonFormat' => array('visible' => false),
+      'valueSelection' => array('visible' => true, 'forceValue' => 'all'),
+      'multipleSerialization' => array('mode' => 'always', 'default' => 'json_array', 'allowDelimited' => false),
+      'stringDelimiter' => array('mode' => 'hidden')
+    ),
     'UnixClusterAccount' => array(
       'showFields' => array('valueSelection', 'jsonFormat'),
       'selectors' => array('unixSelector'),
@@ -366,7 +383,8 @@
     });
     resetConstraint0UI();
     resetConstraint1UI();
-    setMultipleSerializationEnabled(true);
+    unlockValueSelection();
+    unlockMultipleSerialization();
   }
 
   function disableDelimitedOption(disable) {
@@ -374,11 +392,6 @@
     if(disable) {
       setMultipleSerializationValue('json_array');
     }
-  }
-
-  function setMultipleSerializationEnabled(enable) {
-    disableDelimitedOption(!enable);
-    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').prop('disabled', !enable);
   }
 
   function hideStringDelimiter() {
@@ -518,8 +531,6 @@
 
     if(config.selectors && config.selectors.indexOf('coPersonRoleSelector') !== -1) {
       handleCoPersonRoleFieldChange($('#CoPersonRoleFieldSelector').val());
-    } else {
-      setMultipleSerializationEnabled(true);
     }
   }
 
@@ -545,6 +556,7 @@
       return;
     }
     $('#Oa4mpClientClaimClaimValueSelection').val(value);
+    $('#ClaimValueSelectionHidden').val(value);
   }
 
   function setMultipleSerializationValue(value) {
@@ -553,6 +565,33 @@
     }
     $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').prop('checked', false);
     $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"][value="' + value + '"]').prop('checked', true);
+    $('#ClaimMultipleValueSerializationHidden').val(value);
+  }
+
+  function lockValueSelection(value) {
+    setValueSelection(value);
+    $('#Oa4mpClientClaimClaimValueSelection').prop('disabled', true);
+    $('#ClaimValueSelectionHidden').prop('disabled', false).val(value);
+  }
+
+  function unlockValueSelection() {
+    $('#Oa4mpClientClaimClaimValueSelection').prop('disabled', false);
+    $('#ClaimValueSelectionHidden').prop('disabled', true);
+    $('#ClaimValueSelectionHidden').val($('#Oa4mpClientClaimClaimValueSelection').val());
+  }
+
+  function lockMultipleSerialization(value) {
+    setMultipleSerializationValue(value);
+    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').prop('disabled', true);
+    $('#ClaimMultipleValueSerializationHidden').prop('disabled', false).val(value);
+    disableDelimitedOption(true);
+  }
+
+  function unlockMultipleSerialization() {
+    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').prop('disabled', false);
+    $('#ClaimMultipleValueSerializationHidden').prop('disabled', true);
+    $('#ClaimMultipleValueSerializationHidden').val(getMultipleSerializationValue());
+    disableDelimitedOption(false);
   }
 
   function getMultipleSerializationValue() {
@@ -587,11 +626,10 @@
 
   function handleCoPersonRoleFieldChange(value) {
     if(value === 'all' || value === '') {
-      setMultipleSerializationValue('json_array');
-      setMultipleSerializationEnabled(false);
+      lockMultipleSerialization('json_array');
       hideStringDelimiter();
     } else {
-      setMultipleSerializationEnabled(true);
+      unlockMultipleSerialization();
       handleMultipleSerializationChange();
     }
   }
@@ -750,6 +788,15 @@
     configureMultipleSerialization(config);
     configureStringDelimiter(config);
     handleMultipleSerializationChange();
+
+    if(model === 'CoTAndCAgreement') {
+      lockValueSelection('all');
+      lockMultipleSerialization('json_array');
+      $(FIELD_SELECTORS.valueSelection).show();
+      $(FIELD_SELECTORS.multipleSerialization).show();
+      $(FIELD_SELECTORS.jsonFormat).hide();
+      hideStringDelimiter();
+    }
   }
 
   function js_local_onload() {
@@ -758,10 +805,12 @@
     });
 
     $('#Oa4mpClientClaimClaimValueSelection').on('change', function() {
+      $('#ClaimValueSelectionHidden').val($(this).val());
       handleValueSelectionChange();
     });
 
     $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').on('change', function() {
+      $('#ClaimMultipleValueSerializationHidden').val($(this).val());
       handleMultipleSerializationChange();
     });
 
@@ -834,6 +883,7 @@
           $options['Name'] = 'Name';
           $options['CoPersonRole'] = 'Role';
           $options['SshKey'] = 'SSH Key';
+          $options['CoTAndCAgreement'] = 'Terms & Conditions';
           $options['UnixClusterAccount'] = 'Unix Cluster Account';
 
           if($e) {
@@ -1037,6 +1087,11 @@
           $attrs = array();
           $attrs['value'] = $claim['claim_value_selection'] ?? '';
           echo $this->Form->select('claim_value_selection', $options, $attrs);
+          echo $this->Form->hidden('claim_value_selection', array(
+            'value' => $claim['claim_value_selection'] ?? '',
+            'id' => 'ClaimValueSelectionHidden',
+            'disabled' => true
+          ));
         ?>
       </span>
     </div>
@@ -1062,7 +1117,13 @@
           $attrs['legend'] = false;
           $attrs['separator'] = ' ';
           $attrs['value'] = $claim['claim_multiple_value_serialization'] ?? '';
+          $attrs['hiddenField'] = false;
           echo $this->Form->radio('claim_multiple_value_serialization', $options, $attrs);
+          echo $this->Form->hidden('claim_multiple_value_serialization', array(
+            'value' => $claim['claim_multiple_value_serialization'] ?? '',
+            'id' => 'ClaimMultipleValueSerializationHidden',
+            'disabled' => true
+          ));
         ?>
       </span>
     </div>
