@@ -28,13 +28,13 @@
   // Determine if fields are editable
   $e = false;
   
-  if(($this->action == "add" && $permissions['add']) || ($this->action == "edit" && $permissions['edit']))
+  if(($this->action == "add" && $permissions['add']) || ($this->action == "edit" && $permissions['edit'])) {
     $e = true;
+  }
 
-  // We shouldn't get here if we don't have at least read permission, but check just in case
-
-  if(!$e && !$permissions['view'])
-    return(false);
+  if(!$e && !$permissions['view']) {
+    return false;
+  }
 
   // Add breadcrumbs
   print $this->element("coCrumb");
@@ -58,656 +58,740 @@
 
   print $this->Html->css("Oa4mpClient.oa4mpclient");
 
-  $claim = $this->request->data['Oa4mpClientClaim'] ?? null;
-  $constraint0 = $this->request->data['Oa4mpClientClaimConstraint'][0] ?? null;
-  $constraint1 = $this->request->data['Oa4mpClientClaimConstraint'][1] ?? null;
+  $claim = $this->request->data['Oa4mpClientClaim'] ?? array();
+  $constraint0 = $this->request->data['Oa4mpClientClaimConstraint'][0] ?? array();
+  $constraint1 = $this->request->data['Oa4mpClientClaimConstraint'][1] ?? array();
 
-  $this->log("FOO request data is " . print_r($this->request->data, true));
-  $this->log("FOO claim is " . print_r($claim, true));
-  $this->log("FOO constraint0 is " . print_r($constraint0, true));
-  $this->log("FOO constraint1 is " . print_r($constraint1, true));
-
-  // Unlock the Oa4mpClientClaimConstraint.0.value field since it is dynamically populated.
-  print $this->Form->unlockField('Oa4mpClientClaimConstraint.0.value');
-
-  // Include the current client ID if it is available.
   if(!empty($vv_client_id)) {
     print $this->Form->hidden('client_id', array('value' => $vv_client_id));
   }
 
-  // Include the current Oa4mpClientClaim ID if it is available.
-  if(!empty($this->request->data['Oa4mpClientClaim']['id'])) {
+  if(!empty($claim['id'])) {
     print $this->Form->hidden('id');
   }
 
-  // Include the current Oa4mpClientClaimConstraint[0].id if it is available.
-  if(!empty($this->request->data['Oa4mpClientClaimConstraint'][0]['id'])) {
+  if(!empty($constraint0['id'])) {
     print $this->Form->hidden('Oa4mpClientClaimConstraint.0.id');
   }
 
-  // Include the current Oa4mpClientClaimConstraint[1].id if it is available.
-  if(!empty($this->request->data['Oa4mpClientClaimConstraint'][1]['id'])) {
+  if(!empty($constraint1['id'])) {
     print $this->Form->hidden('Oa4mpClientClaimConstraint.1.id');
   }
 
-  $l = 1;
+  $this->Form->unlockField('Oa4mpClientClaim.source_model_claim_value_field');
+  $this->Form->unlockField('Oa4mpClientClaimConstraint.0.constraint_field');
+  $this->Form->unlockField('Oa4mpClientClaimConstraint.0.constraint_value');
+  $this->Form->unlockField('Oa4mpClientClaimConstraint.1.constraint_field');
+  $this->Form->unlockField('Oa4mpClientClaimConstraint.1.constraint_value');
+
+  // Build option sets for constraint 0 selections
+  $emailConstraintOptions = array('' => '');
+  $emailConstraintOptions['all'] = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email.all');
+  foreach(($vv_email_types ?? array()) as $value => $label) {
+    $emailConstraintOptions[$value] = $label;
+  }
+
+  $identifierConstraintOptions = array('' => '');
+  $identifierConstraintOptions['all'] = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier.all');
+  foreach(($vv_identifier_types ?? array()) as $value => $label) {
+    $identifierConstraintOptions[$value] = $label;
+  }
+
+  $nameConstraintOptions = array('' => '');
+  $nameConstraintOptions['all'] = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name.all');
+  foreach(($vv_name_types ?? array()) as $value => $label) {
+    $nameConstraintOptions[$value] = $label;
+  }
+
+  $sshKeyConstraintOptions = array('' => '');
+  $sshKeyConstraintOptions['all'] = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key.all');
+  foreach(($vv_ssh_key_types ?? array()) as $value => $label) {
+    $sshKeyConstraintOptions[$value] = $label;
+  }
+
+  $optionSets = array(
+    'EmailAddress' => $emailConstraintOptions,
+    'Identifier' => $identifierConstraintOptions,
+    'Name' => $nameConstraintOptions,
+    'SshKey' => $sshKeyConstraintOptions
+  );
+
+  $constraint0Texts = array(
+    'CoGroupMember' => array(
+      'label' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.co_group_member'),
+      'description' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_group_member')
+    ),
+    'CoPersonRole' => array(
+      'label' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.co_person_role'),
+      'description' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_person_role')
+    ),
+    'EmailAddress' => array(
+      'label' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email'),
+      'description' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.email')
+    ),
+    'Identifier' => array(
+      'label' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier'),
+      'description' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.identifier')
+    ),
+    'Name' => array(
+      'label' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name'),
+      'description' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.name')
+    ),
+    'SshKey' => array(
+      'label' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key'),
+      'description' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.ssh_key')
+    )
+  );
+
+  $constraint1Texts = array(
+    'EmailAddress' => array(
+      'label' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.constraint_value.name.email'),
+      'description' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.email')
+    ),
+    'Name' => array(
+      'label' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.constraint_value.name.name'),
+      'description' => _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.name')
+    )
+  );
+
+  $sourceModelConfigs = array(
+    'EmailAddress' => array(
+      'showFields' => array('constraint0', 'constraint1', 'valueSelection'),
+      'selectors' => array(),
+      'constraint0' => array(
+        'type' => 'select',
+        'optionSetKey' => 'EmailAddress'
+      ),
+      'constraint1' => array(
+        'type' => 'checkbox',
+        'checkedValue' => 'true',
+        'uncheckedValue' => 'false',
+        'defaultChecked' => true
+      ),
+      'defaults' => array(
+        'sourceValueField' => 'mail',
+        'constraint0Field' => 'type',
+        'constraint1Field' => 'verified',
+        'jsonFormat' => 'string',
+        'multipleSerialization' => 'json_array'
+      ),
+      'jsonFormat' => array('visible' => false),
+      'valueSelection' => array('visible' => true, 'forceValue' => null),
+      'multipleSerialization' => array('mode' => 'auto', 'default' => 'json_array', 'allowDelimited' => true),
+      'stringDelimiter' => array('mode' => 'auto')
+    ),
+    'CoGroupMember' => array(
+      'showFields' => array('constraint0'),
+      'selectors' => array(),
+      'constraint0' => array(
+        'type' => 'checkbox',
+        'checkedValue' => 'true',
+        'uncheckedValue' => 'false',
+        'onChange' => 'coGroupOwnership'
+      ),
+      'defaults' => array(
+        'sourceValueField' => 'member',
+        'constraint0Field' => 'owner',
+        'valueSelection' => 'all',
+        'jsonFormat' => 'string',
+        'multipleSerialization' => 'json_array'
+      ),
+      'jsonFormat' => array('visible' => false),
+      'valueSelection' => array('visible' => false, 'forceValue' => 'all'),
+      'multipleSerialization' => array('mode' => 'always', 'default' => 'json_array', 'allowDelimited' => false),
+      'stringDelimiter' => array('mode' => 'hidden')
+    ),
+    'CoPersonRole' => array(
+      'showFields' => array('constraint0', 'valueSelection'),
+      'selectors' => array('coPersonRoleSelector'),
+      'constraint0' => array(
+        'type' => 'checkbox',
+        'checkedValue' => 'active',
+        'uncheckedValue' => 'any',
+        'defaultChecked' => true
+      ),
+      'defaults' => array(
+        'sourceValueField' => 'all',
+        'constraint0Field' => 'status',
+        'jsonFormat' => 'string'
+      ),
+      'jsonFormat' => array('visible' => false),
+      'valueSelection' => array('visible' => true, 'forceValue' => null),
+      'multipleSerialization' => array('mode' => 'auto', 'allowDelimited' => true),
+      'stringDelimiter' => array('mode' => 'auto')
+    ),
+    'Identifier' => array(
+      'showFields' => array('constraint0', 'valueSelection', 'jsonFormat'),
+      'selectors' => array(),
+      'constraint0' => array(
+        'type' => 'select',
+        'optionSetKey' => 'Identifier'
+      ),
+      'defaults' => array(
+        'sourceValueField' => 'identifier',
+        'constraint0Field' => 'type'
+      ),
+      'jsonFormat' => array('visible' => true),
+      'valueSelection' => array('visible' => true, 'forceValue' => null),
+      'multipleSerialization' => array('mode' => 'auto', 'allowDelimited' => true),
+      'stringDelimiter' => array('mode' => 'auto')
+    ),
+    'Name' => array(
+      'showFields' => array('constraint0', 'constraint1', 'valueSelection'),
+      'selectors' => array('nameSelector'),
+      'constraint0' => array(
+        'type' => 'select',
+        'optionSetKey' => 'Name'
+      ),
+      'constraint1' => array(
+        'type' => 'checkbox',
+        'checkedValue' => 'true',
+        'uncheckedValue' => 'false',
+        'defaultChecked' => true,
+        'onChange' => 'namePrimary'
+      ),
+      'defaults' => array(
+        'sourceValueField' => 'all',
+        'constraint0Field' => 'type',
+        'constraint1Field' => 'primary',
+        'jsonFormat' => 'string',
+        'valueSelection' => 'first',
+        'multipleSerialization' => 'json_array'
+      ),
+      'jsonFormat' => array('visible' => false),
+      'valueSelection' => array('visible' => true, 'forceValue' => null),
+      'multipleSerialization' => array('mode' => 'auto', 'default' => 'json_array', 'allowDelimited' => true),
+      'stringDelimiter' => array('mode' => 'auto')
+    ),
+    'SshKey' => array(
+      'showFields' => array('constraint0', 'valueSelection'),
+      'selectors' => array('sshSelector'),
+      'constraint0' => array(
+        'type' => 'select',
+        'optionSetKey' => 'SshKey'
+      ),
+      'defaults' => array(
+        'sourceValueField' => 'all',
+        'constraint0Field' => 'type',
+        'jsonFormat' => 'string'
+      ),
+      'jsonFormat' => array('visible' => false),
+      'valueSelection' => array('visible' => true, 'forceValue' => null),
+      'multipleSerialization' => array('mode' => 'auto', 'allowDelimited' => true),
+      'stringDelimiter' => array('mode' => 'auto')
+    ),
+    'UnixClusterAccount' => array(
+      'showFields' => array('valueSelection', 'jsonFormat'),
+      'selectors' => array('unixSelector'),
+      'constraint0' => null,
+      'defaults' => array(),
+      'jsonFormat' => array('visible' => true),
+      'valueSelection' => array('visible' => true, 'forceValue' => null),
+      'multipleSerialization' => array('mode' => 'auto', 'allowDelimited' => true),
+      'stringDelimiter' => array('mode' => 'auto')
+    )
+  );
+
+  $jsonFlags = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP;
+  $optionSetsJson = json_encode($optionSets, $jsonFlags);
+  $constraint0TextsJson = json_encode($constraint0Texts, $jsonFlags);
+  $constraint1TextsJson = json_encode($constraint1Texts, $jsonFlags);
+  $sourceModelConfigsJson = json_encode($sourceModelConfigs, $jsonFlags);
 ?>
+
 <script type="text/javascript">
-  // JS specific to these fields
+  const oa4mpOptionSets = <?php print $optionSetsJson; ?>;
+  const oa4mpConstraint0Texts = <?php print $constraint0TextsJson; ?>;
+  const oa4mpConstraint1Texts = <?php print $constraint1TextsJson; ?>;
+  const oa4mpSourceModelConfigs = <?php print $sourceModelConfigsJson; ?>;
 
-  // If the group ownership checkbox is checked then set the value format to JSON array
-  // and disable the radio buttons for the value format so it cannot be changed.
-  function group_ownership_change_constraint_0_value(element) {
-    console.log("group_ownership_change_constraint_0_value");
-    if($("#Oa4mpClientClaimConstraint0ConstraintValue").prop("checked")) {
-      $("#Oa4mpClientClaimClaimMultipleValueSerializationJsonArray").prop("checked", true);
-      $("#Oa4mpClientClaimClaimMultipleValueSerializationDelimitedString").prop("checked", false);
-      $("#Oa4mpClientClaimClaimMultipleValueSerializationDelimitedString").prop("disabled", true);
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val("");
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").hide();
-    } else {
-      $("#Oa4mpClientClaimClaimMultipleValueSerializationDelimitedString").prop("disabled", false);
+  const FIELD_SELECTORS = {
+    constraint0: '#Oa4mpClientClaimConstraint0ConstraintValue_li',
+    constraint1: '#Oa4mpClientClaimConstraint1ConstraintValue_li',
+    valueSelection: '#Oa4mpClientClaimClaimValueSelection_li',
+    multipleSerialization: '#Oa4mpClientClaimClaimMultipleValueSerialization_li',
+    stringDelimiter: '#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li',
+    jsonFormat: '#Oa4mpClientClaimClaimValueJsonFormat_li',
+    nameSelector: '#NameFieldSelector_li',
+    sshSelector: '#SshKeyFieldSelector_li',
+    coPersonRoleSelector: '#CoPersonRoleFieldSelector_li',
+    unixSelector: '#UnixClusterAccountFieldSelector_li'
+  };
+
+  const constraintCallbacks = {
+    coGroupOwnership: function(checked) {
+      if(checked) {
+        setMultipleSerializationValue('json_array');
+        disableDelimitedOption(true);
+        hideStringDelimiter();
+      } else {
+        disableDelimitedOption(false);
+        handleMultipleSerializationChange();
+      }
+    },
+    namePrimary: function(checked) {
+      if(checked) {
+        setValueSelection('first');
+        $(FIELD_SELECTORS.valueSelection).hide();
+        $(FIELD_SELECTORS.multipleSerialization).hide();
+        hideStringDelimiter();
+        setMultipleSerializationValue('json_array');
+      } else {
+        setValueSelection('all');
+        $(FIELD_SELECTORS.valueSelection).show();
+        handleValueSelectionChange();
+      }
+    }
+  };
+
+  function resetConstraint0UI() {
+    const $li = $(FIELD_SELECTORS.constraint0);
+    $li.find('.field-title label').text('');
+    $li.find('.field-desc').text('');
+    $('#Constraint0Select').hide().empty().off('change');
+    $('#Constraint0Checkbox').hide().prop('checked', false).off('change');
+    $('#Constraint0Text').hide().val('').off('input');
+  }
+
+  function resetConstraint1UI() {
+    const $li = $(FIELD_SELECTORS.constraint1);
+    $li.find('.field-title label').text('');
+    $li.find('.field-desc').text('');
+    $('#Constraint1Checkbox').hide().prop('checked', false).off('change');
+  }
+
+  function resetDynamicFields() {
+    $.each(FIELD_SELECTORS, function(key, selector) {
+      $(selector).hide();
+    });
+    resetConstraint0UI();
+    resetConstraint1UI();
+    setMultipleSerializationEnabled(true);
+  }
+
+  function disableDelimitedOption(disable) {
+    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"][value="delimited_string"]').prop('disabled', disable);
+    if(disable) {
+      setMultipleSerializationValue('json_array');
     }
   }
 
-  // Set the options for the claim constraint 0 value appropriately
-  // for the EmailAddress type.
-  function email_set_options_claim_constraint_0_value() {
-    console.log("email_set_options_claim_constraint_0_value");
-    let options = new Map();
+  function setMultipleSerializationEnabled(enable) {
+    disableDelimitedOption(!enable);
+    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').prop('disabled', !enable);
+  }
 
-    <?php
-      foreach($vv_email_types as $type => $label) {
-        print "options.set('" . $type . "', '" . $label . "');";
-        print "\n";
+  function hideStringDelimiter() {
+    $(FIELD_SELECTORS.stringDelimiter).hide();
+    $('#Oa4mpClientClaimClaimValueStringSerializationDelimiter').val('');
+  }
+
+  function populateSelect($select, optionSetKey, hiddenValue) {
+    const options = oa4mpOptionSets[optionSetKey] || {};
+    $.each(options, function(value, label) {
+      const option = $('<option></option>').attr('value', value).text(label);
+      $select.append(option);
+    });
+    if(hiddenValue !== undefined && hiddenValue !== null) {
+      $select.val(hiddenValue);
+    }
+  }
+
+  function configureConstraint0(model, config) {
+    if(!config || !config.type) {
+      return;
+    }
+
+    const $li = $(FIELD_SELECTORS.constraint0);
+    const text = oa4mpConstraint0Texts[model] || {};
+    $li.find('.field-title label').text(text.label || '');
+    $li.find('.field-desc').text(text.description || '');
+
+    const $hidden = $('#Constraint0Hidden');
+    const currentValue = $hidden.val();
+
+    if(config.type === 'select') {
+      const $select = $('#Constraint0Select');
+      let selectedValue = currentValue;
+      if((selectedValue === '' || selectedValue === null || selectedValue === undefined) && config.defaultValue) {
+        selectedValue = config.defaultValue;
       }
-    ?>
+      populateSelect($select, config.optionSetKey, selectedValue);
+      $select.show();
+      $hidden.val(selectedValue || '');
+      $select.off('change').on('change', function() {
+        $hidden.val($(this).val());
+      });
+    } else if(config.type === 'checkbox') {
+      const $checkbox = $('#Constraint0Checkbox');
+      const checkedValue = (config.checkedValue !== undefined) ? config.checkedValue : 'true';
+      const uncheckedValue = (config.uncheckedValue !== undefined) ? config.uncheckedValue : 'false';
+      const defaultChecked = (config.defaultChecked !== undefined) ? config.defaultChecked : false;
+      const hasStoredValue = currentValue !== '' && currentValue !== null && currentValue !== undefined;
+      const isChecked = hasStoredValue ? (currentValue === checkedValue) : defaultChecked;
 
-    let parent = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-    parent.empty();
-    parent.append($("<option></option>").attr("value", "").text(""));
-    parent.append($("<option></option>").attr("value", "all").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email.all'); ?>"));
+      $checkbox.data('checkedValue', checkedValue);
+      $checkbox.data('uncheckedValue', uncheckedValue);
+      $checkbox.prop('checked', isChecked);
+      $checkbox.show();
 
-    options.forEach((value, key) => {
-      if (parent.children('option[value="' + key + '"]').length === 0) {
-        parent.append($("<option></option>").attr("value", key).text(value));
+      $hidden.val(isChecked ? checkedValue : uncheckedValue);
+
+      $checkbox.off('change').on('change', function() {
+        const checked = $(this).is(':checked');
+        $hidden.val(checked ? checkedValue : uncheckedValue);
+        if(config.onChange && constraintCallbacks[config.onChange]) {
+          constraintCallbacks[config.onChange](checked);
+        }
+      });
+
+      if(config.onChange && constraintCallbacks[config.onChange]) {
+        constraintCallbacks[config.onChange](isChecked);
+      }
+    } else if(config.type === 'text') {
+      const $text = $('#Constraint0Text');
+      $text.val(currentValue);
+      $text.show();
+      $text.off('input').on('input', function() {
+        $hidden.val($(this).val());
+      });
+    }
+
+    $li.show();
+  }
+
+  function configureConstraint1(model, config) {
+    if(!config || !config.type) {
+      return;
+    }
+
+    const $li = $(FIELD_SELECTORS.constraint1);
+    const text = oa4mpConstraint1Texts[model] || {};
+    $li.find('.field-title label').text(text.label || '');
+    $li.find('.field-desc').text(text.description || '');
+
+    const $hidden = $('#Constraint1Hidden');
+    const currentValue = $hidden.val();
+    const checkedValue = (config.checkedValue !== undefined) ? config.checkedValue : 'true';
+    const uncheckedValue = (config.uncheckedValue !== undefined) ? config.uncheckedValue : 'false';
+    const defaultChecked = (config.defaultChecked !== undefined) ? config.defaultChecked : true;
+    const hasStoredValue = currentValue !== '' && currentValue !== null && currentValue !== undefined;
+    const isChecked = hasStoredValue ? (currentValue === checkedValue) : defaultChecked;
+
+    const $checkbox = $('#Constraint1Checkbox');
+    $checkbox.data('checkedValue', checkedValue);
+    $checkbox.data('uncheckedValue', uncheckedValue);
+    $checkbox.prop('checked', isChecked);
+    $hidden.val(isChecked ? checkedValue : uncheckedValue);
+    $checkbox.show();
+
+    $checkbox.off('change').on('change', function() {
+      const checked = $(this).is(':checked');
+      $hidden.val(checked ? checkedValue : uncheckedValue);
+      if(config.onChange && constraintCallbacks[config.onChange]) {
+        constraintCallbacks[config.onChange](checked);
       }
     });
+
+    if(config.onChange && constraintCallbacks[config.onChange]) {
+      constraintCallbacks[config.onChange](isChecked);
+    }
+
+    $li.show();
   }
 
-  // Set the options for the claim constraint 0 value appropriately
-  // for the Identifier type.
-  function identifier_set_options_claim_constraint_0_value() {
-    console.log("identifier_set_options_claim_constraint_0_value");
-    let options = new Map();
-
-    <?php
-      foreach($vv_identifier_types as $type => $label) {
-        print "options.set('" . $type . "', '" . $label . "');";
-        print "\n";
+  function configureSelectors(config) {
+    const selectors = ['nameSelector', 'sshSelector', 'coPersonRoleSelector', 'unixSelector'];
+    selectors.forEach(function(key) {
+      const selector = FIELD_SELECTORS[key];
+      if(!selector) {
+        return;
       }
-    ?>
-
-    let parent = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-    parent.empty();
-    parent.append($("<option></option>").attr("value", "").text(""));
-    parent.append($("<option></option>").attr("value", "all").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier.all'); ?>"));
-
-    options.forEach((value, key) => {
-     if (parent.children('option[value="' + key + '"]').length === 0) {
-      parent.append($("<option></option>").attr("value", key).text(value));
-     }
-    });
-  }
-
-  // Set the options for the claim constraint 0 value appropriately
-  // for the Name type.
-  function name_set_options_claim_constraint_0_value() {
-    console.log("name_set_options_claim_constraint_0_value");
-    let options = new Map();
-
-    <?php
-      foreach($vv_name_types as $type => $label) {
-        print "options.set('" . $type . "', '" . $label . "');";
-        print "\n";
-      }
-    ?>
-
-    let parent = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-    parent.empty();
-    parent.append($("<option></option>").attr("value", "").text(""));
-    parent.append($("<option></option>").attr("value", "all").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name.all'); ?>"));
-
-    options.forEach((value, key) => {
-      if (parent.children('option[value="' + key + '"]').length === 0) {
-        parent.append($("<option></option>").attr("value", key).text(value));
+      if(config.selectors && config.selectors.indexOf(key) !== -1) {
+        $(selector).show();
+      } else {
+        $(selector).hide();
       }
     });
+
+    syncSelectorValues();
+
+    if(config.selectors && config.selectors.indexOf('coPersonRoleSelector') !== -1) {
+      handleCoPersonRoleFieldChange($('#CoPersonRoleFieldSelector').val());
+    } else {
+      setMultipleSerializationEnabled(true);
+    }
   }
 
+  function setHiddenFieldIfEmpty(selector, value) {
+    if(value === null || value === undefined) {
+      return;
+    }
+    const $field = $(selector);
+    if($field.val() === '') {
+      $field.val(value);
+    }
+  }
 
-  // Set the options for the claim constraint 0 value appropriately
-  // for the SshKey type.
-  function ssh_key_set_options_claim_constraint_0_value() {
-    console.log("ssh_key_set_options_claim_constraint_0_value");
-    let options = new Map();
-    <?php
-      foreach($vv_ssh_key_types as $type => $label) {
-        print "options.set('" . $type . "', '" . $label . "');";
-        print "\n";
+  function setHiddenField(selector, value) {
+    if(value === null || value === undefined) {
+      return;
+    }
+    $(selector).val(value);
+  }
+
+  function setValueSelection(value) {
+    if(value === null) {
+      return;
+    }
+    $('#Oa4mpClientClaimClaimValueSelection').val(value);
+  }
+
+  function setMultipleSerializationValue(value) {
+    if(value === null) {
+      return;
+    }
+    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').prop('checked', false);
+    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"][value="' + value + '"]').prop('checked', true);
+  }
+
+  function getMultipleSerializationValue() {
+    return $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]:checked').val();
+  }
+
+  function syncSelectorValues() {
+    const sourceFieldValue = $('#SourceModelValueFieldHidden').val();
+
+    if($(FIELD_SELECTORS.nameSelector).is(':visible')) {
+      const $nameOptions = $('input[name="name_field_selector"]');
+      if(sourceFieldValue) {
+        $nameOptions.filter('[value="' + sourceFieldValue + '"]').prop('checked', true);
       }
-    ?>
+    }
 
-    let parent = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-    parent.empty();
-    parent.append($("<option></option>").attr("value", "").text(""));
-    parent.append($("<option></option>").attr("value", "all").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key.all'); ?>"));
+    if($(FIELD_SELECTORS.sshSelector).is(':visible')) {
+      const $sshOptions = $('input[name="ssh_key_field_selector"]');
+      if(sourceFieldValue) {
+        $sshOptions.filter('[value="' + sourceFieldValue + '"]').prop('checked', true);
+      }
+    }
 
-    options.forEach((value, key) => {
-      if (parent.children('option[value="' + key + '"]').length === 0) {
-        parent.append($("<option></option>").attr("value", key).text(value));
+    if($(FIELD_SELECTORS.coPersonRoleSelector).is(':visible')) {
+      $('#CoPersonRoleFieldSelector').val(sourceFieldValue);
+    }
+
+    if($(FIELD_SELECTORS.unixSelector).is(':visible')) {
+      $('#UnixClusterAccountFieldSelector').val(sourceFieldValue);
+    }
+  }
+
+  function handleCoPersonRoleFieldChange(value) {
+    if(value === 'all' || value === '') {
+      setMultipleSerializationValue('json_array');
+      setMultipleSerializationEnabled(false);
+      hideStringDelimiter();
+    } else {
+      setMultipleSerializationEnabled(true);
+      handleMultipleSerializationChange();
+    }
+  }
+
+  function applyDefaults(config) {
+    const defaults = config.defaults || {};
+
+    const initialSourceValue = (defaults.sourceValueField !== undefined && defaults.sourceValueField !== null) ? defaults.sourceValueField : null;
+    setHiddenFieldIfEmpty('#SourceModelValueFieldHidden', initialSourceValue);
+    if(defaults.constraint0Field !== undefined && defaults.constraint0Field !== null) {
+      setHiddenField('#Constraint0FieldHidden', defaults.constraint0Field);
+    }
+    if(config.constraint1 && defaults.constraint1Field !== undefined && defaults.constraint1Field !== null) {
+      setHiddenField('#Constraint1FieldHidden', defaults.constraint1Field);
+    }
+
+    if(defaults.jsonFormat) {
+      setHiddenField('#Oa4mpClientClaimClaimValueJsonFormat', defaults.jsonFormat);
+    }
+
+    if(defaults.valueSelection) {
+      setValueSelection(defaults.valueSelection);
+    }
+
+    if(defaults.multipleSerialization) {
+      setMultipleSerializationValue(defaults.multipleSerialization);
+    }
+  }
+
+  function configureValueSelection(config) {
+    if(config.valueSelection && config.valueSelection.visible === false) {
+      $(FIELD_SELECTORS.valueSelection).hide();
+    } else {
+      $(FIELD_SELECTORS.valueSelection).show();
+    }
+
+    if(config.valueSelection && config.valueSelection.forceValue !== null) {
+      setValueSelection(config.valueSelection.forceValue);
+    }
+
+    if(config.constraint1 && config.constraint1.onChange && constraintCallbacks[config.constraint1.onChange]) {
+      const isChecked = $('#Constraint1Checkbox').is(':checked');
+      constraintCallbacks[config.constraint1.onChange](isChecked);
+    }
+  }
+
+  function configureJsonFormat(config) {
+    if(config.jsonFormat && config.jsonFormat.visible === false) {
+      $(FIELD_SELECTORS.jsonFormat).hide();
+    } else if(config.jsonFormat && config.jsonFormat.visible === true) {
+      $(FIELD_SELECTORS.jsonFormat).show();
+    }
+  }
+
+  function configureMultipleSerialization(config) {
+    const mode = (config.multipleSerialization || {}).mode || 'auto';
+    const allowDelimited = (config.multipleSerialization || {}).allowDelimited !== false;
+
+    disableDelimitedOption(!allowDelimited);
+
+    if(mode === 'hidden') {
+      $(FIELD_SELECTORS.multipleSerialization).hide();
+      hideStringDelimiter();
+      return;
+    }
+
+    if(mode === 'always') {
+      $(FIELD_SELECTORS.multipleSerialization).show();
+      handleMultipleSerializationChange();
+      return;
+    }
+
+    handleValueSelectionChange();
+  }
+
+  function configureStringDelimiter(config) {
+    const mode = (config.stringDelimiter || {}).mode || 'auto';
+    if(mode === 'hidden') {
+      hideStringDelimiter();
+    } else {
+      handleMultipleSerializationChange();
+    }
+  }
+
+  function handleValueSelectionChange() {
+    const selection = $('#Oa4mpClientClaimClaimValueSelection').val();
+    const model = $('#Oa4mpClientClaimSourceModel').val();
+    const config = oa4mpSourceModelConfigs[model] || {};
+    const mode = (config.multipleSerialization || {}).mode || 'auto';
+
+    if(mode === 'always') {
+      $(FIELD_SELECTORS.multipleSerialization).show();
+      handleMultipleSerializationChange();
+      return;
+    }
+
+    if(selection === 'all') {
+      $(FIELD_SELECTORS.multipleSerialization).show();
+      handleMultipleSerializationChange();
+    } else {
+      $(FIELD_SELECTORS.multipleSerialization).hide();
+      hideStringDelimiter();
+      setMultipleSerializationValue('json_array');
+    }
+  }
+
+  function handleMultipleSerializationChange() {
+    const model = $('#Oa4mpClientClaimSourceModel').val();
+    const config = oa4mpSourceModelConfigs[model] || {};
+    const delimiterMode = (config.stringDelimiter || {}).mode || 'auto';
+    const allowDelimited = (config.multipleSerialization || {}).allowDelimited !== false;
+    const currentValue = getMultipleSerializationValue();
+
+    if(!allowDelimited) {
+      hideStringDelimiter();
+      return;
+    }
+
+    if(delimiterMode === 'hidden') {
+      hideStringDelimiter();
+      return;
+    }
+
+    if(currentValue === 'delimited_string') {
+      $(FIELD_SELECTORS.stringDelimiter).show();
+      const delimiterField = $('#Oa4mpClientClaimClaimValueStringSerializationDelimiter');
+      if(delimiterField.val() === '') {
+        delimiterField.val(',');
+      }
+    } else {
+      hideStringDelimiter();
+    }
+  }
+
+  function applySourceModel(model) {
+    resetDynamicFields();
+
+    if(!model || !oa4mpSourceModelConfigs[model]) {
+      return;
+    }
+
+    const config = oa4mpSourceModelConfigs[model];
+
+    (config.showFields || []).forEach(function(fieldKey) {
+      if(FIELD_SELECTORS[fieldKey]) {
+        $(FIELD_SELECTORS[fieldKey]).show();
       }
     });
-  }
 
-  // Reset the claim constraint 0 value field to the empty default.
-  function reset_claim_constraint_0_value() {
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li").empty();
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li").append('<div class="field-name"></div>');
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name").append('<div class="field-title"></div>');
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-title").append('<label for="Oa4mpClientClaimConstraint0ConstraintValue"></label>');
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-title").append(' <span class="required">*</span>');
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name").append('<div class="field-desc"></div>');
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li").append('<div class="field-info"></div>');
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-info").append('<span class="field-info-prefix"></span>');
-    $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-info .field-info-prefix").append('<input name="data[Oa4mpClientClaimConstraint][0][constraint_value]" id="Oa4mpClientClaimConstraint0ConstraintValue" required="required"></input>');
-  }
-
-  // Reset the claim constraint 1 value field to the default.
-  function reset_claim_constraint_1_value() {
-    $("#Oa4mpClientClaimConstraint1ConstraintValue_li").empty();
-    $("#Oa4mpClientClaimConstraint1ConstraintValue_li").html('<div class="field-name"><div class="field-title"><label for="Oa4mpClientClaimConstraint1ConstraintValue"></label></div><div class="field-desc"></div></div><div class="field-info"><span class="field-info-prefix"><input name="data[Oa4mpClientClaimConstraint][1][constraint_value]" id="Oa4mpClientClaimConstraint1ConstraintValue" value="" maxlength="64" type="text"></span></div>');
-  }
-
-  // Show or hide
-  function update_primary_name_value_req() {
-    console.log("update_primary_name_value_req");
-    if($("#Oa4mpClientClaimConstraint1ConstraintValue").prop("checked")) {
-      $("#Oa4mpClientClaimClaimValueSelection").val("first");
-      $("#Oa4mpClientClaimClaimValueSelection_li").hide();
-      $("#Oa4mpClientClaimClaimMultipleValueSerialization_li").hide();
-      $("#Oa4mpClientClaimClaimMultipleValueSerializationJsonArray").prop("checked", false);
-      $("#Oa4mpClientClaimClaimMultipleValueSerializationDelimitedString").prop("checked", false);
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").hide();
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val("");
-    } else {
-      $("#Oa4mpClientClaimClaimValueSelection").val("all");
-      $("#Oa4mpClientClaimClaimValueSelection_li").show();
-      $("#Oa4mpClientClaimClaimMultipleValueSerializationJsonArray").prop("checked", true);
-      $("#Oa4mpClientClaimClaimMultipleValueSerialization_li").show();
-    }
-  }
-
-  // Update the string delimiter select field to be shown or hidden based on the value of the multiple value format selector field.
-  function update_string_d_select(value) {
-    console.log("update_string_d_select");
-    console.log(value);
-
-    if(value == "delimited_string") {
-      if($("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val() == "") {
-        $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val(",");
-      }
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").show();
-    } else {
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").hide();
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val("");
-    }
-  }
-
-  // Update the fields to show and hide based on the value of the source model select field
-  // and whether the user has selected Identifier, EmailAddress, Name, or so on.
-  function update_source_model_select(element) {
-    // TODO remove console logging
-    console.log(element.value);
-
-    // Since the user has selected or changed the source model, we hide fields 
-    // and remove customizations here that were specific to the previous source model
-    // and let the case statement below show and hide the appropriate fields.
-    $("#NameFieldSelector_li").hide();
-    $("#SshKeyFieldSelector_li").hide();
-    $("#Oa4mpClientClaimConstraint1ConstraintValue_li").hide();
-    $("#Oa4mpClientClaimSourceModelClaimValueField").val("");
-    reset_claim_constraint_0_value();
-    reset_claim_constraint_1_value();
-
-    let label;
-    let description;
-
-    let $old;
-    let attrs;
-    let $new;
-
-    switch (element.value) {
-      case "CoPersonRole":
-        // If Oa4mpClientClaimSourceModelClaimValueField is not set, set it to "all" as the default.
-        if($("#Oa4mpClientClaimSourceModelClaimValueField").val() == "") {
-          $("#Oa4mpClientClaimSourceModelClaimValueField").val("all");
-        }
-
-        // Show the CoPersonRole field selector field.
-        $("#CoPersonRoleFieldSelector_li").show();
-
-        // Show the claim value requirement field with choices of "First value found" and "All values found".
-        $("#Oa4mpClientClaimClaimValueSelection_li").show();
-
-        // Hide the claim value JSON format field and set the value to "JSON string" since CoPersonRole values are always strings
-        // and never numbers.
-        $("#Oa4mpClientClaimClaimValueJsonFormat_li").hide();
-        $("#Oa4mpClientClaimClaimValueJsonFormat").val("string");
-
-        // Set the constraint 0 constraint_field to "status".
-        $("#Oa4mpClientClaimConstraint0ConstraintField").val("status");
-        
-        // Cast the claim constraint 0 value to a checkbox.
-        $("#Oa4mpClientClaimConstraint0ConstraintValue").attr("type", "checkbox");
-
-        // If the value is not set, set it to "active" to default to only active CoPersonRole values being included in the claim.
-        if($("#Oa4mpClientClaimConstraint0ConstraintValue").val() == "" || $("#Oa4mpClientClaimConstraint0ConstraintValue").val() == "on") {
-          $("#Oa4mpClientClaimConstraint0ConstraintValue").val("active");
-          $("#Oa4mpClientClaimConstraint0ConstraintValue").prop("checked", true);
-        } else if ($("#Oa4mpClientClaimConstraint0ConstraintValue").val() == "active") {
-          $("#Oa4mpClientClaimConstraint0ConstraintValue").prop("checked", true);
-        } else if ($("#Oa4mpClientClaimConstraint0ConstraintValue").val() != "active") {
-          $("#Oa4mpClientClaimConstraint0ConstraintValue").prop("checked", false);
-        }
-
-        // Also, add a hidden field to the form with the value set to "any" so that if the box is
-        // unchecked, the value is set to "any" when the form is submitted.
-        // Then set the name and description of the claim constraint 0 value field appropriately
-        // for managing the active CoPersonRole values, and finally display the claim constraint 0 value field.
-
-        $("#Oa4mpClientClaimConstraint0ConstraintValue").removeAttr("maxlength");
-        $("#Oa4mpClientClaimConstraint0ConstraintValue").before($("<input type=\"hidden\" name=\"data[Oa4mpClientClaimConstraint][0][constraint_value]\" value=\"any\">"));
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").find(".field-title").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.co_person_role'); ?>");
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").find(".field-title").append(" <span class=\"required\">*</span>");
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").find(".field-desc").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_person_role'); ?>");
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
-        break;
-
-      case "EmailAddress":
-        // Cast the claim constraint 0 value to a select.
-        $old = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-        attrs = {
-          id: $old.attr("id"),
-          name: $old.attr("name"),
-          required: $old.attr("required")
-        }
-        $new = $("<select></select>", attrs);
-        $old.replaceWith($new);
-
-        // Set the options for the claim constraint 0 value appropriately
-        // for the EmailAddress type.
-        email_set_options_claim_constraint_0_value();
-
-        // Set the label for the claim constraint 0 value with text appropriate for the EmailAddress type
-        // and display the claim constraint 0 value field.
-        label = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email'); ?>"
-        description = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.email'); ?>"
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-title label").text(label);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-desc").text(description);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
-
-        // Show the claim value requirement field with choices of "First value found" and "All values found".
-        $("#Oa4mpClientClaimClaimValueSelection_li").show();
-
-        // Hide the claim value JSON format field and set the value to "JSON string" since EmailAddress values are always strings
-        // and never numbers.
-        $("#Oa4mpClientClaimClaimValueJsonFormat_li").hide();
-        $("#Oa4mpClientClaimClaimValueJsonFormat").val("string");
-
-        // Set the claim source_model_claim_value_field to "mail" and the constraint 0 constraint_field to "type".
-        $("#Oa4mpClientClaimSourceModelClaimValueField").val("mail");
-        $("#Oa4mpClientClaimConstraint0ConstraintField").val("type");
-
-        // Set the value of the claim constraint 1 constraint_field to "verified" to
-        // allow selection of whether only verified EmailAddress values are included in the claim.
-        $("#Oa4mpClientClaimConstraint1ConstraintField").val("verified");
-
-        // Cast the claim constraint 1 value to a checkbox.
-        $("#Oa4mpClientClaimConstraint1ConstraintValue").attr("type", "checkbox");
-
-        // If the value is not set, set it to "true" to default to only verified EmailAddress values being included in the claim.
-        if($("#Oa4mpClientClaimConstraint1ConstraintValue").val() == "") {
-          $("#Oa4mpClientClaimConstraint1ConstraintValue").val("true");
-          $("#Oa4mpClientClaimConstraint1ConstraintValue").prop("checked", true);
-        } else if ($("#ClaimConstraint1ConstraintValue").val() == "false") {
-          $("#Oa4mpClientClaimConstraint1ConstraintValue").prop("checked", false);
-        } else if ($("#Oa4mpClientClaimConstraint1ConstraintValue").val() == "true") {
-          $("#Oa4mpClientClaimConstraint1ConstraintValue").prop("checked", true);
-        }
-
-        // Also, add a hidden field to the form with the value set to "false" so that if the box is
-        // unchecked, the value is set to "false" when the form is submitted.
-        // Then set the name and description of the claim constraint 1 value field appropriately
-        // for managing the verified EmailAddress values, and finally display the claim constraint 1 value field.
-
-        $("#Oa4mpClientClaimConstraint1ConstraintValue").removeAttr("maxlength");
-        $("#Oa4mpClientClaimConstraint1ConstraintValue").before($("<input type=\"hidden\" name=\"data[Oa4mpClientClaimConstraint][1][constraint_value]\" value=\"false\">"));
-        $("#Oa4mpClientClaimConstraint1ConstraintValue_li").find(".field-title").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.constraint_value.name.email'); ?>");
-        $("#Oa4mpClientClaimConstraint1ConstraintValue_li").find(".field-title").append(" <span class=\"required\">*</span>");
-        $("#Oa4mpClientClaimConstraint1ConstraintValue_li").find(".field-desc").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.email'); ?>");
-        $("#Oa4mpClientClaimConstraint1ConstraintValue_li").show();
-        break;
-
-      case "CoGroupMember":
-        // If Oa4mpClientClaimSourceModelClaimValueField is not set, set it to "member" as the default.
-        if($("#Oa4mpClientClaimSourceModelClaimValueField").val() == "") {
-          $("#Oa4mpClientClaimSourceModelClaimValueField").val("member");
-        }
-
-        // Group names are always strings, so set the claim value JSON format field to "string".
-        $("#Oa4mpClientClaimClaimValueJsonFormat").val("string");
-        $("#Oa4mpClientClaimClaimValueJsonFormat_li").hide();
-
-        // Set the claim claim_value_selection field to "all" as the default and hide the claim_value_selection field
-        // since a choice of "first" is not applicable for CoGroupMember.
-        $("#Oa4mpClientClaimClaimValueSelection").val("all");
-        $("#Oa4mpClientClaimClaimValueSelection_li").hide();
-
-        // Show the claim multiple value serialization field with choices of "JSON array" and "Delimited string"
-        // with the value set to "JSON array" by default.
-        $("#Oa4mpClientClaimClaimMultipleValueSerializationJsonArray").prop("checked", true);
-        $("#Oa4mpClientClaimClaimMultipleValueSerializationDelimitedString").prop("checked", false);
-        $("#Oa4mpClientClaimClaimMultipleValueSerialization_li").show();
-
-        // Set the constraint 0 constraint_field to "owner" to allow selection of whether group ownership is included in the claim.
-        $("#Oa4mpClientClaimConstraint0ConstraintField").val("owner");
-
-        // Cast the claim constraint 0 value to a checkbox and add a hidden field to the form with the value set to "false" so that if the box is
-        // unchecked, the value is set to "false" when the form is submitted.
-        $old = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-        attrs = {
-          id: $old.attr("id"),
-          name: $old.attr("name"),
-          type: "checkbox",
-          value: "true",
-          onclick: "group_ownership_change_constraint_0_value(this)"
-        }
-        $new = $("<input></input>", attrs);
-        $old.replaceWith($new);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue").before($("<input type=\"hidden\" name=\"data[Oa4mpClientClaimConstraint][0][constraint_value]\" value=\"false\">"));
-
-        // Then set the name and description of the claim constraint 0 value field appropriately
-        // for managing the group ownership values, and finally display the claim constraint 0 value field.
-
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").find(".field-title").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.co_group_member'); ?>");
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").find(".field-desc").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_group_member'); ?>");
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
-        break;
-
-      case "Identifier":
-        // Cast the claim constraint 0 value to a select.
-        $old = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-        attrs = {
-          id: $old.attr("id"),
-          name: $old.attr("name"),
-          required: $old.attr("required")
-        }
-        $new = $("<select></select>", attrs);
-        $old.replaceWith($new);
-
-        // Set the options for the claim constraint 0 value appropriately
-        // for the Identifier type.
-        identifier_set_options_claim_constraint_0_value();
-
-        // Set the label for the claim constraint 0 value with text appropriate for the Identifier type
-        // and display the claim constraint 0 value field.
-        label = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier'); ?>"
-        description = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.identifier'); ?>"
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-title label").text(label);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-desc").text(description);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
-
-        // Show the claim value requirement field with choices of "First value found" and "All values found".
-        $("#Oa4mpClientClaimClaimValueSelection_li").show();
-
-        // Show the claim value JSON format field with choices of "JSON string" and "JSON number" since
-        // an Identifier value can be a string or a number.
-        $("#Oa4mpClientClaimClaimValueJsonFormat_li").show();
-
-        // Set the claim source_model_claim_value_field to "identifier" and the constraint 0 constraint_field to "type".
-        $("#Oa4mpClientClaimSourceModelClaimValueField").val("identifier");
-        $("#Oa4mpClientClaimConstraint0ConstraintField").val("type");
-        break;
-
-
-      case "Name":
-        // Cast the claim constraint 0 value to a select.
-        $old = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-        attrs = {
-          id: $old.attr("id"),
-          name: $old.attr("name"),
-          required: $old.attr("required")
-        }
-        $new = $("<select></select>", attrs);
-        $old.replaceWith($new);
-
-        // Set the options for the claim constraint 0 value appropriately
-        // for the Name type.
-        name_set_options_claim_constraint_0_value();
-
-        // If ClaimSourceModelClaimValueField is not set, set it to "all" as the default.
-        if($("#Oa4mpClientClaimSourceModelClaimValueField").val() == "") {
-          $("#Oa4mpClientClaimSourceModelClaimValueField").val("all");
-        }
-
-        // Show the name field selector field.
-        $("#NameFieldSelector_li").show();
-
-        // Set the label for the claim constraint 0 value with text appropriate for the Name type
-        // and display the claim constraint 0 value field.
-        label = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name'); ?>"
-        description = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.name'); ?>"
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-title label").text(label);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-desc").text(description);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
-
-        // Show the claim value requirement field with choices of "First value found" and "All values found".
-        $("#Oa4mpClientClaimClaimValueSelection_li").show();
-
-        // Hide the claim value JSON format field and set the value to "JSON string" since Name values are always strings
-        // and never numbers.
-        $("#Oa4mpClientClaimClaimValueJsonFormat_li").hide();
-        $("#Oa4mpClientClaimClaimValueJsonFormat").val("string");
-
-        // Set the constraint 0 constraint_field to "type".
-        $("#Oa4mpClientClaimConstraint0ConstraintField").val("type");
-
-        // Set the value of the claim constraint 1 constraint_field to "primary" to
-        // allow selection of whether only the primary Name value is included in the claim.
-        $("#Oa4mpClientClaimConstraint1ConstraintField").val("primary");
-
-        // Cast the claim constraint 1 value to a checkbox.
-        $("#Oa4mpClientClaimConstraint1ConstraintValue").attr("type", "checkbox");
-
-        // If the value is not set, set it to "true" to default to only primary Name values being included in the claim.
-        if($("#Oa4mpClientClaimConstraint1ConstraintValue").val() == "") {
-          $("#Oa4mpClientClaimConstraint1ConstraintValue").val("true");
-          $("#Oa4mpClientClaimConstraint1ConstraintValue").prop("checked", true);
-        } else if ($("#Oa4mpClientClaimConstraint1ConstraintValue").val() == "false") {
-          $("#Oa4mpClientClaimConstraint1ConstraintValue").prop("checked", false);
-        } else if ($("#Oa4mpClientClaimConstraint1ConstraintValue").val() == "true") {
-          $("#Oa4mpClientClaimConstraint1ConstraintValue").prop("checked", true);
-        }
-
-        // Also, add a hidden field to the form with the value set to "false" so that if the box is
-        // unchecked, the value is set to "false" when the form is submitted.
-        // Then set the name and description of the claim constraint 1 value field appropriately
-        // for managing the primary Name values, and finally display the claim constraint 1 value field.
-
-        $("#Oa4mpClientClaimConstraint1ConstraintValue").removeAttr("maxlength");
-        $("#Oa4mpClientClaimConstraint1ConstraintValue").before($("<input type=\"hidden\" name=\"data[Oa4mpClientClaimConstraint][1][constraint_value]\" value=\"false\">"));
-        $("#Oa4mpClientClaimConstraint1ConstraintValue_li").find(".field-title").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.constraint_value.name.name'); ?>");
-        $("#Oa4mpClientClaimConstraint1ConstraintValue_li").find(".field-title").append(" <span class=\"required\">*</span>");
-        $("#Oa4mpClientClaimConstraint1ConstraintValue_li").find(".field-desc").text("<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.name'); ?>");
-        $("#Oa4mpClientClaimConstraint1ConstraintValue").on("change", update_primary_name_value_req);
-        $("#Oa4mpClientClaimConstraint1ConstraintValue_li").show();
-
-        // Since the default is to only assert the single primary name value set claim_value_selection to "first" and
-        // hide claim_value_selection field and the multiple value format selector field and the claim value string delimiter field.
-        $("#Oa4mpClientClaimClaimValueSelection").val("first");
-        $("#Oa4mpClientClaimClaimValueSelection_li").hide();
-        $("#MultipleValueFormatSelector_li").hide();
-        $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").hide();
-        $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val("");
-        break;
-
-      case "SshKey":
-        // Hide the claim value JSON format field and set the value to "JSON string" since all components of
-        // the SshKey model are strings.
-        $("#Oa4mpClientClaimClaimValueJsonFormat_li").hide();
-        $("#Oa4mpClientClaimClaimValueJsonFormat").val("string");
-
-        // Show the SSH key field selector field.
-        $("#SshKeyFieldSelector_li").show();
-
-        // Cast the claim constraint 0 value to a select.
-        $old = $("#Oa4mpClientClaimConstraint0ConstraintValue");
-        attrs = {
-          id: $old.attr("id"),
-          name: $old.attr("name"),
-          required: $old.attr("required")
-        }
-        $new = $("<select></select>", attrs);
-        $old.replaceWith($new);
-
-        // Set the options for the claim constraint 0 value appropriately
-        // for the SshKey type.
-        ssh_key_set_options_claim_constraint_0_value();
-
-        // If ClaimSourceModelClaimValueField is not set, set it to "all" as the default.
-        if($("#Oa4mpClientClaimSourceModelClaimValueField").val() == "") {
-          $("#Oa4mpClientClaimSourceModelClaimValueField").val("all");
-        }
-
-        // Set the label for the claim constraint 0 value with text appropriate for the SshKey type
-        // and display the claim constraint 0 value field.
-        label = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key'); ?>"
-        description = "<?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.ssh_key'); ?>"
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-title label").text(label);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li .field-name .field-desc").text(description);
-        $("#Oa4mpClientClaimConstraint0ConstraintValue_li").show();
-
-        // Set the constraint 0 constraint_field to "type".
-        $("#Oa4mpClientClaimConstraint0ConstraintField").val("type");
-
-        // Show the claim value requirement field with choices of "First value found" and "All values found".
-        $("#Oa4mpClientClaimClaimValueSelection_li").show();
-        break;
-
-      case "UnixClusterAccount":
-        // Show the Unix Cluster Account field selector field.
-        $("#UnixClusterAccountFieldSelector_li").show();
-
-        // Show the claim value requirement field with choices of "First value found" and "All values found".
-        $("#Oa4mpClientClaimClaimValueSelection_li").show();
-
-        // Show the claim value JSON format field with choices of "JSON string" and "JSON number" since
-        // a Unix Cluster Account value can be a string or a number.
-        $("#Oa4mpClientClaimClaimValueJsonFormat_li").show();
-        break;
-    }
-
-    // If Oa4mpClientClaimClaimValueSelection is set to "all", show the multiple value format selector field.
-    if($("#Oa4mpClientClaimClaimValueSelection").val() == "all") {
-      $("#MultipleValueFormatSelector_li").show();
-    } else {
-      $("#MultipleValueFormatSelector_li").hide();
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").hide();
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val("");
-    }
-
-    // If Oa4mpClientClaimClaimValueStringSerializationDelimiter is set, show the claim value string delimiter field and
-    // show the multiple value format selector field with the value set to "delimited_string".
-    if($("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val() != "") {
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").show();
-      $("#MultipleValueFormatSelector_json_array").prop("checked", false);
-      $("#MultipleValueFormatSelector_delimited_string").prop("checked", true);
-      $("#MultipleValueFormatSelector_li").show();
-    } else {
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").hide();
-    }
-
-  }
-
-  // Update the value field after a name field selector is changed.
-  function update_value_field_for_name(value) {
-    console.log("update_value_field_for_name");
-    console.log(value);
-    $("#Oa4mpClientClaimSourceModelClaimValueField").val(value);
-  }
-
-  // Update the value field after a SSH key field selector is changed.
-  function update_value_field_for_ssh_key(value) {
-    console.log("update_value_field_for_ssh_key");
-    console.log(value);
-    $("#Oa4mpClientClaimSourceModelClaimValueField").val(value);
-  }
-
-  // Update the value field after a Unix Cluster Account field selector is changed.
-  function update_value_field_for_unix_cluster_account(value) {
-    console.log("update_value_field_for_unix_cluster_account");
-    console.log(value);
-    $("#Oa4mpClientClaimSourceModelClaimValueField").val(value);
-
-    if(value == "all") {
-    }
-  }
-
-  // Update the multiple value format selector field to be shown or hidden based on the value of the claim value selection field.
-  function update_claim_value_selection_select(element) {
-    console.log("update_claim_value_selection_select");
-
-    if(element.value == "all") {
-      console.log("all");
-      $("#Oa4mpClientClaimClaimMultipleValueSerialization_li").show();
-      if($("#Oa4mpClientClaimClaimMultipleValueSerialization_delimited_string").prop("checked")) {
-        $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").show();
-      }
-    } else {
-      console.log("first");
-      $("#Oa4mpClientClaimClaimMultipleValueSerialization_li").hide();
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter_li").hide();
-      $("#Oa4mpClientClaimClaimValueStringSerializationDelimiter").val("");
-    }
+    configureSelectors(config);
+    configureConstraint0(model, config.constraint0);
+    configureConstraint1(model, config.constraint1);
+    applyDefaults(config);
+    configureValueSelection(config);
+    configureJsonFormat(config);
+    configureMultipleSerialization(config);
+    configureStringDelimiter(config);
+    handleMultipleSerializationChange();
   }
 
   function js_local_onload() {
-    <?php if($this->action == 'edit' && !empty($claim['source_model'])): ?>
-      // Call the update function to show appropriate fields for existing data
-      var sourceModelElement = document.getElementById('Oa4mpClientClaimSourceModel');
-      if(sourceModelElement) {
-        update_source_model_select(sourceModelElement);
-      }
-
-    <?php endif; ?>
-
-    // Add form submit handler to remove the multiple_value_format and name_field_selector fields before submission.
-    $('form').on('submit', function(e) {
-      // Remove name_field_selector radio buttons from form data before submission
-      // since this is a UI control field and not part of the model
-      $('input[name="name_field_selector"]').remove();
-
-      // Remove ssh_key_field_selector radio buttons from form data before submission
-      // since this is a UI control field and not part of the model
-      $('input[name="ssh_key_field_selector"]').remove();
-
-      // Remove co_person_role_field_selector select from form data before submission
-      // since this is a UI control field and not part of the model
-      $('select[name="co_person_role_field_selector"]').remove();
+    $('#Oa4mpClientClaimSourceModel').on('change', function() {
+      applySourceModel($(this).val());
     });
-  }
 
+    $('#Oa4mpClientClaimClaimValueSelection').on('change', function() {
+      handleValueSelectionChange();
+    });
+
+    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').on('change', function() {
+      handleMultipleSerializationChange();
+    });
+
+    $('input[name="name_field_selector"]').on('change', function() {
+      $('#SourceModelValueFieldHidden').val($(this).val());
+    });
+
+    $('input[name="ssh_key_field_selector"]').on('change', function() {
+      $('#SourceModelValueFieldHidden').val($(this).val());
+    });
+
+    $('#CoPersonRoleFieldSelector').on('change', function() {
+      $('#SourceModelValueFieldHidden').val($(this).val());
+      handleCoPersonRoleFieldChange($(this).val());
+    });
+
+    $('#UnixClusterAccountFieldSelector').on('change', function() {
+      $('#SourceModelValueFieldHidden').val($(this).val());
+    });
+
+    $('form').on('submit', function() {
+      $('input[name="name_field_selector"]').remove();
+      $('input[name="ssh_key_field_selector"]').remove();
+      $('select[name="co_person_role_field_selector"]').remove();
+      $('select[name="unix_cluster_account_field_selector"]').remove();
+    });
+
+    const initialModel = $('#Oa4mpClientClaimSourceModel').val();
+    applySourceModel(initialModel);
+  }
 </script>
 
 <ul id="<?php print $this->action; ?>_oa4mp_client_co_oidc_claim" class="fields form-list form-list-admin">
@@ -716,16 +800,14 @@
   <li>
     <div class="field-name">
       <div class="field-title">
-        <?php print $this->Form->label('claim_name', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_name.name')) ?>
+        <?php print $this->Form->label('claim_name', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_name.name')); ?>
         <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_name.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-      <?php
-        print $this->Form->input('claim_name');
-      ?>
+        <?php print $this->Form->input('claim_name', array('label' => false, 'div' => false)); ?>
       </span>
     </div>
   </li>
@@ -734,33 +816,30 @@
   <li>
     <div class="field-name">
       <div class="field-title">
-        <?php print $this->Form->label('source_model', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.source_model.name')) ?>
+        <?php print $this->Form->label('source_model', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.source_model.name')); ?>
         <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.source_model.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-      <?php
-        $attrs = array();
-        $attrs['value'] = $claim['source_model'] ?? "";
-        $attrs['empty'] = true;
-        $attrs['onChange'] = 'update_source_model_select(this);';
+        <?php
+          $attrs = array();
+          $attrs['value'] = $claim['source_model'] ?? "";
+          $attrs['empty'] = true;
+          $options = array();
+          $options['EmailAddress'] = 'EmailAddress';
+          $options['CoGroupMember'] = 'Groups';
+          $options['Identifier'] = 'Identifier';
+          $options['Name'] = 'Name';
+          $options['CoPersonRole'] = 'Role';
+          $options['SshKey'] = 'SSH Key';
+          $options['UnixClusterAccount'] = 'Unix Cluster Account';
 
-        $options = array();
-        $options['EmailAddress'] = 'EmailAddress';
-        $options['CoGroupMember'] = 'Groups';
-        $options['Identifier'] = 'Identifier';
-        $options['Name'] = 'Name';
-        $options['CoPersonRole'] = 'Role';
-        $options['SshKey'] = 'SSH Key';
-        $options['UnixClusterAccount'] = 'Unix Cluster Account';
-
-
-        if($e) {
-          print $this->Form->select('source_model', $options, $attrs);
-        }
-      ?>
+          if($e) {
+            echo $this->Form->select('source_model', $options, $attrs);
+          }
+        ?>
       </span>
     </div>
   </li>
@@ -772,45 +851,21 @@
         <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.name'); ?>
         <span class="required">*</span>
       </div>
-      <div class="field-desc">
-        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.description'); ?>
-      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <input type="radio"
-               id="NameFieldSelector_all"
-               name="name_field_selector"
-               value="all" 
-               onclick="update_value_field_for_name(this.value)"
-               checked
-               />
+        <input type="radio" id="NameFieldSelector_all" name="name_field_selector" value="all" />
         <label for="NameFieldSelector_all"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.all'); ?></label>
 
-        <input type="radio"
-               id="NameFieldSelector_given"
-               name="name_field_selector"
-               value="given"
-               onclick="update_value_field_for_name(this.value)"
-               />
+        <input type="radio" id="NameFieldSelector_given" name="name_field_selector" value="given" />
         <label for="NameFieldSelector_given"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.given'); ?></label>
 
-        <input type="radio"
-               id="NameFieldSelector_middle"
-               name="name_field_selector"
-               value="middle" 
-               onclick="update_value_field_for_name(this.value)"
-               />
+        <input type="radio" id="NameFieldSelector_middle" name="name_field_selector" value="middle" />
         <label for="NameFieldSelector_middle"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.middle'); ?></label>
 
-        <input type="radio"
-               id="NameFieldSelector_family"
-               name="name_field_selector"
-               value="family" 
-               onclick="update_value_field_for_name(this.value)"
-               />
+        <input type="radio" id="NameFieldSelector_family" name="name_field_selector" value="family" />
         <label for="NameFieldSelector_family"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.family'); ?></label>
-
       </span>
     </div>
   </li>
@@ -822,74 +877,44 @@
         <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.name'); ?>
         <span class="required">*</span>
       </div>
-      <div class="field-desc">
-        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.description'); ?>
-      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <input type="radio"
-               id="SshKeyFieldSelector_all"
-               name="ssh_key_field_selector"
-               value="all"
-               onclick="update_value_field_for_ssh_key(this.value)"
-               checked
-               />
+        <input type="radio" id="SshKeyFieldSelector_all" name="ssh_key_field_selector" value="all" />
         <label for="SshKeyFieldSelector_all"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.all'); ?></label>
 
-        <input type="radio"
-               id="SshKeyFieldSelector_skey"
-               name="ssh_key_field_selector"
-               value="skey"
-               onclick="update_value_field_for_ssh_key(this.value)"
-               />
+        <input type="radio" id="SshKeyFieldSelector_skey" name="ssh_key_field_selector" value="skey" />
         <label for="SshKeyFieldSelector_skey"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.skey'); ?></label>
 
-        <input type="radio"
-               id="SshKeyFieldSelector_comment"
-               name="ssh_key_field_selector"
-               value="comment"
-               onclick="update_value_field_for_ssh_key(this.value)"
-               />
+        <input type="radio" id="SshKeyFieldSelector_comment" name="ssh_key_field_selector" value="comment" />
         <label for="SshKeyFieldSelector_comment"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.comment'); ?></label>
 
-
-        <input type="radio"
-               id="SshKeyFieldSelector_type"
-               name="ssh_key_field_selector"
-               value="type"
-               onclick="update_value_field_for_ssh_key(this.value)"
-               />
+        <input type="radio" id="SshKeyFieldSelector_type" name="ssh_key_field_selector" value="type" />
         <label for="SshKeyFieldSelector_type"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.type'); ?></label>
       </span>
     </div>
   </li>
 
   <!-- CoPersonRole field selector -->
-   <li id="CoPersonRoleFieldSelector_li" style="display:none;">
+  <li id="CoPersonRoleFieldSelector_li" style="display:none;">
     <div class="field-name">
       <div class="field-title">
         <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.name'); ?>
         <span class="required">*</span>
       </div>
-      <div class="field-desc">
-        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.description'); ?>
-      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <select 
-               id="CoPersonRoleFieldSelector"
-               name="co_person_role_field_selector"
-               onclick="update_value_field_for_co_person_role(this.value)"
-               >
-               <option value=""><?php print ""; ?></option>
-               <option value="all"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.all'); ?></option>
-               <option value="affiliation"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.affiliation'); ?></option>
-               <option value="cou"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.cou'); ?></option>
-               <option value="title"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.title'); ?></option>
-               <option value="o"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.o'); ?></option>
-               <option value="ou"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.ou'); ?></option>
+        <select id="CoPersonRoleFieldSelector" name="co_person_role_field_selector">
+          <option value=""></option>
+          <option value="all"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.all'); ?></option>
+          <option value="affiliation"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.affiliation'); ?></option>
+          <option value="cou"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.cou'); ?></option>
+          <option value="title"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.title'); ?></option>
+          <option value="o"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.o'); ?></option>
+          <option value="ou"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.ou'); ?></option>
         </select>
       </span>
     </div>
@@ -902,232 +927,129 @@
         <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.name'); ?>
         <span class="required">*</span>
       </div>
-      <div class="field-desc">
-        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.description'); ?>
-      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <select 
-               id="UnixClusterAccountFieldSelector"
-               name="unix_cluster_account_field_selector"
-               onclick="update_value_field_for_unix_cluster_account(this.value)"
-               >
-               <option value=""><?php print ""; ?></option>
-               <option value="all"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.all'); ?></option>
-               <option value="username"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.username'); ?></option>
-               <option value="uid"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.uid'); ?></option>
-               <option value="gecos"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.gecos'); ?></option>
-               <option value="login_shell"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.login_shell'); ?></option>
-               <option value="home_directory"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.home_directory'); ?></option>
+        <select id="UnixClusterAccountFieldSelector" name="unix_cluster_account_field_selector">
+          <option value=""></option>
+          <option value="all"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.all'); ?></option>
+          <option value="username"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.username'); ?></option>
+          <option value="uid"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.uid'); ?></option>
+          <option value="gecos"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.gecos'); ?></option>
+          <option value="login_shell"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.login_shell'); ?></option>
+          <option value="home_directory"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.home_directory'); ?></option>
         </select>
       </span>
     </div>
   </li>
 
-  <!-- Oa4mpClientClaim['source_model_claim_value_field'] -->
+  <!-- Hidden fields for source model and constraints -->
   <li style="display:none;">
     <?php
-      $attrs = array();
-      $attrs['value'] = $claim['source_model_claim_value_field'] ?? "";
-
-      $options = array();
-      $options['hidden'] = 'hidden';
-
-      print $this->Form->input('source_model_claim_value_field', $attrs, $options);
+      print $this->Form->hidden('source_model_claim_value_field', array(
+        'value' => $claim['source_model_claim_value_field'] ?? '',
+        'id' => 'SourceModelValueFieldHidden'
+      ));
     ?>
   </li>
 
-  <!-- Oa4mpClientClaimConstraint.0.constraint_field -->
   <li style="display:none;">
     <?php
-      $attrs = array();
-      $attrs['value'] = $constraint0['constraint_field'] ?? "";
-
-      print $this->Form->input('Oa4mpClientClaimConstraint.0.constraint_field', $attrs);
+      print $this->Form->hidden('Oa4mpClientClaimConstraint.0.constraint_field', array(
+        'value' => $constraint0['constraint_field'] ?? '',
+        'id' => 'Constraint0FieldHidden'
+      ));
     ?>
   </li>
 
-  <!-- Oa4mpClientClaimConstraint.0.value -->
-  <?php
-    $style = $this->action == 'edit' && !empty($claim['source_model']) ? 'display:block;' : 'display:none;';
-  ?>
-  <li id="Oa4mpClientClaimConstraint0ConstraintValue_li" style="<?php echo $style; ?>">
+  <li style="display:none;">
+    <?php
+      print $this->Form->hidden('Oa4mpClientClaimConstraint.1.constraint_field', array(
+        'value' => $constraint1['constraint_field'] ?? '',
+        'id' => 'Constraint1FieldHidden'
+      ));
+    ?>
+  </li>
+
+  <!-- Constraint 0 value -->
+  <li id="Oa4mpClientClaimConstraint0ConstraintValue_li" style="display:none;">
     <div class="field-name">
       <div class="field-title">
-        <?php 
-          switch($claim['source_model'] ?? "") {
-            case "Identifier":
-              $label = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier');
-              break;
-            case "EmailAddress":
-              $label = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email');
-              break;
-            case "Name":
-              $label = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name');
-              break;
-            case "CoGroupMember":
-              $label = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.co_group_member');
-              break;
-            default:
-              $label = "";
-              break;
-          }
-          print $this->Form->label('Oa4mpClientClaimConstraint.0.value', $label);
+        <?php print $this->Form->label('Oa4mpClientClaimConstraint.0.value', ''); ?>
+        <span class="required">*</span>
+      </div>
+      <div class="field-desc"></div>
+    </div>
+    <div class="field-info">
+      <span class="field-info-prefix">
+        <?php
+          print $this->Form->hidden('Oa4mpClientClaimConstraint.0.constraint_value', array(
+            'value' => $constraint0['constraint_value'] ?? '',
+            'id' => 'Constraint0Hidden'
+          ));
         ?>
-        <span class="required">*</span>
-      </div>
-      <?php
-        switch($claim['source_model'] ?? "") {
-          case "Identifier":
-            $description = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.identifier');
-            break;
-          case "EmailAddress":
-            $description = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.email');
-            break;
-          case "Name":
-            $description = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.name');
-            break;
-          case "CoGroupMember":
-            $description = _txt('pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_group_member');
-            break;
-          default:
-            $description = "";
-            break;
-        }
-      ?>
-      <div class="field-desc"><?php print $description; ?></div>
-    </div>
-    <div class="field-info">
-      <span class="field-info-prefix">
-      <?php
-        $options = array();
-        $attrs = array();
-
-        if(!empty($constraint0['constraint_value'])) {
-          $attrs['value'] = $constraint0['constraint_value'];
-        }
-
-        switch($claim['source_model'] ?? "") {
-          case "Identifier":
-            $options = $vv_identifier_types;
-            print $this->Form->select('Oa4mpClientClaimConstraint.0.constraint_value', $options, $attrs);
-            break;
-          case "EmailAddress":
-            $options = $vv_email_types;
-            print $this->Form->select('Oa4mpClientClaimConstraint.0.constraint_value', $options, $attrs);
-            break;
-          case "Name":
-            $options = $vv_name_types;
-            print $this->Form->select('Oa4mpClientClaimConstraint.0.constraint_value', $options, $attrs);
-            break;
-          case "CoGroupMember":
-            print $this->Form->input('Oa4mpClientClaimConstraint.0.constraint_value', $attrs);
-            break;
-          case "CoPersonRole":
-            print $this->Form->input('Oa4mpClientClaimConstraint.0.constraint_value', $attrs);
-            break;
-          default:
-            print $this->Form->input('Oa4mpClientClaimConstraint.0.constraint_value', $attrs);
-            break;
-        }
-
-      ?>
+        <select id="Constraint0Select" style="display:none;"></select>
+        <input type="checkbox" id="Constraint0Checkbox" value="true" style="display:none;" />
+        <input type="text" id="Constraint0Text" style="display:none;" />
       </span>
     </div>
   </li>
 
-  <!-- Oa4mpClientClaimConstraint.1.constraint_field -->
-  <li style="display:none;">
-    <div class="field-name">
-      <div class="field-title">
-        <?php print $this->Form->label('Oa4mpClientClaimConstraint.1.constraint_field', _txt('pl.oa4mp_client_co_oidc_client.claimconstraint.fd.constraint_field.name')) ?>
-        <span class="required">*</span>
-      </div>
-      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claimconstraint.fd.constraint_field.description'); ?></div>
-    </div>
-    <div class="field-info">
-      <span class="field-info-prefix">
-      <?php
-        $attrs = array();
-        $attrs['value'] = $constraint1['constraint_field'] ?? "";
-        $attrs['required'] = false;
-
-        $options = array();
-        $options['hidden'] = 'hidden';
-
-        print $this->Form->input('Oa4mpClientClaimConstraint.1.constraint_field', $attrs, $options);
-      ?>
-      </span>
-    </div>
-  </li>
-
-  <!-- Oa4mpClientClaimConstraint.1.constraint_value -->
+  <!-- Constraint 1 value -->
   <li id="Oa4mpClientClaimConstraint1ConstraintValue_li" style="display:none;">
     <div class="field-name">
       <div class="field-title">
-        <?php print $this->Form->label('Oa4mpClientClaimConstraint.1.constraint_value', "") ?>
+        <?php print $this->Form->label('Oa4mpClientClaimConstraint.1.value', ''); ?>
+        <span class="required">*</span>
       </div>
-      <div class="field-desc"><?php print ""; ?></div>
+      <div class="field-desc"></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-      <?php
-      $attrs = array();
-      $attrs['value'] = $constraint1['constraint_value'] ?? "";
-      $attrs['required'] = false;
-
-      $options = array();
-      $options['hidden'] = 'hidden';
-
-        print $this->Form->input('Oa4mpClientClaimConstraint.1.constraint_value', $attrs, $options);
-      ?>
+        <?php
+          print $this->Form->hidden('Oa4mpClientClaimConstraint.1.constraint_value', array(
+            'value' => $constraint1['constraint_value'] ?? '',
+            'id' => 'Constraint1Hidden'
+          ));
+        ?>
+        <input type="checkbox" id="Constraint1Checkbox" value="true" style="display:none;" />
       </span>
     </div>
   </li>
 
-  <!-- Oa4mpClientClaim['claim_value_selection'] -->
-  <?php
-    $style = $this->action == 'edit' && !empty($claim['source_model']) ? 'display:block;' : 'display:none;';
-  ?>
-  <li id="Oa4mpClientClaimClaimValueSelection_li" style="<?php echo $style; ?>">
+  <!-- Claim value selection -->
+  <li id="Oa4mpClientClaimClaimValueSelection_li" style="display:none;">
     <div class="field-name">
       <div class="field-title">
-        <?php print $this->Form->label('claim_value_selection', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_selection.name')) ?>
+        <?php print $this->Form->label('claim_value_selection', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_selection.name')); ?>
         <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_selection.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-      <?php
-        $options = array();
-        $options['first'] = 'First value found';
-        $options['all']   = 'All values found';
+        <?php
+          $options = array();
+          $options['first'] = 'First value found';
+          $options['all'] = 'All values found';
 
-        $attrs = array();
-        $attrs['value'] = $claim['claim_value_selection'] ?? "";
-        $attrs['empty'] = true;
-        $attrs['onChange'] = 'update_claim_value_selection_select(this);';
-
-        if($e) {
-          print $this->Form->select('claim_value_selection', $options, $attrs);
-        }
-      ?>
+          $attrs = array();
+          $attrs['value'] = $claim['claim_value_selection'] ?? '';
+          echo $this->Form->select('claim_value_selection', $options, $attrs);
+        ?>
       </span>
     </div>
   </li>
 
-  <!-- Oa4mpClientClaim['claim_multiple_value_serialization'] -->
+  <!-- Multiple value serialization -->
   <li id="Oa4mpClientClaimClaimMultipleValueSerialization_li" style="display:none;">
     <div class="field-name">
       <div class="field-title">
-        <?php print $this->Form->label('claim_multiple_value_serialization', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_serialization.name')) ?>
+        <?php print $this->Form->label('claim_multiple_value_serialization', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_serialization.name')); ?>
         <span class="required">*</span>
       </div>
-      <div class="field-desc">
-        <?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_serialization.description'); ?>
-      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_serialization.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
@@ -1140,70 +1062,57 @@
           $attrs['legend'] = false;
           $attrs['separator'] = ' ';
           $attrs['value'] = $claim['claim_multiple_value_serialization'] ?? '';
-          $attrs['onclick'] = 'update_string_d_select(this.value)';
-          print $this->Form->radio('claim_multiple_value_serialization', $options, $attrs);
+          echo $this->Form->radio('claim_multiple_value_serialization', $options, $attrs);
         ?>
       </span>
     </div>
   </li>
 
-  <!-- Oa4mpClientClaim['claim_value_string_serialization_delimiter'] -->
-  <?php
-    $style = $this->action == 'edit' && !empty($claim['claim_value_string_serialization_delimiter']) ? 'display:block;' : 'display:none;';
-  ?>
-  <li id="Oa4mpClientClaimClaimValueStringSerializationDelimiter_li" style="<?php echo $style; ?>">
+  <!-- String delimiter -->
+  <li id="Oa4mpClientClaimClaimValueStringSerializationDelimiter_li" style="display:none;">
     <div class="field-name">
       <div class="field-title">
-        <?php print $this->Form->label('claim_value_string_serialization_delimiter', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_string_serialization_delimiter.name')) ?>
+        <?php print $this->Form->label('claim_value_string_serialization_delimiter', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_string_serialization_delimiter.name')); ?>
         <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_string_serialization_delimiter.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-      <?php
-        $attrs = array();
-        $attrs['value'] = $claim['claim_value_string_serialization_delimiter'] ?? null;
-
-        if($e) {
-          print $this->Form->input('claim_value_string_serialization_delimiter', $attrs);
-        }
-      ?>
+        <?php
+          echo $this->Form->input('claim_value_string_serialization_delimiter', array(
+            'value' => $claim['claim_value_string_serialization_delimiter'] ?? '',
+            'div' => false,
+            'label' => false
+          ));
+        ?>
       </span>
     </div>
   </li>
 
-  <!-- Oa4mpClientClaim['claim_value_json_format'] -->
-  <?php
-    $style = $this->action == 'edit' && !empty($claim['source_model']) ? 'display:block;' : 'display:none;';
-  ?>
-  <li id="Oa4mpClientClaimClaimValueJsonFormat_li" style="<?php echo $style; ?>">
+  <!-- JSON format -->
+  <li id="Oa4mpClientClaimClaimValueJsonFormat_li" style="display:none;">
     <div class="field-name">
       <div class="field-title">
-        <?php print $this->Form->label('claim_value_json_format', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_json_format.name')) ?>
+        <?php print $this->Form->label('claim_value_json_format', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_json_format.name')); ?>
         <span class="required">*</span>
       </div>
       <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_json_format.description'); ?></div>
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-      <?php
-        $attrs = array();
-        $attrs['value'] = $claim['claim_value_json_format'] ?? "";
-        $attrs['empty'] = true;
+        <?php
+          $options = array();
+          $options['string'] = 'JSON string';
+          $options['number'] = 'JSON number';
 
-        $options = array();
-        $options['string'] = 'JSON string';
-        $options['number']   = 'JSON number';
-        
-        if($e) {
-          print $this->Form->select('claim_value_json_format', $options, $attrs);
-        }
-      ?>
+          $attrs = array();
+          $attrs['value'] = $claim['claim_value_json_format'] ?? '';
+          echo $this->Form->select('claim_value_json_format', $options, $attrs);
+        ?>
       </span>
     </div>
   </li>
-
 
   <?php if($e): ?>
     <li class="fields-submit">
