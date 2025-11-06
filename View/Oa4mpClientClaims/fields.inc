@@ -321,6 +321,25 @@
   const oa4mpConstraint0Texts = <?php print $constraint0TextsJson; ?>;
   const oa4mpConstraint1Texts = <?php print $constraint1TextsJson; ?>;
   const oa4mpSourceModelConfigs = <?php print $sourceModelConfigsJson; ?>;
+  const STANDARD_CLAIMS = [
+    "sub",
+    "iss",
+    "aud",
+    "token_id",
+    "email",
+    "given_name",
+    "family_name",
+    "name",
+    "idp",
+    "idp_name",
+    "eppn",
+    "eptid",
+    "affiliation",
+    "ou",
+    "oidc",
+    "cert_subject_dn"
+  ].map(function(value) { return value.toLowerCase(); });
+  const claimOverrideMessage = <?php print json_encode(_txt('pl.oa4mp_client_co_scope.scope.override')); ?>;
 
   const FIELD_SELECTORS = {
     constraint0: '#Oa4mpClientClaimConstraint0ConstraintValue_li',
@@ -360,6 +379,22 @@
       }
     }
   };
+
+  function showClaimOverrideMessage() {
+    const $message = $('#ClaimNameOverrideMessage');
+    $message.stop(true, true)
+            .text(claimOverrideMessage)
+            .fadeIn(200)
+            .delay(5000)
+            .fadeOut(400);
+  }
+
+  function checkClaimNameOverride(value) {
+    const normalized = (value || '').trim().toLowerCase();
+    if(normalized && STANDARD_CLAIMS.indexOf(normalized) !== -1) {
+      showClaimOverrideMessage();
+    }
+  }
 
   function resetConstraint0UI() {
     const $li = $(FIELD_SELECTORS.constraint0);
@@ -800,6 +835,16 @@
   }
 
   function js_local_onload() {
+    $('#ClaimNameField').addClass('claim-name-field');
+
+    const $claimNameField = $('#Oa4mpClientClaimClaimName');
+    if($claimNameField.length) {
+      $claimNameField.on('input', function() {
+        checkClaimNameOverride($(this).val());
+      });
+      checkClaimNameOverride($claimNameField.val());
+    }
+
     $('#Oa4mpClientClaimSourceModel').on('change', function() {
       applySourceModel($(this).val());
     });
@@ -846,7 +891,7 @@
 <ul id="<?php print $this->action; ?>_oa4mp_client_co_oidc_claim" class="fields form-list form-list-admin">
 
   <!-- Oa4mpClientClaim['claim_name'] -->
-  <li>
+  <li id="ClaimNameField">
     <div class="field-name">
       <div class="field-title">
         <?php print $this->Form->label('claim_name', _txt('pl.oa4mp_client_co_oidc_client.claims.fd.claim_name.name')); ?>
@@ -857,6 +902,7 @@
     <div class="field-info">
       <span class="field-info-prefix">
         <?php print $this->Form->input('claim_name', array('label' => false, 'div' => false)); ?>
+        <div id="ClaimNameOverrideMessage" class="oa4mp-override-message" style="display:none;"></div>
       </span>
     </div>
   </li>
