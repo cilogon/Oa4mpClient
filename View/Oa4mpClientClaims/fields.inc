@@ -200,8 +200,8 @@
       ),
       'jsonFormat' => array('visible' => false),
       'valueSelection' => array('visible' => false, 'forceValue' => 'all'),
-      'multipleSerialization' => array('mode' => 'always', 'default' => 'json_array', 'allowDelimited' => false),
-      'stringDelimiter' => array('mode' => 'hidden')
+      'multipleSerialization' => array('mode' => 'always', 'default' => 'json_array', 'allowDelimited' => true),
+      'stringDelimiter' => array('mode' => 'auto')
     ),
     'CoPersonRole' => array(
       'showFields' => array('constraint0', 'valueSelection'),
@@ -633,6 +633,16 @@
     return $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]:checked').val();
   }
 
+  function hasExistingMultipleSerializationValue() {
+    const current = getMultipleSerializationValue();
+    if(current !== undefined && current !== null && current !== '') {
+      return true;
+    }
+
+    const hiddenValue = $('#ClaimMultipleValueSerializationHidden').val();
+    return hiddenValue !== undefined && hiddenValue !== null && hiddenValue !== '';
+  }
+
   function syncSelectorValues() {
     const sourceFieldValue = $('#SourceModelValueFieldHidden').val();
 
@@ -690,7 +700,9 @@
     }
 
     if(defaults.multipleSerialization) {
-      setMultipleSerializationValue(defaults.multipleSerialization);
+      if(!hasExistingMultipleSerializationValue()) {
+        setMultipleSerializationValue(defaults.multipleSerialization);
+      }
     }
   }
 
@@ -777,6 +789,8 @@
     const delimiterMode = (config.stringDelimiter || {}).mode || 'auto';
     const allowDelimited = (config.multipleSerialization || {}).allowDelimited !== false;
     const currentValue = getMultipleSerializationValue();
+
+    console.log('handleMultipleSerializationChange', model, config, delimiterMode, allowDelimited, currentValue);
 
     if(!allowDelimited) {
       hideStringDelimiter();
