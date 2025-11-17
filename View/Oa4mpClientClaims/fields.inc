@@ -633,6 +633,11 @@
     return $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]:checked').val();
   }
 
+  function clearMultipleSerializationValue() {
+    $('input[name="data[Oa4mpClientClaim][claim_multiple_value_serialization]"]').prop('checked', false);
+    $('#ClaimMultipleValueSerializationHidden').val('');
+  }
+
   function hasExistingMultipleSerializationValue() {
     const current = getMultipleSerializationValue();
     if(current !== undefined && current !== null && current !== '') {
@@ -779,7 +784,7 @@
     } else {
       $(FIELD_SELECTORS.multipleSerialization).hide();
       hideStringDelimiter();
-      setMultipleSerializationValue('json_array');
+      clearMultipleSerializationValue();
     }
   }
 
@@ -789,8 +794,6 @@
     const delimiterMode = (config.stringDelimiter || {}).mode || 'auto';
     const allowDelimited = (config.multipleSerialization || {}).allowDelimited !== false;
     const currentValue = getMultipleSerializationValue();
-
-    console.log('handleMultipleSerializationChange', model, config, delimiterMode, allowDelimited, currentValue);
 
     if(!allowDelimited) {
       hideStringDelimiter();

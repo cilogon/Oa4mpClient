@@ -728,17 +728,42 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $qdl['args']['dynamo_module_config'] = $dynamoModuleConfig;
 
     // Add the partition key pattern and claim name.
-    $qdl['args']['partition_key_pattern'] = $dynamoConfig['partition_key_template'];
+    $qdl['args']['partition_key_template'] = $dynamoConfig['partition_key_template'];
     $qdl['args']['partition_key_claim_name'] = $dynamoConfig['partition_key_claim_name'];
 
-    // Add the claims configuration.
-    $qdl['args']['claim_mappings'] = array();
+    // Add the claims configurations.
+    $claimMappings = array();
     foreach($data['Oa4mpClientClaim'] as $claim) {
-      $mapping = array();
-      $mapping['name'] = $claim['claim_name'];
-      [$mapping['source'], $mapping['comment']] = $this->claimMappingSource($claim);
-      $qdl['args']['claim_mappings'][] = $mapping;
+      $mapping = $claim;
+
+      foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
+        $constraintMapping = $constraint;
+        unset($constraintMapping['id']);
+        unset($constraintMapping['claim_id']);
+        unset($constraintMapping['created']);
+        unset($constraintMapping['modified']);
+        $mapping['claim_constraints'][] = $constraintMapping;
+      }
+
+      unset($mapping['id']);
+      unset($mapping['client_id']);
+      unset($mapping['created']);
+      unset($mapping['modified']);
+      unset($mapping['Oa4mpClientClaimConstraint']);
+
+      $claimMappings[] = $mapping;
     }
+
+    $qdl['args']['claim_mappings'] = $claimMappings;
+
+    //$qdl['args']['claim_mappings'] = array();
+    //foreach($data['Oa4mpClientClaim'] as $claim) {
+    //  $mapping = array();
+    //  $mapping['name'] = $claim['claim_name'];
+    //[$mapping['source'], $mapping['comment']] = $this->claimMappingSource($claim);
+
+    //  $qdl['args']['claim_mappings'][] = $mapping;
+    //}
 
 
     $cfg['tokens']['identity']['qdl'] = $qdl;

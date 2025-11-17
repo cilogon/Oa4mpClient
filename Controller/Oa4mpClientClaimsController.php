@@ -249,8 +249,8 @@ class Oa4mpClientClaimsController extends StandardController {
       foreach($client['Oa4mpClientClaim'] as $i => $c) {
         if($c['id'] == $id) {
           $newClient['Oa4mpClientClaim'][$i] = $this->request->data['Oa4mpClientClaim'];
-          if(!empty($this->request->data['Oa4mpClientClaimConstraint'][0])) {
-            $newClient['Oa4mpClientClaim'][$i]['Oa4mpClientClaimConstraint'][0] = $this->request->data['Oa4mpClientClaimConstraint'][0];
+          if(!empty($this->request->data['Oa4mpClientClaimConstraint'])) {
+            $newClient['Oa4mpClientClaim'][$i]['Oa4mpClientClaimConstraint'] = $this->request->data['Oa4mpClientClaimConstraint'];
           }
           break;
         }
