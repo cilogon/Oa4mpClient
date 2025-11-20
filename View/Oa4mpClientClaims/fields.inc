@@ -371,7 +371,7 @@
         $(FIELD_SELECTORS.valueSelection).hide();
         $(FIELD_SELECTORS.multipleSerialization).hide();
         hideStringDelimiter();
-        setMultipleSerializationValue('json_array');
+        clearMultipleSerializationValue();
       } else {
         setValueSelection('all');
         $(FIELD_SELECTORS.valueSelection).show();
