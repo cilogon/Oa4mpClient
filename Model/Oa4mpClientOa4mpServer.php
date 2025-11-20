@@ -736,22 +736,35 @@ class Oa4mpClientOa4mpServer extends AppModel {
     foreach($data['Oa4mpClientClaim'] as $claim) {
       $mapping = $claim;
 
+      // Add the claim constraints.
       foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
         $constraintMapping = $constraint;
+
+        // Clear the fields that are not needed in the mapping sent to the server.
         unset($constraintMapping['id']);
         unset($constraintMapping['claim_id']);
         unset($constraintMapping['created']);
         unset($constraintMapping['modified']);
+
+        // Only add the constraint if it is not empty.
         if(!empty($constraintMapping['constraint_field']) || !empty($constraintMapping['constraint_value'])) {
           $mapping['claim_constraints'][] = $constraintMapping;
         }
       }
 
+      // Clear the fields that are not needed in the mapping sent to the server.
       unset($mapping['id']);
       unset($mapping['client_id']);
       unset($mapping['created']);
       unset($mapping['modified']);
       unset($mapping['Oa4mpClientClaimConstraint']);
+
+      // Unset any fields that are empty.
+      foreach($mapping as $key => $value) {
+        if(empty($value)) {
+          unset($mapping[$key]);
+        }
+      }
 
       $claimMappings[] = $mapping;
     }
