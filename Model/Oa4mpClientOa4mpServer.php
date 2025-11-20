@@ -742,7 +742,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
         unset($constraintMapping['claim_id']);
         unset($constraintMapping['created']);
         unset($constraintMapping['modified']);
-        $mapping['claim_constraints'][] = $constraintMapping;
+        if(!empty($constraintMapping['constraint_field']) || !empty($constraintMapping['constraint_value'])) {
+          $mapping['claim_constraints'][] = $constraintMapping;
+        }
       }
 
       unset($mapping['id']);
