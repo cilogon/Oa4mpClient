@@ -148,6 +148,11 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'on' => 'update',
       'allowEmpty' => true,
     ),
+    'oa4mp_server_extra' => array(
+      'rule' => 'notBlank',
+      'required' => false,
+      'allowEmpty' => true
+    ),
   );
 
   /**

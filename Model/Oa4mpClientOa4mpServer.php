@@ -480,10 +480,16 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $ret = 0;
 
     // Check that the current client data is synchronized with the
-    // server.
-    $synchronized = $this->oa4mpVerifyClient($adminClient, $curData);
-    if(!$synchronized) {
+    // server and capture any extra keys from the OA4MP server response.
+    $verifyResult = $this->oa4mpVerifyClient($adminClient, $curData, true);
+    if(!$verifyResult['synchronized']) {
       return 2;
+    }
+
+    // Update the data with any extra keys from the OA4MP server so they
+    // are included when marshalling the content for the edit request.
+    if(!empty($verifyResult['oa4mp_server_extra'])) {
+      $data['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] = $verifyResult['oa4mp_server_extra'];
     }
 
     // The current data before edit and the current Oa4mp server respresentation
@@ -953,6 +959,23 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
     }
 
+    // Merge any extra keys that were stored from a previous OA4MP server
+    // response. These are keys that are not represented in the plugin's
+    // data model but need to be sent back to the OA4MP server so that
+    // those configuration details are not lost.
+    if(!empty($data['Oa4mpClientCoOidcClient']['oa4mp_server_extra'])) {
+      $extraKeys = json_decode($data['Oa4mpClientCoOidcClient']['oa4mp_server_extra'], true);
+      if(!empty($extraKeys) && is_array($extraKeys)) {
+        // Merge extra keys but do not overwrite any keys that were already set.
+        foreach($extraKeys as $key => $value) {
+          if(!array_key_exists($key, $content)) {
+            $content[$key] = $value;
+          }
+        }
+        $this->log("Merged extra keys into content for OA4MP server: " . print_r($extraKeys, true));
+      }
+    }
+
     return $content;
   }
 
@@ -1018,6 +1041,29 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $oa4mpClient['Oa4mpClientCoScope']       = array();
     $oa4mpClient['Oa4mpClientRefreshToken']  = array();
     $oa4mpClient['Oa4mpClientAccessToken']   = array();
+
+    // Define the keys that are processed by this plugin or that should not
+    // be stored and sent back to the OA4MP server during an edit action. Any
+    // keys not in this list will be captured as "extra" JSON and stored in
+    // the database so that they can be sent back to the OA4MP server.
+    $knownKeys = array(
+      'client_id',
+      'client_name',
+      'client_uri',
+      'rt_lifetime',
+      'comment',
+      'contacts',
+      'redirect_uris',
+      'scope',
+      'token_endpoint_auth_method',
+      'cfg',
+      'grant_types',
+      'response_types',
+      // Read-only keys from OA4MP server that should not be sent back.
+      'registration_access_token',
+      'client_secret_expires_at',
+      'client_id_issued_at',
+    );
 
     try {
       // Try to unmarshall the server object and throw exception
@@ -1088,6 +1134,22 @@ class Oa4mpClientOa4mpServer extends AppModel {
             $oa4mpClient['Oa4mpClientCoOidcClient']['public_client'] = true;
           }
         }
+      }
+
+      // Capture any keys from the OA4MP server response that are not in the
+      // known keys list. These are stored in the database and sent back to
+      // the OA4MP server during an edit action so that configuration details
+      // not represented in the plugin's data model are not lost.
+      $extraKeys = array();
+      foreach($oa4mpObject as $key => $value) {
+        if(!in_array($key, $knownKeys)) {
+          $extraKeys[$key] = $value;
+        }
+      }
+
+      if(!empty($extraKeys)) {
+        $oa4mpClient['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] = json_encode($extraKeys);
+        $this->log("Captured extra keys from OA4MP server: " . print_r($extraKeys, true));
       }
 
       // Unmarshall the cfg object, if any.
@@ -1406,11 +1468,14 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @since COmanage Registry 3.2.5
    * @param  Array $adminClient admin client
    * @param  Array $curClient current client
-   * @return Boolean True if synchronized, else False
+   * @param  Boolean $returnExtras if true, return array with sync status and extra keys
+   * @return Mixed Boolean if $returnExtras is false, otherwise array with 'synchronized'
+   *               and 'oa4mp_server_extra' keys
    */
 
-  function oa4mpVerifyClient($adminClient, $curClient) {
+  function oa4mpVerifyClient($adminClient, $curClient, $returnExtras = false) {
     $synchronized = False;
+    $oa4mpServerExtra = null;
 
     $http = new HttpSocket();
 
@@ -1443,9 +1508,22 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // has been changed outside of this plugin.
       $oa4mpServerData = $this->oa4mpUnMarshallContent($oa4mpObject);
       $synchronized = $this->isClientDataSynchronized($curClient, $oa4mpServerData);
+
+      // Capture any extra keys from the OA4MP server response.
+      if(!empty($oa4mpServerData['Oa4mpClientCoOidcClient']['oa4mp_server_extra'])) {
+        $oa4mpServerExtra = $oa4mpServerData['Oa4mpClientCoOidcClient']['oa4mp_server_extra'];
+      }
     }
     catch(Exception $e) {
       $this->log("Caught exception during unmarshall of Oa4mp server object: " . $e->getMessage());
+    }
+
+    // Return based on whether extras were requested.
+    if($returnExtras) {
+      return array(
+        'synchronized' => $synchronized,
+        'oa4mp_server_extra' => $oa4mpServerExtra
+      );
     }
 
     return $synchronized;

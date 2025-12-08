@@ -137,13 +137,22 @@ class Oa4mpClientCoScopesController extends StandardController {
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
-    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
-    if(!$synchronized) {
+    $verifyResult = $oa4mpServer->oa4mpVerifyClient($admin, $client, true);
+    if(!$verifyResult['synchronized']) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
       $args = array();
       $args['action'] = 'index';
       $args['co'] = $this->cur_co['Co']['id'];
       $this->redirect($args);
+    }
+
+    // Update oa4mp_server_extra if the OA4MP server returned different extra keys.
+    $currentExtra = $client['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] ?? null;
+    $serverExtra = $verifyResult['oa4mp_server_extra'] ?? null;
+    if($serverExtra !== $currentExtra) {
+      $this->Oa4mpClientCoScope->Oa4mpClientCoOidcClient->id = $clientId;
+      $this->Oa4mpClientCoScope->Oa4mpClientCoOidcClient->saveField('oa4mp_server_extra', $serverExtra);
+      $client['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] = $serverExtra;
     }
 
     $this->request->data = $client;

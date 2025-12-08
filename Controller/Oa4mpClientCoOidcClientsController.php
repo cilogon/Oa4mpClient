@@ -447,14 +447,26 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // GET request
     
     // Verify that this plugin and the OA4MP server representations
-    // of the current client before the edit are synchronized.
-    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
-    if(!$synchronized) {
+    // of the current client before the edit are synchronized. Also capture
+    // any extra keys from the OA4MP server response that are not represented
+    // in the plugin's data model.
+    $verifyResult = $oa4mpServer->oa4mpVerifyClient($admin, $client, true);
+    if(!$verifyResult['synchronized']) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
       $args = array();
       $args['action'] = 'index';
       $args['co'] = $this->cur_co['Co']['id'];
       $this->redirect($args);
+    }
+
+    // If the OA4MP server returned extra keys that differ from what is
+    // stored in the database, update the database with the new values.
+    $currentExtra = $client['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] ?? null;
+    $serverExtra = $verifyResult['oa4mp_server_extra'] ?? null;
+    if($serverExtra !== $currentExtra) {
+      $this->Oa4mpClientCoOidcClient->id = $id;
+      $this->Oa4mpClientCoOidcClient->saveField('oa4mp_server_extra', $serverExtra);
+      $client['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] = $serverExtra;
     }
 
     // Set the title for the view.

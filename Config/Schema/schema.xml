@@ -68,6 +68,7 @@
         <field name="named_config_id" type="I">
             <constraint>REFERENCES cm_oa4mp_client_co_named_configs(id)</constraint>
         </field>
+        <field name="oa4mp_server_extra" type="X" size="65535" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
