@@ -567,6 +567,10 @@
     if(config.selectors && config.selectors.indexOf('coPersonRoleSelector') !== -1) {
       handleCoPersonRoleFieldChange($('#CoPersonRoleFieldSelector').val());
     }
+
+    if(config.selectors && config.selectors.indexOf('unixSelector') !== -1) {
+      handleUnixClusterAccountFieldChange($('#UnixClusterAccountFieldSelector').val());
+    }
   }
 
   function setHiddenFieldIfEmpty(selector, value) {
@@ -676,6 +680,16 @@
 
   function handleCoPersonRoleFieldChange(value) {
     if(value === 'all' || value === '') {
+      lockMultipleSerialization('json_array');
+      hideStringDelimiter();
+    } else {
+      unlockMultipleSerialization();
+      handleMultipleSerializationChange();
+    }
+  }
+
+  function handleUnixClusterAccountFieldChange(value) {
+    if(value === 'all') {
       lockMultipleSerialization('json_array');
       hideStringDelimiter();
     } else {
@@ -891,6 +905,7 @@
 
     $('#UnixClusterAccountFieldSelector').on('change', function() {
       $('#SourceModelValueFieldHidden').val($(this).val());
+      handleUnixClusterAccountFieldChange($(this).val());
     });
 
     $('form').on('submit', function() {
