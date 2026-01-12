@@ -64,8 +64,6 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
-      $this->log("FOO POST/PUT request data is " . print_r($this->request->data, true));
-
       $claims = $client['Oa4mpClientClaim'];
 
       $newClaim = $this->request->data['Oa4mpClientClaim'];
@@ -95,8 +93,6 @@ class Oa4mpClientClaimsController extends StandardController {
         });
 
         $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
-
-        $this->log("FOO validation errors are " . print_r($this->Oa4mpClientClaim->validationErrors, true));
 
         // Set flash successful.
         $this->Flash->set(_txt('pl.oa4mp_client_claim.add.flash.success'), array('key' => 'success'));
@@ -252,7 +248,6 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
-      $this->log("FOO POST/PUT request data is " . print_r($this->request->data, true));
       $newClient = $client;
 
       foreach($client['Oa4mpClientClaim'] as $i => $c) {
@@ -285,8 +280,6 @@ class Oa4mpClientClaimsController extends StandardController {
         });
 
         $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
-
-        $this->log("FOO validation errors are " . print_r($this->Oa4mpClientClaim->validationErrors, true));
 
         // Set flash successful.
         $this->Flash->set(_txt('pl.oa4mp_client_claim.edit.flash.success'), array('key' => 'success'));
@@ -400,15 +393,14 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
-    // TODO
-//    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
-//    if(!$synchronized) {
-//      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-//      $args = array();
-//      $args['action'] = 'index';
-//      $args['co'] = $this->cur_co['Co']['id'];
-//      $this->redirect($args);
-//    }
+    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
+    if(!$synchronized) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      $args = array();
+      $args['action'] = 'index';
+      $args['co'] = $this->cur_co['Co']['id'];
+      $this->redirect($args);
+    }
 
     $this->request->data = $client;
 

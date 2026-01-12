@@ -463,9 +463,23 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
     } 
 
+    // Convert any deprecated refresh token lifetime to the new object.
+    $convertRefreshTokenLifetime = !empty($client['Oa4mpClientCoOidcClient']['refresh_token_lifetime']) &&
+                                    empty($client['Oa4mpClientRefreshToken']['id']);
+    if($convertRefreshTokenLifetime) {
+      $this->Oa4mpClientCoOidcClient->Oa4mpClientRefreshToken->clear();
+      $data = array();
+      $data['Oa4mpClientRefreshToken'] = array(
+        'client_id' => $id,
+        'token_lifetime' => $client['Oa4mpClientCoOidcClient']['refresh_token_lifetime']
+      );
+      $this->Oa4mpClientCoOidcClient->Oa4mpClientRefreshToken->save($data);
 
-    // TODO: Convert refresh token lifetime to the new format.
+      $this->log("Deprecated refresh_token_lifetime converted to Oa4mpClientRefreshToken object". print_r($data, true));
 
+      // Read the client state again to get the updated refresh token lifetime.
+      $client = $this->Oa4mpClientCoOidcClient->current($id);
+    }
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized. Also capture

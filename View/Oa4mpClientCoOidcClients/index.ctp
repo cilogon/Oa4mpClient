@@ -36,11 +36,6 @@
   // Add top links
   $params['topLinks'] = array();
 
-  // TODO
-  // The link to add a new client uses a different action
-  // depending on how many admin clients the CO has available.
-  //$addAction = $this->viewVars['vv_next_action'];
-
   if($permissions['delegate']) {
     $params['topLinks'][] = $this->Html->link(
       _txt('pl.oa4mp_client_co_admin_client.delegate.button'),

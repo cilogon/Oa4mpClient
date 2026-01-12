@@ -78,6 +78,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * representation of the client is synchronized, in order to detect
    * if the client has been changed outside of this plugin.
    *
+   * @param array $curData The current client data.
+   * @param array $oa4mpServerData The Oa4mp server representation of the client.
+   * @return boolean True if the client data is synchronized, false otherwise.
    * @since COmanage Registry 3.1.1
    */
 
@@ -312,19 +315,147 @@ class Oa4mpClientOa4mpServer extends AppModel {
         $this->log("Oa4mpClientDynamoConfig partition_key_claim_name is out of sync");
         return false;
       }
-      if($curData['Oa4mpClientDynamoConfig']['sort_key'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key']) {
+
+      // Normalize empty values to null before comparing optional fields.
+      $curSortKey = !empty($curData['Oa4mpClientDynamoConfig']['sort_key'])
+                    ? $curData['Oa4mpClientDynamoConfig']['sort_key']
+                    : null;
+      $oa4mpSortKey = !empty($oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key'])
+                      ? $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key']
+                      : null;
+      if($curSortKey !== $oa4mpSortKey) {
         $this->log("Oa4mpClientDynamoConfig sort_key is out of sync");
         return false;
       }
-      if($curData['Oa4mpClientDynamoConfig']['sort_key_template'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key_template']) {
+
+      $curSortKeyTemplate = !empty($curData['Oa4mpClientDynamoConfig']['sort_key_template'])
+                            ? $curData['Oa4mpClientDynamoConfig']['sort_key_template']
+                            : null;
+      $oa4mpSortKeyTemplate = !empty($oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key_template'])
+                              ? $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key_template']
+                              : null;
+      if($curSortKeyTemplate !== $oa4mpSortKeyTemplate) {
         $this->log("Oa4mpClientDynamoConfig sort_key_template is out of sync");
+        return false;
+      }
+    }
+
+    // Compare claim mappings.
+    $curClaims = $curData['Oa4mpClientClaim'] ?? array();
+    $oa4mpClaims = $oa4mpServerData['Oa4mpClaim'] ?? array();
+
+    // If one side has claims and the other doesn't, they are out of sync.
+    if(empty($curClaims) && !empty($oa4mpClaims)) {
+      $this->log("Oa4mpClientClaim: OA4MP server has claims but plugin does not");
+      return false;
+    }
+
+    if(!empty($curClaims) && empty($oa4mpClaims)) {
+      $this->log("Oa4mpClientClaim: Plugin has claims but OA4MP server does not");
+      return false;
+    }
+
+    // If both sides have claims, compare them.
+    if(!empty($curClaims) && !empty($oa4mpClaims)) {
+      // Compare the number of claims.
+      if(count($curClaims) != count($oa4mpClaims)) {
+        $this->log("Oa4mpClientClaim: Number of claims is out of sync");
+        return false;
+      }
+
+      // Build a normalized array of claims from curData for comparison.
+      $curClaimsNormalized = array();
+      foreach($curClaims as $claim) {
+        $normalized = array();
+        $normalized['claim_name'] = $claim['claim_name'];
+        $normalized['source_model'] = $claim['source_model'];
+        $normalized['source_model_claim_value_field'] = $claim['source_model_claim_value_field'] ?? null;
+        $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
+        $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
+        $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
+        $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
+
+        // Normalize constraints.
+        $constraints = array();
+        if(!empty($claim['Oa4mpClientClaimConstraint'])) {
+          foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
+            if(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
+              $constraints[] = array(
+                'constraint_field' => $constraint['constraint_field'] ?? null,
+                'constraint_value' => $constraint['constraint_value'] ?? null
+              );
+            }
+          }
+        }
+        // Sort constraints for consistent comparison.
+        usort($constraints, function($a, $b) {
+          $fieldCmp = strcmp($a['constraint_field'] ?? '', $b['constraint_field'] ?? '');
+          if($fieldCmp !== 0) {
+            return $fieldCmp;
+          }
+          return strcmp($a['constraint_value'] ?? '', $b['constraint_value'] ?? '');
+        });
+        $normalized['constraints'] = $constraints;
+
+        $curClaimsNormalized[] = $normalized;
+      }
+
+      // Build a normalized array of claims from oa4mpServerData for comparison.
+      $oa4mpClaimsNormalized = array();
+      foreach($oa4mpClaims as $claim) {
+        $normalized = array();
+        $normalized['claim_name'] = $claim['claim_name'];
+        $normalized['source_model'] = $claim['source_model'];
+        $normalized['source_model_claim_value_field'] = $claim['source_model_claim_value_field'] ?? null;
+        $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
+        $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
+        $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
+        $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
+
+        // Normalize constraints (note different key name from OA4MP server).
+        $constraints = array();
+        if(!empty($claim['ClaimConstraint'])) {
+          foreach($claim['ClaimConstraint'] as $constraint) {
+            if(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
+              $constraints[] = array(
+                'constraint_field' => $constraint['constraint_field'] ?? null,
+                'constraint_value' => $constraint['constraint_value'] ?? null
+              );
+            }
+          }
+        }
+        // Sort constraints for consistent comparison.
+        usort($constraints, function($a, $b) {
+          $fieldCmp = strcmp($a['constraint_field'] ?? '', $b['constraint_field'] ?? '');
+          if($fieldCmp !== 0) {
+            return $fieldCmp;
+          }
+          return strcmp($a['constraint_value'] ?? '', $b['constraint_value'] ?? '');
+        });
+        $normalized['constraints'] = $constraints;
+
+        $oa4mpClaimsNormalized[] = $normalized;
+      }
+
+      // Sort both arrays by claim_name for consistent comparison.
+      usort($curClaimsNormalized, function($a, $b) {
+        return strcmp($a['claim_name'], $b['claim_name']);
+      });
+      usort($oa4mpClaimsNormalized, function($a, $b) {
+        return strcmp($a['claim_name'], $b['claim_name']);
+      });
+
+      // Compare the normalized claim arrays.
+      if($curClaimsNormalized != $oa4mpClaimsNormalized) {
+        $this->log("Oa4mpClientClaim: Claims are out of sync");
+        $this->log("curClaimsNormalized: " . print_r($curClaimsNormalized, true));
+        $this->log("oa4mpClaimsNormalized: " . print_r($oa4mpClaimsNormalized, true));
         return false;
       }
     }
 
     return true;
   }
-
 
   /**
    * Delete an existing OIDC client from the oa4mp server.
@@ -666,66 +797,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
     }
 
     $qdl['args']['claim_mappings'] = $claimMappings;
-
-    //$qdl['args']['claim_mappings'] = array();
-    //foreach($data['Oa4mpClientClaim'] as $claim) {
-    //  $mapping = array();
-    //  $mapping['name'] = $claim['claim_name'];
-    //[$mapping['source'], $mapping['comment']] = $this->claimMappingSource($claim);
-
-    //  $qdl['args']['claim_mappings'][] = $mapping;
-    //}
-
-
     $cfg['tokens']['identity']['qdl'] = $qdl;
-
-
-//    $qdl['args']['server_fqdn'] = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_HOST);
-//
-//    $server_port = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_PORT);
-//
-//    if(empty($server_port)) {
-//      $scheme = parse_url($data['Oa4mpClientCoLdapConfig'][0]['serverurl'], PHP_URL_SCHEME);
-//      if($scheme == 'ldap') {
-//        $server_port = 389;
-//      } elseif($scheme == 'ldaps') {
-//        $server_port = 636;
-//      }
-//    }
-//
-//    if(empty($server_port)) {
-//      throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.marshall'));
-//    }
-//
-//    $qdl['args']['server_port'] = $server_port;
-//
-//    $qdl['args']['bind_dn'] = $data['Oa4mpClientCoLdapConfig'][0]['binddn'];
-//    $qdl['args']['bind_password'] = $data['Oa4mpClientCoLdapConfig'][0]['password'];
-//    $qdl['args']['search_base'] = $data['Oa4mpClientCoLdapConfig'][0]['basedn'];
-//    $qdl['args']['search_attribute'] = $data['Oa4mpClientCoLdapConfig'][0]['search_name'];
-//
-//    $qdl['args']['return_attributes'] = array();
-//    $qdl['args']['list_attributes'] = array();
-//
-//    if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
-//      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
-//        $qdl['args']['return_attributes'][] = $sa['name'];
-//
-//        if($sa['return_as_list']) {
-//          $qdl['args']['list_attributes'][] = $sa['name'];
-//        }
-//      }
-//    }
-//
-//
-//    $qdl['args']['ldap_to_claim_mappings'] = array();
-//    if(!empty($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'])) {
-//      foreach($data['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute'] as $sa) {
-//        $qdl['args']['ldap_to_claim_mappings'][$sa['name']] = $sa['return_name'];
-//      }
-//    }
-//
-//    $cfg['tokens']['identity']['qdl'][] = $qdl;
 
     return $cfg;
   }
@@ -814,9 +886,6 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $scopeString = trim($scopeString);
       $content['scope'] = $scopeString;
     }
-
-    // TODO is this still correct? Can we do better?
-    //$content['strict_scopes'] = $strictScopes;
 
     // Today OA4MP only supports a single contact though we send
     // it in a JSON list.
@@ -981,7 +1050,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // For now we set proxy_limited to always be false.
       $oa4mpClient['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
 
-      // Unmarshall the calback URIs.
+      // Unmarshall the callback URIs.
       foreach ($oa4mpObject['redirect_uris'] as $key => $uri) {
         $oa4mpClient['Oa4mpClientCoCallback'][]['url'] = $uri;
       }
@@ -1194,9 +1263,6 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @return array of oa4mpClient['Oa4mpClientCoLdapConfig'] objects
    */
   function oa4mpUnMarshallCfgQdlv2($cfg) {
-    // TODO add code to try and verify that the cfg we retrieved
-    // is what we expected.
-
     // Initialize empty array. We return an empty array if the oa4mp cfg object
     // does not contain the expected QDL syntax.
     $ldapConfigs = array();
@@ -1279,9 +1345,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
-   * TODO: fix this description.
-   * Unmarshall oa4mp cfg object to oa4mpClient['Oa4mpClientCoLdapConfig'] objects
-   * assuming QDL syntax.
+   * Unmarshall oa4mp cfg object to oa4mpClient objects
+   * assuming QDLv3 syntax.
    *
    * @since COmanage Registry 4.5.0
    * @param array $cfg oa4mp cfg object
@@ -1298,6 +1363,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
     }
 
+    // Unmarshall QDL arguments.
     if(!empty($cfg['tokens']['identity']['qdl']['args'])) {
       $qdlArgs = $cfg['tokens']['identity']['qdl']['args'];
 
@@ -1320,34 +1386,76 @@ class Oa4mpClientOa4mpServer extends AppModel {
       if(!empty($authz)) {
         $oa4mpClient['Oa4mpClientAuthorization'] = $authz;
       }
-    }
 
     // Unmarshall DynamoDB configuration.
-    if(!empty($cfg['qdl']['args']['dynamo_module_config'])) {
-      $oa4mpClient['Oa4mpClientDynamoConfig']['aws_region'] = $cfg['qdl']['args']['dynamo_module_config']['region'];
-      $oa4mpClient['Oa4mpClientDynamoConfig']['aws_access_key_id'] = $cfg['qdl']['args']['dynamo_module_config']['access_key_id'];
-      $oa4mpClient['Oa4mpClientDynamoConfig']['aws_secret_access_key'] = $cfg['qdl']['args']['dynamo_module_config']['secret_access_key'];
-      $oa4mpClient['Oa4mpClientDynamoConfig']['table_name'] = $cfg['qdl']['args']['dynamo_module_config']['table_name'];
-      $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key'] = $cfg['qdl']['args']['dynamo_module_config']['partition_key'];
-    }
+      $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key_template'] = $qdlArgs['partition_key_template'];
+      $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key_claim_name'] = $qdlArgs['partition_key_claim_name'];
 
-    if(!empty($cfg['qdl']['args']['partition_key_pattern'])) {
-      $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key_template'] = $cfg['qdl']['args']['partition_key_pattern'];
-    }
-    if(!empty($cfg['qdl']['args']['partition_key_claim_name'])) {
-      $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key_claim_name'] = $cfg['qdl']['args']['partition_key_claim_name'];
-    }
-    if(!empty($cfg['qdl']['args']['sort_key_template'])) {
-      $oa4mpClient['Oa4mpClientDynamoConfig']['sort_key_template'] = $cfg['qdl']['args']['sort_key_template'];
-    }
-    if(!empty($cfg['qdl']['args']['sort_key'])) {
-      $oa4mpClient['Oa4mpClientDynamoConfig']['sort_key'] = $cfg['qdl']['args']['sort_key'];
-    }
+      if(!empty($qdlArgs['sort_key_template'])) {
+        $oa4mpClient['Oa4mpClientDynamoConfig']['sort_key_template'] = $qdlArgs['sort_key_template'];
+      }
+      if(!empty($qdlArgs['sort_key'])) {
+        $oa4mpClient['Oa4mpClientDynamoConfig']['sort_key'] = $qdlArgs['sort_key'];
+      }
 
-    // TODO: implement more of this.
+      if(!empty($qdlArgs['dynamo_module_config'])) {
+        $dynamoModuleConfig = $qdlArgs['dynamo_module_config'];
 
-    // This is a placeholder for the claims configuration.
-    $oa4mpClient['Oa4mpClient']['Oa4mpClaim'] = array();
+        $oa4mpClient['Oa4mpClientDynamoConfig']['aws_region'] = $dynamoModuleConfig['region'];
+        $oa4mpClient['Oa4mpClientDynamoConfig']['aws_access_key_id'] = $dynamoModuleConfig['access_key_id'];
+        $oa4mpClient['Oa4mpClientDynamoConfig']['aws_secret_access_key'] = $dynamoModuleConfig['secret_access_key'];
+        $oa4mpClient['Oa4mpClientDynamoConfig']['table_name'] = $dynamoModuleConfig['table_name'];
+        $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key'] = $dynamoModuleConfig['partition_key'];
+      }
+
+    // Unmarshall claim mappings.
+      if(!empty($qdlArgs['claim_mappings'])) {
+        $qdlClaimMappings = $qdlArgs['claim_mappings'];
+        $claimMappings = array();
+
+        foreach($qdlClaimMappings as $qdlClaimMapping) {
+          $claimMapping = array();
+          $claimMapping['claim_name'] = $qdlClaimMapping['claim_name'];
+          $claimMapping['source_model'] = $qdlClaimMapping['source_model'];
+
+          if(!empty($qdlClaimMapping['source_model_claim_value_field'])) {
+            $claimMapping['source_model_claim_value_field'] = $qdlClaimMapping['source_model_claim_value_field'];
+          }
+
+          if(!empty($qdlClaimMapping['claim_value_selection'])) {
+            $claimMapping['claim_value_selection'] = $qdlClaimMapping['claim_value_selection'];
+          }
+
+          if(!empty($qdlClaimMapping['claim_value_json_format'])) {
+            $claimMapping['claim_value_json_format'] = $qdlClaimMapping['claim_value_json_format'];
+          }
+
+          if(!empty($qdlClaimMapping['claim_multiple_value_serialization'])) {
+            $claimMapping['claim_multiple_value_serialization'] = $qdlClaimMapping['claim_multiple_value_serialization'];
+          }
+
+          if(!empty($qdlClaimMapping['claim_value_string_serialization_delimiter'])) {
+            $claimMapping['claim_value_string_serialization_delimiter'] = $qdlClaimMapping['claim_value_string_serialization_delimiter'];
+          }
+
+          if(!empty($qdlClaimMapping['claim_constraints'])) {
+            $qdlClaimConstraints = $qdlClaimMapping['claim_constraints'];
+            $claimConstraints = array();
+          
+            foreach($qdlClaimConstraints as $qdlClaimConstraint) {
+              $claimConstraint = array();
+              $claimConstraint['constraint_field'] = $qdlClaimConstraint['constraint_field'];
+              $claimConstraint['constraint_value'] = $qdlClaimConstraint['constraint_value'];
+              $claimConstraints[] = $claimConstraint;
+            }
+            $claimMapping['ClaimConstraint'] = $claimConstraints;
+          }
+          $claimMappings[] = $claimMapping;
+        }
+
+        $oa4mpClient['Oa4mpClaim'] = $claimMappings;
+      }
+    }
 
     return $oa4mpClient;
   }
