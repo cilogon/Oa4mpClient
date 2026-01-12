@@ -80,10 +80,11 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
     $claim['claim_name'] = $searchAttribute['return_name'];
 
     // Different logic is required for different LDAP Provisioner Attributes.
-    // TODO: Add more LDAP Provisioner Attributes.
     $useLdapProvisionerConfig = false;
 
-    switch($searchAttribute['name']) {
+    $searchAttributeName = $searchAttribute['name'];
+
+    switch($searchAttributeName) {
       case 'eduPersonOrcid':
         $claim['source_model'] = 'Identifier';
         $claim['source_model_claim_value_field'] = 'identifier';
@@ -119,6 +120,30 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
         $claim['claim_value_selection'] = 'first';
         $claim['claim_value_json_format'] = 'string';
         break;
+      case 'gidNumber':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'gidNumber'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'number';
+        break;
+      case 'givenName':
+        $claim['source_model'] = 'Name';
+        $claim['source_model_claim_value_field'] = 'given';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'all'
+        );
+        $claimConstraints[] = array(
+          'constraint_field' => 'primary',
+          'constraint_value' => 'true'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
       case 'isMemberOf':
         $claim['source_model'] = 'CoGroupMember';
         $claim['source_model_claim_value_field'] = 'member';
@@ -130,6 +155,74 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
         $claim['claim_value_json_format'] = 'string';
         $claim['claim_multiple_value_serialization'] = 'delimited_string';
         $claim['claim_value_string_serialization_delimiter'] = ',';
+        break;
+      case 'mail':
+        $claim['source_model'] = 'EmailAddress';
+        $claim['source_model_claim_value_field'] = 'mail';
+
+        // The claim constraint field is always 'type' and the constraint value is determined
+        // by inspecting the configured LDAP Provisioning Config for the LDAP Config.
+        $useLdapProvisionerConfig = true;
+
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'sn':
+        $claim['source_model'] = 'Name';
+        $claim['source_model_claim_value_field'] = 'family';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'all'
+        );
+        $claimConstraints[] = array(
+          'constraint_field' => 'primary',
+          'constraint_value' => 'true'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'uid':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+
+        // The claim constraint field is always 'type' and the constraint value is determined
+        // by inspecting the configured LDAP Provisioning Config for the LDAP Config.
+        $useLdapProvisionerConfig = true;
+
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'uidNumber':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'uidNumber'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'number';
+        break;
+      case 'voPersonApplicationUID':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+
+        // The claim constraint field is always 'type' and the constraint value is determined
+        // by inspecting the configured LDAP Provisioning Config for the LDAP Config.
+        $useLdapProvisionerConfig = true;
+
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'voPersonExternalID':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+
+        // The claim constraint field is always 'type' and the constraint value is determined
+        // by inspecting the configured LDAP Provisioning Config for the LDAP Config.
+        $useLdapProvisionerConfig = true;
+
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
         break;
       case 'voPersonID':
         $claim['source_model'] = 'Identifier';
@@ -168,7 +261,7 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
 
       if(empty($coProvisioningTargets)) {
         $this->log("No coProvisioningTargets found for LDAP Config " . $coLdapConfig['id']);
-        $this->log("Did not convert LDAP search attribute " . $searchAttribute['name'] . " to claim object because no coProvisioningTargets were found");
+        $this->log("Did not convert LDAP search attribute " . $searchAttributeName . " to claim object because no coProvisioningTargets were found");
         return;
       }
 
@@ -183,14 +276,15 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
 
       if(empty($ldapProvisionerTarget)) {
         $this->log("No ldapProvisionerTarget found for LDAP Config " . $coLdapConfig['id']);
-        $this->log("Did not convert LDAP search attribute " . $searchAttribute['name'] . " to claim object because no ldapProvisionerTarget was found");
+        $this->log("Did not convert LDAP search attribute " . $searchAttributeName . " to claim object because no ldapProvisionerTarget was found");
         return;
       }
 
-      // Loop over the ldapProvisionerTarget's CoLdapProvisionerAttributes and pick out the one where the name matches the searchAttribute's name.  
+      // Loop over the ldapProvisionerTarget's CoLdapProvisionerAttributes and pick out the one
+      // where the name matches the searchAttribute's name.
       $ldapProvisionerAttribute = null;
       foreach($ldapProvisionerTarget['CoLdapProvisionerAttribute'] as $ldapProvisionerAttribute) {
-        if($ldapProvisionerAttribute['attribute'] == 'voPersonID'){
+        if($ldapProvisionerAttribute['attribute'] == $searchAttributeName){
           $ldapProvisionerAttribute = $ldapProvisionerAttribute;
           break;
         }
@@ -198,7 +292,7 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
 
       if(empty($ldapProvisionerAttribute)) {
         $this->log("No ldapProvisionerAttribute found for LDAP Config " . $coLdapConfig['id']);
-        $this->log("Did not convert LDAP search attribute " . $searchAttribute['name'] . " to claim object because no ldapProvisionerAttribute was found");
+        $this->log("Did not convert LDAP search attribute " . $searchAttributeName . " to claim object because no ldapProvisionerAttribute was found");
         return;
       }
 
