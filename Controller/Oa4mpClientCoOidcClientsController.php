@@ -445,7 +445,28 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     } 
 
     // GET request
-    
+
+    // Find and convert any deprecated LDAP search attribute objects to claim configurations.
+    $hasSearchAttr = !empty($client['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute']);
+    if($hasSearchAttr) {
+      foreach($client['Oa4mpClientCoLdapConfig'] as $ldapConfig) {
+        foreach($ldapConfig['Oa4mpClientCoSearchAttribute'] as $searchAttr) {
+          if($searchAttr['claim_id'] == null) {
+            $coId = $client['Oa4mpClientCoAdminClient']['co_id'];
+            $dynamoConfig = $admin['DefaultDynamoConfig'];
+            $this->Oa4mpClientCoOidcClient->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->toClaim($id, $coId, $dynamoConfig, $ldapConfig, $searchAttr);
+
+            // We need to read the client state again to get the updated claim and dynamo configuration.
+            $client = $this->Oa4mpClientCoOidcClient->current($id);
+          }
+        }
+      }
+    } 
+
+
+    // TODO: Convert refresh token lifetime to the new format.
+
+
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized. Also capture
     // any extra keys from the OA4MP server response that are not represented

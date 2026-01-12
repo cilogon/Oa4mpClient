@@ -217,7 +217,7 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'Oa4mpClientCoScope',
       'Oa4mpClientCoCallback',
       'Oa4mpClientClaim' => array('Oa4mpClientClaimConstraint'),
-      'Oa4mpClientCoLdapConfig',
+      'Oa4mpClientCoLdapConfig' => array('Oa4mpClientCoSearchAttribute'),
       'Oa4mpClientCoNamedConfig',
       'Oa4mpClientDynamoConfig',
     );
