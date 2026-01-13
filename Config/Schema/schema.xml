@@ -274,19 +274,6 @@
         <field name="modified" type="T" />
     </table>
 
-    <table name="oa4mp_client_dynamo_qdl">
-        <field name="id" type="I">
-            <key />
-            <autoincrement />
-        </field>
-        <field name="claim_id" type="I">
-            <constraint>REFERENCES cm_oa4mp_client_claims(id)</constraint>
-        </field>
-        <field name="code" type="X" size="4096" />
-        <field name="created" type="T" />
-        <field name="modified" type="T" />
-    </table>
-
     <table name="oa4mp_client_refresh_tokens">
         <field name="id" type="I">
             <key />
