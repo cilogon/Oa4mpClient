@@ -48,6 +48,12 @@ class Oa4mpClientCoAdminClient extends AppModel {
       'dependent' => true,
       'className' => 'Oa4mpClient.Oa4mpClientCoLdapConfig',
       'foreignKey' => 'admin_id'
+    ),
+    // An Oa4mp admin client has one default Dynamo config
+    "DefaultDynamoConfig" => array(
+      'dependent' => true,
+      'className' => 'Oa4mpClient.Oa4mpClientDynamoConfig',
+      'foreignKey' => 'admin_id'
     )
   );
 
@@ -70,7 +76,7 @@ class Oa4mpClientCoAdminClient extends AppModel {
   );
 
   // Default display field for cake generated views
-  public $displayField = "admin_identifier";
+  public $displayField = "name";
 
   // Validation rules for table elements
   public $validate = array(

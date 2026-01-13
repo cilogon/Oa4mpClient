@@ -2,6 +2,16 @@
 
 This is the format for the cfg entry written to the OA4MP server.
 
+## Version 3.0.0
+
+### Syntax
+
+See this [JSON Schema schema file](./cfg_schema.json).
+
+### Example
+
+See this [example cfg JSON object](./cfg_example.json).
+
 ## Version 2.0.0
 
 ### Syntax

@@ -1,0 +1,143 @@
+{
+  "tokens": {
+    "identity": {
+      "qdl": {
+        "args": {
+          "claim_mappings": [
+            {
+              "claim_constraints": [
+                {
+                  "constraint_field": "type",
+                  "constraint_value": "messid"
+                }
+              ],
+              "claim_multiple_value_serialization": "json_array",
+              "claim_name": "vo_person_id",
+              "claim_value_json_format": "string",
+              "claim_value_selection": "first",
+              "source_model": "Identifier",
+              "source_model_claim_value_field": "identifier"
+            },
+            {
+              "claim_constraints": [
+                {
+                  "constraint_field": "type",
+                  "constraint_value": "all"
+                },
+                {
+                  "constraint_field": "verified",
+                  "constraint_value": "false"
+                }
+              ],
+              "claim_multiple_value_serialization": "delimited_string",
+              "claim_name": "email",
+              "claim_value_json_format": "string",
+              "claim_value_selection": "all",
+              "claim_value_string_serialization_delimiter": ",",
+              "source_model": "EmailAddress",
+              "source_model_claim_value_field": "mail"
+            },
+            {
+              "claim_constraints": [
+                {
+                  "constraint_field": "owner",
+                  "constraint_value": "false"
+                }
+              ],
+              "claim_multiple_value_serialization": "delimited_string",
+              "claim_name": "is_member_of",
+              "claim_value_json_format": "string",
+              "claim_value_selection": "all",
+              "claim_value_string_serialization_delimiter": ",",
+              "source_model": "CoGroupMember",
+              "source_model_claim_value_field": "member"
+            },
+            {
+              "claim_constraints": [
+                {
+                  "constraint_field": "type",
+                  "constraint_value": "all"
+                },
+                {
+                  "constraint_field": "primary",
+                  "constraint_value": "true"
+                }
+              ],
+              "claim_multiple_value_serialization": "json_array",
+              "claim_name": "name",
+              "claim_value_json_format": "string",
+              "claim_value_selection": "first",
+              "source_model": "Name",
+              "source_model_claim_value_field": "all"
+            },
+            {
+              "claim_constraints": [
+                {
+                  "constraint_field": "status",
+                  "constraint_value": "active"
+                }
+              ],
+              "claim_multiple_value_serialization": "json_array",
+              "claim_name": "roles",
+              "claim_value_json_format": "string",
+              "claim_value_selection": "all",
+              "source_model": "CoPersonRole",
+              "source_model_claim_value_field": "all"
+            },
+            {
+              "claim_constraints": [
+                {
+                  "constraint_field": "type",
+                  "constraint_value": "all"
+                }
+              ],
+              "claim_multiple_value_serialization": "json_array",
+              "claim_name": "ssh_key",
+              "claim_value_json_format": "string",
+              "claim_value_selection": "all",
+              "source_model": "SshKey",
+              "source_model_claim_value_field": "all"
+            },
+            {
+              "claim_multiple_value_serialization": "json_array",
+              "claim_name": "tandc",
+              "claim_value_json_format": "string",
+              "claim_value_selection": "all",
+              "source_model": "CoTAndCAgreement",
+              "source_model_claim_value_field": "all"
+            },
+            {
+              "claim_multiple_value_serialization": "json_array",
+              "claim_name": "cluster_accounts",
+              "claim_value_json_format": "number",
+              "claim_value_selection": "all",
+              "source_model": "UnixClusterAccount",
+              "source_model_claim_value_field": "all"
+            }
+          ],
+          "dynamo_module_config": {
+            "access_key_id": "AKIA6MESHHJ73ZODZZZZ",
+            "partition_key": "PartitionKey",
+            "region": "us-west-2",
+            "secret_access_key": "dummy/KC1ewZ43JijREjsUoQ5btqzzzzzz",
+            "table_name": "multitenant_mess_dev"
+          },
+          "partition_key_claim_name": "sub",
+          "partition_key_template": "identifier#oidcsub#%%CLAIM_VALUE%%",
+          "require_active_redirect_url": "https://www.google.com",
+          "require_active_status": "1"
+        },
+        "load": "COmanageRegistry/default/dynamodb_claims.qdl",
+        "xmd": {
+          "exec_phase": [
+            "post_auth",
+            "post_refresh",
+            "post_token",
+            "post_user_info"
+          ]
+        }
+      },
+      "type": "identity"
+    }
+  }
+}

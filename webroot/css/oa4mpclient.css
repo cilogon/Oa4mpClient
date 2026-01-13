@@ -122,3 +122,15 @@ div.field-children-inline button {
 #oidc-client-continue {
   margin-top: 12px;
 }
+
+/* Claim name override message alignment and styling */
+#ClaimNameField .field-name,
+#ClaimNameField .field-info {
+  vertical-align: top;
+}
+
+#ClaimNameField .oa4mp-override-message {
+  display: none;
+  margin-top: 6px;
+  color: #d32f2f;
+}

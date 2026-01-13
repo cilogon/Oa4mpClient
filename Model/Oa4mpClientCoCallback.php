@@ -57,6 +57,32 @@ class Oa4mpClientCoCallback extends AppModel {
     )
   );
 
+  /**
+   * Find the CO ID for a callback.
+   *
+   * @since  COmanage Registry v4.4.2
+   * @param  integer Record to retrieve for
+   * @return integer Corresponding CO ID, or NULL if record has no corresponding CO ID
+   * @throws InvalidArgumentException
+   * @throws RuntimeException
+   */
+
+  function findCoForRecord($id) {
+    $args = array();
+    $args['conditions']['Oa4mpClientCoCallback.id'] = $id;
+    $args['contain'] = array(
+      'Oa4mpClientCoOidcClient' => array(
+        'Oa4mpClientCoAdminClient'
+      )
+    );
+
+    $callback = $this->find('first', $args);
+
+    $coid = $callback['Oa4mpClientCoOidcClient']['Oa4mpClientCoAdminClient']['co_id'];
+
+    return $coid;
+  }
+
   public function validCallbackUri($check) {
     $url = $check['url'];
 

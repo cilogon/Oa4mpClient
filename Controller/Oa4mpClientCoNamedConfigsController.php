@@ -26,10 +26,13 @@
  */
 
 App::uses("StandardController", "Controller");
+App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
 
 class Oa4mpClientCoNamedConfigsController extends StandardController {
   // Class name, used by Cake
   public $name = "Oa4mpClientCoNamedConfigs";
+
+  public $components = array('Oa4mpClient.Oa4mpClientAuthz');
 
   // Establish pagination parameters for HTML views
   public $paginate = array(
@@ -250,6 +253,93 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
   }
 
   /**
+   * Manage named configuration for an OIDC client.
+   *
+   * @since COmanage Registry v4.5.0
+   */
+  function manage() {
+    $clientId = $this->request->params['named']['clientid'];
+    $this->set('vv_client_id', $clientId);
+
+    $oa4mpServer = new Oa4mpClientOa4mpServer();
+
+    // Get the current client and admin configurations
+    $client = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->current($clientId);
+    $admin = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // POST or PUT request
+    if($this->request->is(array('post','put'))) {
+      $updatedClient = $client;
+      if($this->request->data['Oa4mpClientCoNamedConfig']['selected_config_id'] == 'none') {
+        $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = null;
+      } else {
+        $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = $this->request->data['Oa4mpClientCoNamedConfig']['selected_config_id'];
+      }
+
+      // Call out to oa4mp server.
+      // Return value of 0 indicates an error saving the edit.
+      // Return value of 2 indicates the plugin representation of the client
+      // and the Oa4mp server representation of the client are out of sync.
+      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $updatedClient);
+
+      if($ret == 0) {
+        // Set flash and fall through to the GET logic.
+        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+      } elseif($ret == 2) {
+        // Set flash and fall through to the GET logic.
+        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      } else {
+        // Update successful so save the edit.
+        $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->id = $clientId;
+        $ret = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->saveField('named_config_id', $updatedClient['Oa4mpClientCoOidcClient']['named_config_id']);
+        if(!$ret) {
+          $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.error'), array('key' => 'error'));
+          return;
+        }
+
+        // Set flash successful.
+        $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), array('key' => 'success'));
+
+        // Redirect to the manage view.
+        $args = array();
+        $args['plugin'] = 'oa4mp_client';
+        $args['controller'] = 'oa4mp_client_co_named_configs';
+        $args['action'] = 'manage';
+        $args['clientid'] = $clientId;
+        $this->redirect($args);
+      }
+    }
+
+    // GET
+
+    // Check that the current state of the client before the edit are synchronized.
+    $verifyResult = $oa4mpServer->oa4mpVerifyClient($admin, $client, true);
+    if(!$verifyResult['synchronized']) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      $args = array();
+      $args['action'] = 'index';
+      $args['co'] = $this->cur_co['Co']['id'];
+      $this->redirect($args);
+    }
+
+    // Update oa4mp_server_extra if the OA4MP server returned different extra keys.
+    $currentExtra = $client['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] ?? null;
+    $serverExtra = $verifyResult['oa4mp_server_extra'] ?? null;
+    if($serverExtra !== $currentExtra) {
+      $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->id = $clientId;
+      $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->saveField('oa4mp_server_extra', $serverExtra);
+      $client['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] = $serverExtra;
+    }
+
+    $this->set('vv_available_configs', $admin['Oa4mpClientCoNamedConfig'] ?? array());
+
+    $this->request->data = $client;
+
+    $this->set('title_for_layout', _txt('pl.oa4mp_client_co_named_config.manage.name',
+               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+  }
+
+  /**
    * Authorization for this Controller, called by Auth component
    * - precondition: Session.Auth holds data used for authz decisions
    * - postcondition: $permissions set with calculated permissions
@@ -259,6 +349,24 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
    */
 
   function isAuthorized() {
+    // For the manage action, use the standard authorization component
+    if($this->action == 'manage') {
+      $roles = $this->Role->calculateCMRoles();
+      $coId = $this->parseCOID();
+      $coPersonId = $this->Session->read('Auth.User.co_person_id');
+
+      // If the user is not logged in, return false.
+      if(empty($coPersonId)) {
+        $this->set('permissions', array());
+        return false;
+      }
+
+      $p = $this->Oa4mpClientAuthz->permissionSet($coId, $coPersonId, $roles, $this->request->params);
+      $this->set('permissions', $p);
+      return $p[$this->action];
+    }
+
+    // For other actions, use the original admin-only authorization
     // Only authenticated users are authorized.
     if($this->Session->check('Auth.User.username')) {
         $username = $this->Session->read('Auth.User.username');
@@ -307,6 +415,44 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
   }
 
   /**
+   * Find the provided CO ID.
+   * This overrides the method defined in AppController.php
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  Array $data Array of data for calculating implied CO ID
+   * @return Integer The CO ID if found, or -1 if not
+   */
+
+  function parseCOID($data = null) {
+    // This controller requires passing the OIDC client ID as
+    // a named parameter. We can use it to infer the CO ID.
+    // The isAuthorized function will enforce that the authenticated
+    // user is authorized within that CO to edit the client.
+    try {
+      // The manage action requires passing the OIDC client ID as
+      // a named parameter, but the other actions do not, so if it
+      // is not present, just return -1.
+      $clientId = $this->request->params['named']['clientid'] ?? null;
+
+      if(empty($clientId)) {
+        return -1;
+      }
+
+      $oidcClient = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->current($clientId);
+
+      if(empty($oidcClient)) {
+        throw new RuntimeException(_txt('pl.oa4mp_client_co_oidc_client.er.id'));
+      }
+    } catch (Exception $e) {
+        throw new RuntimeException($e);
+      }
+
+      $coid = $oidcClient['Oa4mpClientCoAdminClient']['co_id'];
+
+      return $coid;
+  }
+
+  /**
    * Validate and clean POST data from an add or edit action.
    *
    * @since  COmanage Registry v4.0.2
@@ -347,6 +493,10 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
 
     // Validate the standard scope fields and remove empty values.
     for ($i = 0; $i < 50; $i++) {
+      if(!isset($data['Oa4mpClientCoScope'][$i])) {
+        continue;
+      }
+
       $scope = $data['Oa4mpClientCoScope'][$i];
       if(empty($scope['scope'])) {
         unset($data['Oa4mpClientCoScope'][$i]);

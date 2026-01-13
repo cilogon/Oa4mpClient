@@ -26,7 +26,6 @@
  */
 
 App::uses("StandardController", "Controller");
-App::uses("HttpSocket", "Network/Http");
 
 class Oa4mpClientCoAdminClientsController extends StandardController {
   // Class name, used by Cake
@@ -36,8 +35,10 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
   public $paginate = array(
     'limit' => 25,
     'order' => array(
-      'Oa4mpClientCoAdminClient.id' => 'asc'
-    )
+      //'Oa4mpClientCoAdminClient.id' => 'asc'
+      'Co.name' => 'asc'
+    ),
+    'contain' => array('Co')
   );
 
   // This controller does not need a CO to be set
@@ -53,12 +54,23 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
   function add() {
     // Process POST data
     if($this->request->is('post')) {
+      // We no longer require a default LDAP config so remove it from the
+      // request data if it is empty.
+      $defaultLdapConfig = $this->request->data['DefaultLdapConfig'];
 
-      // We do not currently expose all of the LDAP configuration options
-      // in the form so add default values before validating the data. 
-      $this->request->data['DefaultLdapConfig']['enabled'] = true;
-      $this->request->data['DefaultLdapConfig']['authorization_type'] = 'simple';
-      $this->request->data['DefaultLdapConfig']['search_name'] = 'username';
+      if(empty($defaultLdapConfig['serverurl']) &&
+         empty($defaultLdapConfig['binddn'])    &&
+         empty($defaultLdapConfig['password'])  &&
+         empty($defaultLdapConfig['basedn'])    
+      ){
+        unset($this->request->data['DefaultLdapConfig']);
+      } else {
+        // We do not currently expose all of the LDAP configuration options
+        // in the form so add default values before validating the data. 
+        $this->request->data['DefaultLdapConfig']['enabled'] = true;
+        $this->request->data['DefaultLdapConfig']['authorization_type'] = 'simple';
+        $this->request->data['DefaultLdapConfig']['search_name'] = 'voPersonExternalID';
+      }
     }
 
     parent::add();
@@ -114,6 +126,8 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
     $qdlClaimDefault = getenv('COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT');
 
     $this->set('qdlClaimDefault', $qdlClaimDefault);
+
+    $this->set('vv_aws_regions', AwsRegionEnum::$allAwsRegions);
     
     parent::beforeRender();
   }
@@ -166,6 +180,73 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
 
 
   /**
+   * Delegate management group assignments for admin clients in a CO.
+   *
+   * @param integer $coId The CO ID
+   * @since COmanage Registry v4.5.0
+   */
+  function delegate($coId) {
+
+    // Find all admin clients for this CO
+    $args = array();
+    $args['conditions']['Oa4mpClientCoAdminClient.co_id'] = $coId;
+    $args['contain'] = array('Co', 'ManageCoGroup');
+    $args['order'] = array('Oa4mpClientCoAdminClient.name ASC');
+
+    $adminClients = $this->Oa4mpClientCoAdminClient->find('all', $args);
+
+    if(empty($adminClients)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.delegate.no_clients'), array('key' => 'error'));
+      $this->redirect(array('action' => 'index'));
+    }
+
+    $coName = $adminClients[0]['Co']['name'];
+
+    // Set page title
+    $this->set('title_for_layout', _txt('pl.oa4mp_client_co_admin_client.delegate.title', array($coName)));
+
+    // Get available CO Groups for this CO
+    $args = array();
+    $args['conditions']['ManageCoGroup.co_id'] = $coId;
+    $args['conditions']['ManageCoGroup.status'] = SuspendableStatusEnum::Active;
+    $args['order'] = array('ManageCoGroup.name ASC');
+    $args['contain'] = false;
+
+    $availableGroups = $this->Oa4mpClientCoAdminClient->ManageCoGroup->find('list', $args);
+
+    // Process POST data
+    if($this->request->is('post')) {
+      $success = true;
+      $updatedCount = 0;
+
+      if(!empty($this->request->data['AdminClient'])) {
+        foreach($this->request->data['AdminClient'] as $adminClientId => $data) {
+          $this->Oa4mpClientCoAdminClient->clear();
+          $this->Oa4mpClientCoAdminClient->id = $adminClientId;
+          if(!$this->Oa4mpClientCoAdminClient->saveField('manage_co_group_id', $data['manage_co_group_id'] ?? null)) {
+            $success = false;
+          }
+          $updatedCount++;
+        }
+      }
+
+      if($success && $updatedCount > 0) {
+        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.delegate.success', array($updatedCount)), array('key' => 'success'));
+      } elseif($success && $updatedCount === 0) {
+        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.delegate.no_changes'), array('key' => 'information'));
+      } else {
+        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.delegate.error'), array('key' => 'error'));
+      }
+
+      $this->redirect(array('action' => 'delegate', $coId));
+    }
+
+    $this->set('admin_clients', $adminClients);
+    $this->set('available_groups', $availableGroups);
+    $this->set('co_id', $coId);
+  }
+
+  /**
    * Authorization for this Controller, called by Auth component
    * - precondition: Session.Auth holds data used for authz decisions
    * - postcondition: $permissions set with calculated permissions
@@ -194,12 +275,17 @@ class Oa4mpClientCoAdminClientsController extends StandardController {
       $allowedUsernames[] = $username;
     }
 
-    if(in_array($username, $allowedUsernames)) {
-      // Authorized usernames must have the platform admin role.
-      $roles = $this->Role->calculateCMRoles();
+    $roles = $this->Role->calculateCMRoles();
 
-      $p = array();
+    $p = array();
 
+    if($this->action == 'delegate') {
+      // Platform admins and CO admins can use the delegate action to
+      // configure the management group for an existing admin client.
+      $p['delegate'] = $roles['cmadmin'] || $roles['coadmin'];
+      $this->set('permissions', $p);
+      return $p[$this->action];
+    } else if(in_array($username, $allowedUsernames)) {
       // Add a new admin client?
       $p['add'] = $roles['cmadmin'];
 

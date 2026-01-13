@@ -28,168 +28,475 @@
 global $cm_lang, $cm_texts;
 
 // When localizing, the number in format specifications (eg: %1$s) indicates the argument
-// position as passed to _txt.  This can be used to process the arguments in
+// position as passed to _txt. This can be used to process the arguments in
 // a different order than they were passed.
 
 $cm_oa4mp_client_texts['en_US'] = array(
-  // Title, per-controller
+
+  // ===========================================================================
+  // Controller Titles
+  // ===========================================================================
+
+  'ct.oa4mp_client_access_tokens.1'    => 'Access Token',
+  'ct.oa4mp_client_access_tokens.pl'   => 'Access Tokens',
+  'ct.oa4mp_client_authorizations.1'   => 'Authorizations',
+  'ct.oa4mp_client_authorizations.pl'  => 'Authorizations',
   'ct.oa4mp_client_co_admin_clients.1' => 'Oa4mp Admin Client',
-  'ct.oa4mp_client_co_admin_clients.pl' => 'Oa4mp Admin Clients',
-  'ct.oa4mp_client_co_oidc_clients.1' => 'OIDC Client',
-  'ct.oa4mp_client_co_oidc_clients.pl' => 'OIDC Clients',
+  'ct.oa4mp_client_co_admin_clients.pl'=> 'Oa4mp Admin Clients',
+  'ct.oa4mp_client_co_callbacks.1'     => 'Callback',
+  'ct.oa4mp_client_co_callbacks.pl'    => 'Callbacks',
+  'ct.oa4mp_client_co_claims.1'        => 'Claim',
+  'ct.oa4mp_client_co_claims.pl'       => 'Claims',
   'ct.oa4mp_client_co_named_configs.1' => 'Oa4mp Named Configuration',
-  'ct.oa4mp_client_co_named_configs.pl' => 'Oa4mp Named Configurations',
+  'ct.oa4mp_client_co_named_configs.pl'=> 'Oa4mp Named Configurations',
+  'ct.oa4mp_client_co_oidc_clients.1'  => 'OIDC Client',
+  'ct.oa4mp_client_co_oidc_clients.pl' => 'OIDC Clients',
+  'ct.oa4mp_client_refresh_tokens.1'   => 'Refresh Token Configuration',
+  'ct.oa4mp_client_refresh_tokens.pl'  => 'Refresh Tokens',
 
-  // Menu
+  // ===========================================================================
+  // Menu Items
+  // ===========================================================================
+
   'pl.oa4mp_client.menu.admin_clients.cmp' => 'Oa4mp Admin Clients',
+  'pl.oa4mp_client.menu.coconfig'          => 'OIDC Clients',
   'pl.oa4mp_client.menu.named_configs.cmp' => 'Oa4mp Named Configurations',
-  'pl.oa4mp_client.menu.coconfig' => 'OIDC Clients',
 
-  // Plugin texts
-  'pl.oa4mp_client_co_admin_client.admin_identifier.fd.name' => 'Admin ID',
+  // ===========================================================================
+  // Admin Client
+  // ===========================================================================
+
+  // Field definitions
+  'pl.oa4mp_client_co_admin_client.admin_identifier.fd.name'        => 'Admin ID',
   'pl.oa4mp_client_co_admin_client.admin_identifier.fd.description' => 'ID of the admin client for the CO',
-  'pl.oa4mp_client_co_admin_client.mail.fd.name' => 'Contact Email Address',
-  'pl.oa4mp_client_co_admin_client.mail.fd.description' => 'This email address is used for operational notices regarding clients.',
-  'pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.name' => 'Delegated Management Group',
+  'pl.oa4mp_client_co_admin_client.co_id.fd.all_taken'              => 'No COs without existing admin client',
+  'pl.oa4mp_client_co_admin_client.issuer.fd.name'                  => 'Issuer',
+  'pl.oa4mp_client_co_admin_client.issuer.fd.description'           => 'OAuth2 Issuer (e.g. https://cilogon.org)',
+  'pl.oa4mp_client_co_admin_client.mail.fd.name'                    => 'Contact Email Address',
+  'pl.oa4mp_client_co_admin_client.mail.fd.description'             => 'This email address is used for operational notices regarding clients.',
+  'pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.name'      => 'Delegated Management Group',
   'pl.oa4mp_client_co_admin_client.manage_co_group_id.fd.description' => 'If set, members of this group may create and manage OIDC clients',
-  'pl.oa4mp_client_co_admin_client.serverurl.fd.name' => 'Server URL',
-  'pl.oa4mp_client_co_admin_client.serverurl.fd.description' => 'OA4MP server URL (https://cilogon.org/oauth2/clients)',
-  'pl.oa4mp_client_co_admin_client.name.fd.name' => 'Display Name',
-  'pl.oa4mp_client_co_admin_client.name.fd.description' => 'Admin client display name',
-  'pl.oa4mp_client_co_admin_client.issuer.fd.name' => 'Issuer',
-  'pl.oa4mp_client_co_admin_client.issuer.fd.description' => 'OAuth2 Issuer (e.g. https://cilogon.org)',
-  'pl.oa4mp_client_co_admin_client.secret.fd.name' => 'Secret',
-  'pl.oa4mp_client_co_admin_client.secret.fd.description' => 'Secret for the admin client for the CO',
-  'pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.name' => 'Claims QDL Path',
+  'pl.oa4mp_client_co_admin_client.name.fd.name'                    => 'Display Name',
+  'pl.oa4mp_client_co_admin_client.name.fd.description'             => 'Admin client display name',
+  'pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.name'        => 'Claims QDL Path',
   'pl.oa4mp_client_co_admin_client.qdl_claim_source.fd.description' => 'Path to QDL file for resolving claims',
-  'pl.oa4mp_client_co_admin_client.co_id.fd.all_taken' => 'No COs without existing admin client',
-  'pl.oa4mp_client_co_admin_client.ldap.server.fd.description' => 'Default LDAP server URL to use with OIDC clients for this CO',
-  'pl.oa4mp_client_co_admin_client.ldap.binddn.fd.description' => 'Default bind DN to use with OIDC clients for this CO',
+  'pl.oa4mp_client_co_admin_client.secret.fd.name'                  => 'Secret',
+  'pl.oa4mp_client_co_admin_client.secret.fd.description'           => 'Secret for the admin client for the CO',
+  'pl.oa4mp_client_co_admin_client.serverurl.fd.name'               => 'Server URL',
+  'pl.oa4mp_client_co_admin_client.serverurl.fd.description'        => 'OA4MP server URL (e.g. https://cilogon.org/oauth2/oidc-cm)',
+
+  // DynamoDB configuration defaults
+  'pl.oa4mp_client_co_admin_client.dynamo.aws_access_key_id.fd.name'        => 'AWS Access Key ID',
+  'pl.oa4mp_client_co_admin_client.dynamo.aws_access_key_id.fd.description' => 'AWS access key ID for read access to DynamoDB table',
+  'pl.oa4mp_client_co_admin_client.dynamo.aws_secret_access_key.fd.name'    => 'AWS Secret Access Key',
+  'pl.oa4mp_client_co_admin_client.dynamo.aws_secret_access_key.fd.description' => 'Corresponding secret for AWS access key',
+  'pl.oa4mp_client_co_admin_client.dynamo.partition_key.fd.name'            => 'Partition Key Attribute Name',
+  'pl.oa4mp_client_co_admin_client.dynamo.partition_key.fd.description'     => 'Default name of the partition key attribute in the DynamoDB table',
+  'pl.oa4mp_client_co_admin_client.dynamo.partition_key_claim_name.fd.name' => 'Partition Key Claim',
+  'pl.oa4mp_client_co_admin_client.dynamo.partition_key_claim_name.fd.description' => 'Default claim to use with template for constructing partition key',
+  'pl.oa4mp_client_co_admin_client.dynamo.partition_key_template.fd.name'   => 'Partition Key Value Template',
+  'pl.oa4mp_client_co_admin_client.dynamo.partition_key_template.fd.description' => 'Default template for constructing partition key using claims',
+  'pl.oa4mp_client_co_admin_client.dynamo.region.fd.name'                   => 'DynamoDB Table Region',
+  'pl.oa4mp_client_co_admin_client.dynamo.region.fd.description'            => 'AWS region where DynamoDB table is hosted',
+  'pl.oa4mp_client_co_admin_client.dynamo.sort_key.fd.name'                 => 'Sort Key Attribute Name',
+  'pl.oa4mp_client_co_admin_client.dynamo.sort_key.fd.description'          => 'Default name of the sort key attribute in the DynamoDB table',
+  'pl.oa4mp_client_co_admin_client.dynamo.sort_key_template.fd.name'        => 'Sort Key Value Template',
+  'pl.oa4mp_client_co_admin_client.dynamo.sort_key_template.fd.description' => 'Default template for constructing sort key using claims',
+  'pl.oa4mp_client_co_admin_client.dynamo.table_name.fd.name'               => 'DynamoDB Table Name',
+  'pl.oa4mp_client_co_admin_client.dynamo.table_name.fd.description'        => 'Name of the DynamoDB table used to resolve claims',
+
+  // LDAP configuration defaults
+  'pl.oa4mp_client_co_admin_client.ldap.binddn.fd.description'       => 'Default bind DN to use with OIDC clients for this CO',
   'pl.oa4mp_client_co_admin_client.ldap.bindpassword.fd.description' => 'Default bind password to use with OIDC clients for this CO',
-  'pl.oa4mp_client_co_admin_client.ldap.searchbase.fd.description' => 'Default search base for person records (ou=people,...)',
-  'pl.oa4mp_client_co_admin_client.save.dialog.title' => 'Edits to Admin Client',
-  'pl.oa4mp_client_co_admin_client.save.dialog.text' => 'Any changes to the QDL paths or default LDAP configuration do not propagate to existing OIDC clients!',
+  'pl.oa4mp_client_co_admin_client.ldap.searchbase.fd.description'   => 'Default search base for person records (ou=people,...)',
+  'pl.oa4mp_client_co_admin_client.ldap.server.fd.description'       => 'Default LDAP server URL to use with OIDC clients for this CO',
+
+  // Delegate action
+  'pl.oa4mp_client_co_admin_client.delegate.breadcrumb'  => 'Delegate Management',
+  'pl.oa4mp_client_co_admin_client.delegate.button'      => 'Edit Delegated Management Group',
+  'pl.oa4mp_client_co_admin_client.delegate.error'       => 'An error occurred while updating admin client delegations',
+  'pl.oa4mp_client_co_admin_client.delegate.no_changes'  => 'No changes were made to admin client delegations',
+  'pl.oa4mp_client_co_admin_client.delegate.no_clients'  => 'No admin clients found for this CO',
+  'pl.oa4mp_client_co_admin_client.delegate.success'     => 'Successfully updated %1$s delegations',
+  'pl.oa4mp_client_co_admin_client.delegate.title'       => 'Delegate Management of %1$s Clients',
+  'pl.oa4mp_client_co_admin_client.fd.admin_identifier'  => 'Admin Client ID',
+  'pl.oa4mp_client_co_admin_client.fd.current_group'     => 'Current Management Group',
+  'pl.oa4mp_client_co_admin_client.fd.manage_co_group_id'=> 'Management Group',
+  'pl.oa4mp_client_co_admin_client.fd.manage_co_group_id.desc' => 'Group members allowed to manage OIDC clients',
+  'pl.oa4mp_client_co_admin_client.fd.manage_co_group_id.select.empty' => '-- Select Group (or leave for no delegation) --',
+  'pl.oa4mp_client_co_admin_client.fd.name'              => 'Admin Client Name',
+  'pl.oa4mp_client_co_admin_client.fd.no_group'          => 'No delegation group assigned',
+
+  // Dialog texts
+  'pl.oa4mp_client_co_admin_client.save.dialog.text'       => 'Any changes to the QDL paths or default LDAP configuration do not propagate to existing OIDC clients!',
+  'pl.oa4mp_client_co_admin_client.save.dialog.title'      => 'Edits to Admin Client',
   'pl.oa4mp_client_co_admin_client.save.dialog.understand' => 'I understand',
 
+  // Errors
   'pl.oa4mp_client_co_admin_client.er.client_exists' => 'A CO may only have one Oa4mp Admin Client',
-  'pl.oa4mp_client_co_admin_client.er.create_error' => 'OAuth2 server is unwilling to create new OIDC client. Please check your settings.',
-  'pl.oa4mp_client_co_admin_client.er.delete_error' => 'Unable to delete OIDC client',
-  'pl.oa4mp_client_co_admin_client.er.edit_error' => 'Unable to edit OIDC client',
+  'pl.oa4mp_client_co_admin_client.er.create_error'  => 'OAuth2 server is unwilling to create new OIDC client. Please check your settings.',
+  'pl.oa4mp_client_co_admin_client.er.delete_error'  => 'Unable to delete OIDC client',
+  'pl.oa4mp_client_co_admin_client.er.edit_error'    => 'Unable to edit OIDC client',
 
-  'pl.oa4mp_client_co_oidc_client.admin_id.fd.name' => 'OAuth2 Server and Issuer',
+  // ===========================================================================
+  // OIDC Client
+  // ===========================================================================
+
+  // Field definitions
+  'pl.oa4mp_client_co_oidc_client.admin_id.fd.issuer'      => 'Issuer',
+  'pl.oa4mp_client_co_oidc_client.admin_id.fd.name'        => 'OAuth2 Server and Issuer',
   'pl.oa4mp_client_co_oidc_client.admin_id.fd.name.select' => 'Select OAuth2 Server and Issuer for New Client',
-  'pl.oa4mp_client_co_oidc_client.admin_id.fd.issuer' => 'Issuer',
-  'pl.oa4mp_client_co_oidc_client.admin_id.fd.warn' => 'The OAuth2 Server and Issuer cannot be changed after the client is created.',
-  'pl.oa4mp_client_co_oidc_client.name.fd.name' => 'Name',
-  'pl.oa4mp_client_co_oidc_client.name.fd.description' => 'The client Name is displayed to end-users on the Identity Provider selection page',
-  'pl.oa4mp_client_co_oidc_client.mail.fd.name' => 'Contact Email Address',
-  'pl.oa4mp_client_co_oidc_client.mail.fd.description' => 'This email address is used for operational notices regarding clients.',
-  'pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name' => 'Client ID',
-  'pl.oa4mp_client_co_oidc_client.secret.fd.name' => 'Client Secret',
-  'pl.oa4mp_client_co_oidc_client.home_url.fd.name' => 'Home URL',
-  'pl.oa4mp_client_co_oidc_client.home_url.fd.description' => 'The Home URL is used as the hyperlink for the client Name',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.name' => 'Refresh Tokens',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.enable_button' => 'Enable',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_enable.fd.disable_button' => 'Disable',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name' => 'Lifetime',
-  'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description' => 'Refresh token lifetime in seconds',
-  'pl.oa4mp_client_co_oidc_client.callbacks.fd.name' => 'Callbacks',
-  'pl.oa4mp_client_co_oidc_client.callbacks.fd.description' => 'The redirect_uri parameter must exactly match a callback URL',
-  'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
-  'pl.oa4mp_client_co_oidc_client.issuer.fd.name' => 'Issuer',
-  'pl.oa4mp_client_co_oidc_client.issuer.fd.description' => 'Value asserted by the authorization server in the iss parameter',
-  'pl.oa4mp_client_co_oidc_client.public_client.fd.name' => 'Public Client',
-  'pl.oa4mp_client_co_oidc_client.public_client.fd.description.add' => 'Public clients have no client secret and only the openid scope is allowed. <a href="https://oauth.net/2/client-types/">See OAuth 2.0 Client Types</a>',
-  'pl.oa4mp_client_co_oidc_client.public_client.fd.description.edit' => 'The client type cannot be changed after the client is created',
-  'pl.oa4mp_client_co_oidc_client.named_config.fd.name' => 'Use a Named Configuration',
+  'pl.oa4mp_client_co_oidc_client.admin_id.fd.warn'        => 'The OAuth2 Server and Issuer cannot be changed after the client is created.',
+  'pl.oa4mp_client_co_oidc_client.dynamo.partition_key_claim_name.fd.name' => 'Authenticated User Search Claim',
+  'pl.oa4mp_client_co_oidc_client.dynamo.partition_key_claim_name.fd.description' => 'Claim holding the authenticated user identifier',
+  'pl.oa4mp_client_co_oidc_client.home_url.fd.name'        => 'Home URL',
+  'pl.oa4mp_client_co_oidc_client.home_url.fd.description' => 'Used as the hyperlink for the client Name on the Identity Provider selection page',
+  'pl.oa4mp_client_co_oidc_client.issuer.fd.name'          => 'Issuer',
+  'pl.oa4mp_client_co_oidc_client.issuer.fd.description'   => 'Value asserted by the authorization server in the iss parameter',
+  'pl.oa4mp_client_co_oidc_client.mail.fd.name'            => 'Contact Email Address',
+  'pl.oa4mp_client_co_oidc_client.mail.fd.description'     => 'This email address is used for operational notices regarding clients.',
+  'pl.oa4mp_client_co_oidc_client.name.fd.name'            => 'Name',
+  'pl.oa4mp_client_co_oidc_client.name.fd.description'     => 'The client Name is displayed to end-users on the Identity Provider selection page',
+  'pl.oa4mp_client_co_oidc_client.named_config.fd.name'    => 'Use a Named Configuration',
   'pl.oa4mp_client_co_oidc_client.named_config.fd.description' => 'Configure scopes, claims, and other details using an existing template. Check the box to see available templates.',
-  'pl.oa4mp_client_co_oidc_client.wellknown.fd.name' => 'Well-known OpenID Configuration',
-  'pl.oa4mp_client_co_oidc_client.wellknown.fd.description' => 'URL for the well-known openid-configuration discovery document',
+  'pl.oa4mp_client_co_oidc_client.oa4mp_identifier.fd.name'=> 'Client ID',
+  'pl.oa4mp_client_co_oidc_client.public_client.fd.name'   => 'Public Client',
+  'pl.oa4mp_client_co_oidc_client.public_client.fd.description.add' => 'Public clients have no client secret and only the openid scope is allowed. <a href="https://oauth.net/2/client-types/">See OAuth 2.0 Client Types</a>',
+  'pl.oa4mp_client_co_oidc_client.public_client.fd.description.edit'=> 'The client type cannot be changed after the client is created',
+  'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.name' => 'Refresh Token Lifetime',
+  'pl.oa4mp_client_co_oidc_client.refresh_token_lifetime.fd.description' => 'Token lifetime in seconds',
+  'pl.oa4mp_client_co_oidc_client.secret.fd.name'          => 'Client Secret',
+  'pl.oa4mp_client_co_oidc_client.wellknown.fd.name'       => 'Well-known OpenID Configuration',
+  'pl.oa4mp_client_co_oidc_client.wellknown.fd.description'=> 'URL for the well-known openid-configuration discovery document',
 
-  'pl.oa4mp_client_co_oidc_client.public.title' => 'New OIDC Client',
-  'pl.oa4mp_client_co_oidc_client.public.text' => 'This is a public OIDC client and therefore it has no client secret.',
+  // Dialog texts - Public client
+  'pl.oa4mp_client_co_oidc_client.public.text'       => 'This is a public OIDC client and therefore it has no client secret.',
+  'pl.oa4mp_client_co_oidc_client.public.title'      => 'New OIDC Client',
   'pl.oa4mp_client_co_oidc_client.public.understand' => 'I understand',
 
-  'pl.oa4mp_client_co_oidc_client.secret.title' => 'New OIDC Client',
-  'pl.oa4mp_client_co_oidc_client.secret.text' => 'You MUST permanently record the client secret before continuing. The CILogon servers do not store the client secret.',
+  // Dialog texts - Client secret
+  'pl.oa4mp_client_co_oidc_client.secret.text'       => 'You MUST permanently record the client secret before continuing. The CILogon servers do not store the client secret.',
+  'pl.oa4mp_client_co_oidc_client.secret.title'      => 'New OIDC Client',
   'pl.oa4mp_client_co_oidc_client.secret.understand' => 'I understand',
 
-  'pl.oa4mp_client_co_callback.url.fd.name' => 'URL',
+  // ===========================================================================
+  // Callbacks
+  // ===========================================================================
 
-  'pl.oa4mp_client_co_scope.scope.fd.name' => 'Scopes',
-  'pl.oa4mp_client_co_scope.scope.fd.description' => '<a href="https://www.cilogon.org/oidc">Information on scopes</a>',
+  'pl.oa4mp_client_co_oidc_client.callbacks.add.name'      => 'Add Callback for %1$s',
+  'pl.oa4mp_client_co_oidc_client.callbacks.edit.name'     => 'Edit Callbacks for %1$s',
+  'pl.oa4mp_client_co_oidc_client.callbacks.fd.add_button' => 'Add another Callback URL',
+  'pl.oa4mp_client_co_oidc_client.callbacks.fd.description'=> 'The OIDC protocol redirect_uri parameter must exactly match the callback URL',
+  'pl.oa4mp_client_co_oidc_client.callbacks.fd.name'       => 'URL',
+  'pl.oa4mp_client_co_oidc_client.callbacks.tab.name'      => 'Callbacks',
+
+  'pl.oa4mp_client_co_callback.callback.add.flash.success'   => 'Callback Added',
+  'pl.oa4mp_client_co_callback.callback.delete.flash.success'=> 'Callback Deleted',
+  'pl.oa4mp_client_co_callback.callback.edit.flash.success'  => 'Callback Updated',
+  'pl.oa4mp_client_co_callback.url.fd.name'                  => 'URL',
+
+  // ===========================================================================
+  // Claims
+  // ===========================================================================
+
+  // Tab and view titles
+  'pl.oa4mp_client_co_oidc_client.claims.add.name' => 'Add Claim for %1$s',
+  'pl.oa4mp_client_co_oidc_client.claims.edit.name'=> 'Edit Claim for %1$s',
+  'pl.oa4mp_client_co_oidc_client.claims.tab.name' => 'Claims',
+
+  // Field definitions
+  'pl.oa4mp_client_co_oidc_client.claims.fd.add_button'         => 'Add another claim',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_name.name'    => 'Name',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_name.description' => 'The name of the claim as it will be asserted in the token',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_json_format.name' => 'Format',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_json_format.description' => 'How to format the claim value(s) in the token',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_selection.name' => 'Selector',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_selection.description' => 'Use the first value found or all values of the configured type',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_string_serialization_delimiter.name' => 'String Delimiter Character',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.claim_value_string_serialization_delimiter.description' => 'Which character(s) to use to delineate token values when formatted as a JSON string',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_serialization.delimited_string' => 'Delimited String',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_serialization.description' => 'How to serialize multiple claim values in the token',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_serialization.json_array' => 'JSON Array',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.multiple_value_serialization.name' => 'Multiple Value Format',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.source_model.name'  => 'Source',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.source_model.description' => 'The Registry object from the user record that is the source of the claim value',
+
+  // CO Person Role field selector
+  'pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.affiliation' => 'Affiliation',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.all'   => 'Use all fields',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.cou'   => 'COU',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.description' => 'The field from the CO Person Role object that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.name'  => 'Role Field',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.o'     => 'O',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.ou'    => 'OU',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.co_person_role_field_selector.title' => 'Title',
+
+  // Name field selector
+  'pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.all'         => 'Use all fields',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.description' => 'The field from the Name object that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.family'      => 'Family',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.given'       => 'Given',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.middle'      => 'Middle',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.name_field_selector.name'        => 'Name Field',
+
+  // SSH Key field selector
+  'pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.all'         => 'Use all fields',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.comment'     => 'Comment',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.description' => 'The field from the SSH key object that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.name'        => 'SSH Key Field',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.skey'        => 'Key',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.ssh_key_field_selector.type'        => 'Key Type',
+
+  // Unix Cluster Account field selector
+  'pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.all'            => 'Use all fields',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.description'   => 'The field from the Unix Cluster Account object that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.gecos'         => 'GECOS',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.home_directory'=> 'Home Directory',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.login_shell'   => 'Login Shell',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.name'          => 'Unix Cluster Account Field',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.uid'           => 'User ID (UID) Number',
+  'pl.oa4mp_client_co_oidc_client.claims.fd.unix_cluster_account_field_selector.username'      => 'Username',
+
+  // Claim constraints - first constraint (type/ownership)
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_group_member' => 'Include ownership information as a JSON map',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.co_person_role'  => 'Only include active CoPersonRole values',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.email'           => 'The EmailAddress type from the user record that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.identifier'      => 'The Identifier type from the user record that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.name'            => 'The Name type from the user record that is the source of the claim value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.description.ssh_key'         => 'Only assert SSH keys of the selected type',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.co_group_member'        => 'Ownership',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.co_person_role'         => 'Active Status',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email'                  => 'Type',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.email.all'              => 'Use all types',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier'             => 'Type',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.identifier.all'         => 'Use all types',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name'                   => 'Type',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.name.all'               => 'Use all types',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key'                => 'Type',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint0.fd.value.name.ssh_key.all'            => 'Use all types',
+
+  // Claim constraints - second constraint (verified/primary)
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.constraint_value.description.email' => 'Only assert verified email addresses',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.constraint_value.description.name'  => 'Only assert the single primary name value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.constraint_value.name.email'        => 'Verified',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.constraint_value.name.name'         => 'Primary',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.email'            => 'Only assert verified email addresses',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.description.name'             => 'Only assert the single primary name value',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.name.email'                   => 'Verified',
+  'pl.oa4mp_client_co_oidc_client.claimconstraint1.fd.value.name.name'                    => 'Primary',
+
+  // Flash messages
+  'pl.oa4mp_client_claim.add.flash.success'    => 'Claim Added',
+  'pl.oa4mp_client_claim.delete.flash.success' => 'Claim Deleted',
+  'pl.oa4mp_client_claim.edit.flash.success'   => 'Claim Updated',
+
+  // ===========================================================================
+  // Scopes
+  // ===========================================================================
+
+  // Tab and view titles
+  'pl.oa4mp_client_co_scope.scope.edit.name'       => 'Edit Scopes for %1$s',
+  'pl.oa4mp_client_co_scope.scope.tab.name'        => 'Scopes',
+
+  // Field definitions
+  'pl.oa4mp_client_co_scope.scope.fd.description'        => '<a href="https://www.cilogon.org/oidc">Information on scopes</a>',
   'pl.oa4mp_client_co_scope.scope.fd.description.public' => 'Public clients may only use the openid scope',
-  'pl.oa4mp_client_co_scope.scope.openid.fd.name' => 'openid',
+  'pl.oa4mp_client_co_scope.scope.fd.name'               => 'Scopes',
+  'pl.oa4mp_client_co_scope.scope.override'              => ' Be aware this name overrides a standard claim',
+
+  // Flash messages
+  'pl.oa4mp_client_co_scope.scope.flash.success' => 'Scopes Saved',
+
+  // Scope: openid
+  'pl.oa4mp_client_co_scope.scope.openid.fd.name'  => 'openid',
   'pl.oa4mp_client_co_scope.scope.openid.required' => 'openid scope is required',
 
-  'pl.oa4mp_client_co_scope.scope.profile.fd.name' => 'profile',
-  'pl.oa4mp_client_co_scope.scope.profile.dialog.title' => 'Confirm profile scope',
-  'pl.oa4mp_client_co_scope.scope.profile.dialog.text' => 'The claim you entered is only released with the profile scope but you have not requested the profile scope. Do you want to check the box for the profile scope?',
+  // Scope: profile
+  'pl.oa4mp_client_co_scope.scope.profile.dialog.button.no'  => 'No',
   'pl.oa4mp_client_co_scope.scope.profile.dialog.button.yes' => 'Yes',
-  'pl.oa4mp_client_co_scope.scope.profile.dialog.button.no' => 'No',
+  'pl.oa4mp_client_co_scope.scope.profile.dialog.text'       => 'The claim you entered is only released with the profile scope but you have not requested the profile scope. Do you want to check the box for the profile scope?',
+  'pl.oa4mp_client_co_scope.scope.profile.dialog.title'      => 'Confirm profile scope',
+  'pl.oa4mp_client_co_scope.scope.profile.fd.name'           => 'profile',
 
-  'pl.oa4mp_client_co_scope.scope.email.fd.name' => 'email',
-  'pl.oa4mp_client_co_scope.scope.email.dialog.title' => 'Confirm email scope',
-  'pl.oa4mp_client_co_scope.scope.email.dialog.text' => 'The claim you entered is only released with the email scope but you have not requested the email scope. Do you want to check the box for the email scope?',
+  // Scope: email
+  'pl.oa4mp_client_co_scope.scope.email.dialog.button.no'  => 'No',
   'pl.oa4mp_client_co_scope.scope.email.dialog.button.yes' => 'Yes',
-  'pl.oa4mp_client_co_scope.scope.email.dialog.button.no' => 'No',
+  'pl.oa4mp_client_co_scope.scope.email.dialog.text'       => 'The claim you entered is only released with the email scope but you have not requested the email scope. Do you want to check the box for the email scope?',
+  'pl.oa4mp_client_co_scope.scope.email.dialog.title'      => 'Confirm email scope',
+  'pl.oa4mp_client_co_scope.scope.email.fd.name'           => 'email',
 
+  // Scope: org.cilogon.userinfo
   'pl.oa4mp_client_co_scope.scope.org.cilogon.userinfo.fd.name' => 'org.cilogon.userinfo',
-  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.title' => 'Confirm org.cilogon.userinfo scope',
-  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.text' => 'The claim you entered is only released with the org.cilogon.userinfo scope but you have not requested the org.cilogon.userinfo scope. Do you want to check the box for the org.cilogon.userinfo scope?',
-  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.button.yes' => 'Yes',
-  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.button.no' => 'No',
+  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.button.no'    => 'No',
+  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.button.yes'   => 'Yes',
+  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.text'         => 'The claim you entered is only released with the org.cilogon.userinfo scope but you have not requested the org.cilogon.userinfo scope. Do you want to check the box for the org.cilogon.userinfo scope?',
+  'pl.oa4mp_client_co_scope.scope.userinfo.dialog.title'        => 'Confirm org.cilogon.userinfo scope',
 
-  'pl.oa4mp_client_co_scope.scope.getcert.fd.name' => 'edu.uiuc.ncsa.myproxy.getcert',
-  'pl.oa4mp_client_co_scope.scope.getcert.dialog.title' => 'Confirm edu.uiuc.ncsa.myproxy.getcert Scope',
-  'pl.oa4mp_client_co_scope.scope.getcert.dialog.text' => 'The edu.uiuc.ncsa.myprox.getcert scope is only necessary if your client will request X.509 certificates on behalf of users. Are you sure your client needs the edu.uiuc.ncsa.myprox.getcert scope?',
+  // Scope: edu.uiuc.ncsa.myproxy.getcert
+  'pl.oa4mp_client_co_scope.scope.getcert.dialog.button.no'  => 'No, cancel scope',
   'pl.oa4mp_client_co_scope.scope.getcert.dialog.button.yes' => 'Yes',
-  'pl.oa4mp_client_co_scope.scope.getcert.dialog.button.no' => 'No, cancel scope',
+  'pl.oa4mp_client_co_scope.scope.getcert.dialog.text'       => 'The edu.uiuc.ncsa.myprox.getcert scope is only necessary if your client will request X.509 certificates on behalf of users. Are you sure your client needs the edu.uiuc.ncsa.myprox.getcert scope?',
+  'pl.oa4mp_client_co_scope.scope.getcert.dialog.title'      => 'Confirm edu.uiuc.ncsa.myproxy.getcert Scope',
+  'pl.oa4mp_client_co_scope.scope.getcert.fd.name'           => 'edu.uiuc.ncsa.myproxy.getcert',
 
-  'pl.oa4mp_client_co_scope.scope.override' => ' Be aware this name overrides a standard claim',
+  // ===========================================================================
+  // LDAP Configuration
+  // ===========================================================================
 
+  'pl.oa4mp_client_co_ldap_config.basedn.fd.name'              => 'LDAP Search Base DN',
+  'pl.oa4mp_client_co_ldap_config.binddn.fd.name'              => 'LDAP Bind DN',
   'pl.oa4mp_client_co_ldap_config.explorer.heading.connection' => 'Connection Details',
+  'pl.oa4mp_client_co_ldap_config.explorer.heading.mappings'   => 'Mappings',
+  'pl.oa4mp_client_co_ldap_config.explorer.heading.search'     => 'Search Details',
+  'pl.oa4mp_client_co_ldap_config.password.fd.name'            => 'LDAP Bind Password',
+  'pl.oa4mp_client_co_ldap_config.search_name.fd.name'         => 'LDAP Search Attribute for Authenticated User Identifier',
+  'pl.oa4mp_client_co_ldap_config.serverurl.fd.name'           => 'LDAP Server URL',
 
-  'pl.oa4mp_client_co_ldap_config.serverurl.fd.name' => 'LDAP Server URL',
-  'pl.oa4mp_client_co_ldap_config.binddn.fd.name' => 'LDAP Bind DN',
-  'pl.oa4mp_client_co_ldap_config.password.fd.name' => 'LDAP Bind Password',
+  // ===========================================================================
+  // Search Attributes (LDAP to Claim Mappings)
+  // ===========================================================================
 
-  'pl.oa4mp_client_co_ldap_config.explorer.heading.search' => 'Search Details',
-
-  'pl.oa4mp_client_co_ldap_config.basedn.fd.name' => 'LDAP Search Base DN',
-  'pl.oa4mp_client_co_ldap_config.search_name.fd.name' => 'LDAP Search Attribute for Authenticated User Identifier',
-
-  'pl.oa4mp_client_co_ldap_config.explorer.heading.mappings' => 'Mappings',
-
-  'pl.oa4mp_client_co_search_attribute.fd.title' => 'LDAP to Claim Mappings',
-  'pl.oa4mp_client_co_search_attribute.fd.add_first_button' => 'Add a LDAP to Claim Mapping',
   'pl.oa4mp_client_co_search_attribute.fd.add_another_button' => 'Add another LDAP to Claim Mapping',
-  'pl.oa4mp_client_co_search_attribute.fd.description' => '<a href="https://www.cilogon.org/oidc">Information on LDAP to claim mappings</a>',
-  'pl.oa4mp_client_co_search_attribute.name.fd.name' => 'LDAP Attribute Name',
-  'pl.oa4mp_client_co_search_attribute.return_name.fd.name' => 'OIDC Claim Name',
-  'pl.oa4mp_client_co_search_attribute.return_as_list.fd.name' => 'Multivalued?',
+  'pl.oa4mp_client_co_search_attribute.fd.add_first_button'   => 'Add a LDAP to Claim Mapping',
+  'pl.oa4mp_client_co_search_attribute.fd.description'        => '<a href="https://www.cilogon.org/oidc">Information on LDAP to claim mappings</a>',
+  'pl.oa4mp_client_co_search_attribute.fd.title'              => 'LDAP to Claim Mappings',
+  'pl.oa4mp_client_co_search_attribute.name.fd.name'          => 'LDAP Attribute Name',
+  'pl.oa4mp_client_co_search_attribute.return_as_list.fd.name'=> 'Multivalued?',
+  'pl.oa4mp_client_co_search_attribute.return_name.fd.name'   => 'OIDC Claim Name',
 
-  'pl.oa4mp_client_co_named_config.admin.fd' => 'Admin Client',
-  'pl.oa4mp_client_co_named_config.admin.description' => 'Each Named Configuration is bound to a single admin client/issuer.',
-  'pl.oa4mp_client_co_named_config.config_name.fd' => 'Configuration Name',
-  'pl.oa4mp_client_co_named_config.config_name.description' => 'This name will be shown to admininstrators when managing OIDC clients',
-  'pl.oa4mp_client_co_named_config.description.fd' => 'Description',
-  'pl.oa4mp_client_co_named_config.description.description' => 'This description will be shown to administrators when managing OIDC clients',
-  'pl.oa4mp_client_co_named_config.config.fd' => 'Configuration',
-  'pl.oa4mp_client_co_named_config.config.description' => 'This is the full Oa4mp server cfg JSON and will not be displayed to administrators',
-  'pl.oa4mp_client_co_named_config.scope.description' => 'Scopes the client must request; these will be displayed to administrators but will not be editable',
-  'pl.oa4mp_client_co_named_config.additional_scope.fd' => 'Additional Scopes',
-  'pl.oa4mp_client_co_named_config.additional_scope.description' => 'Any additional scopes the client may request, e.g. scopes needed for GA4GH passports. These will be displayed to administrators but not editable. Templates with substitutions representing multiple classes of scopes are allowed, e.g. storage.${action}:/${students}/public/data/${sub}',
-  'pl.oa4mp_client_co_named_config.additional_scope.scope.fd' => 'Scope',
-  'pl.oa4mp_client_co_named_config.add_first_additional_scope' => 'Add scope',
-  'pl.oa4mp_client_co_named_config.allowed_scopes' => 'allowed scope(s) include',
+  // ===========================================================================
+  // Named Configurations
+  // ===========================================================================
 
-  'pl.oa4mp_client_co_named_config.not_selected.dialog.title' => 'No Named Configuration Selected',
-  'pl.oa4mp_client_co_named_config.not_selected.dialog.text' => 'You have not selected a specific named configuration. Please select a specific named configuration or uncheck the box to indicate you do not want to use a named configuration.',
+  // Field definitions
+  'pl.oa4mp_client_co_named_config.add_first_additional_scope'    => 'Add scope',
+  'pl.oa4mp_client_co_named_config.additional_scope.description'  => 'Any additional scopes the client may request, e.g. scopes needed for GA4GH passports. These will be displayed to administrators but not editable. Templates with substitutions representing multiple classes of scopes are allowed, e.g. storage.${action}:/${students}/public/data/${sub}',
+  'pl.oa4mp_client_co_named_config.additional_scope.fd'           => 'Additional Scopes',
+  'pl.oa4mp_client_co_named_config.additional_scope.scope.fd'     => 'Scope',
+  'pl.oa4mp_client_co_named_config.admin.description'             => 'Each Named Configuration is bound to a single admin client/issuer.',
+  'pl.oa4mp_client_co_named_config.admin.fd'                      => 'Admin Client',
+  'pl.oa4mp_client_co_named_config.allowed_scopes'                => 'allowed scope(s) include',
+  'pl.oa4mp_client_co_named_config.config.description'            => 'This is the full Oa4mp server cfg JSON and will not be displayed to administrators',
+  'pl.oa4mp_client_co_named_config.config.fd'                     => 'Configuration',
+  'pl.oa4mp_client_co_named_config.config_name.description'       => 'This name will be shown to admininstrators when managing OIDC clients',
+  'pl.oa4mp_client_co_named_config.config_name.fd'                => 'Configuration Name',
+  'pl.oa4mp_client_co_named_config.description.description'       => 'This description will be shown to administrators when managing OIDC clients',
+  'pl.oa4mp_client_co_named_config.description.fd'                => 'Description',
+  'pl.oa4mp_client_co_named_config.scope.description'             => 'Scopes the client must request; these will be displayed to administrators but will not be editable',
+
+  // Manage action
+  'pl.oa4mp_client_co_named_config.fd.config_name'              => 'Named Configuration',
+  'pl.oa4mp_client_co_named_config.fd.config_name.desc'         => 'Select a named configuration to apply to this OIDC client',
+  'pl.oa4mp_client_co_named_config.fd.config_name.select.empty' => '-- Select Configuration (or leave for no configuration) --',
+  'pl.oa4mp_client_co_named_config.fd.contact_admin'            => 'Contact an administrator to create named configurations',
+  'pl.oa4mp_client_co_named_config.fd.no_config'                => 'No Named Configuration',
+  'pl.oa4mp_client_co_named_config.fd.no_config.desc'           => 'Do not use a named configuration',
+  'pl.oa4mp_client_co_named_config.fd.no_configs_available'     => 'No Named Configurations Available',
+  'pl.oa4mp_client_co_named_config.fd.no_configs_available.desc'=> 'There are no named configurations available for this admin client',
+  'pl.oa4mp_client_co_named_config.fd.no_description'           => 'No description available',
+  'pl.oa4mp_client_co_named_config.manage.flash.error'          => 'An error occurred while updating the named configuration',
+  'pl.oa4mp_client_co_named_config.manage.flash.success'        => 'Named configuration updated successfully',
+  'pl.oa4mp_client_co_named_config.manage.name'                 => 'Named Configuration for %s',
+  'pl.oa4mp_client_co_named_config.tab.name'                    => 'Named Configuration',
+
+  // Dialog texts
+  'pl.oa4mp_client_co_named_config.no_auto_update.dialog.text'  => 'Editing the Named Configuration does NOT cause the cfg for any client to be automatically updated. You must edit and re-save any client that uses the Named Configuration you just edited.',
   'pl.oa4mp_client_co_named_config.no_auto_update.dialog.title' => 'No Clients Will Be Updated',
-  'pl.oa4mp_client_co_named_config.no_auto_update.dialog.text' => 'Editing the Named Configuration does NOT cause the cfg for any client to be automatically updated. You must edit and re-save any client that uses the Named Configuration you just edited.',
+  'pl.oa4mp_client_co_named_config.not_selected.dialog.text'    => 'You have not selected a specific named configuration. Please select a specific named configuration or uncheck the box to indicate you do not want to use a named configuration.',
+  'pl.oa4mp_client_co_named_config.not_selected.dialog.title'   => 'No Named Configuration Selected',
 
+  // ===========================================================================
+  // Refresh Tokens
+  // ===========================================================================
+
+  // Tab name
+  'pl.oa4mp_client_refresh_token.tab.name' => 'Refresh Token',
+
+  // Field definitions
+  'pl.oa4mp_client_refresh_token.fd.token_lifetime'      => 'Token Lifetime',
+  'pl.oa4mp_client_refresh_token.fd.token_lifetime.desc' => 'The lifetime of refresh tokens in seconds (maximum 31536000 seconds, or one year)',
+
+  // Flash messages
+  'pl.oa4mp_client_refresh_token.token.add.flash.success'    => 'Refresh Token Configuration Added',
+  'pl.oa4mp_client_refresh_token.token.delete.flash.success' => 'Refresh Token Configuration Deleted',
+  'pl.oa4mp_client_refresh_token.token.edit.flash.success'   => 'Refresh Token Configuration Updated',
+
+  // View titles
+  'pl.oa4mp_client_refresh_token.add.name'   => 'Add Refresh Token Configuration for %s',
+  'pl.oa4mp_client_refresh_token.edit.name'  => 'Edit Refresh Token Configuration for %s',
+  'pl.oa4mp_client_refresh_token.index.name' => 'Refresh Token Configuration for %s',
+
+  // ===========================================================================
+  // Access Tokens
+  // ===========================================================================
+
+  // Tab name
+  'pl.oa4mp_client_access_token.tab.name' => 'Access Token',
+
+  // Field definitions
+  'pl.oa4mp_client_access_token.fd.is_jwt'      => 'JWT Format',
+  'pl.oa4mp_client_access_token.fd.is_jwt.desc' => 'Whether access tokens should be issued in JWT format',
+
+  // Flash messages
+  'pl.oa4mp_client_access_token.token.add.flash.success'    => 'Access Token Configuration Added',
+  'pl.oa4mp_client_access_token.token.delete.flash.success' => 'Access Token Configuration Deleted',
+  'pl.oa4mp_client_access_token.token.edit.flash.success'   => 'Access Token Configuration Updated',
+
+  // View titles
+  'pl.oa4mp_client_access_token.add.name'   => 'Add Access Token Configuration for %s',
+  'pl.oa4mp_client_access_token.edit.name'  => 'Edit Access Token Configuration for %s',
+  'pl.oa4mp_client_access_token.index.name' => 'Access Token Configuration for %s',
+
+  // ===========================================================================
+  // Authorizations
+  // ===========================================================================
+
+  // Tab name
+  'pl.oa4mp_client_authorization.tab.name' => 'Authorization',
+
+  // Field definitions
+  'pl.oa4mp_client_authorization.fd.authz_co_group_id'              => 'Authorized User Group',
+  'pl.oa4mp_client_authorization.fd.authz_co_group_id.desc'         => 'Members of this group may access this client',
+  'pl.oa4mp_client_authorization.fd.authz_co_group_id.select.empty' => '-- Select Group (or leave for no group) --',
+  'pl.oa4mp_client_authorization.fd.authz_group_redirect_url'       => 'Group authorization Redirect URL',
+  'pl.oa4mp_client_authorization.fd.authz_group_redirect_url.desc'  => 'URL to redirect users to when they are not members of the authorization group to use this client. If not set the client receives a standard protocol error message.',
+  'pl.oa4mp_client_authorization.fd.require_active'                 => 'Require Active Status',
+  'pl.oa4mp_client_authorization.fd.require_active.desc'            => 'User record must have active status to access this client',
+  'pl.oa4mp_client_authorization.fd.require_active_redirect_url'    => 'Active Status Redirect URL',
+  'pl.oa4mp_client_authorization.fd.require_active_redirect_url.desc' => 'URL to redirect users to when they do not have active status. If not set the client receives a standard protocol error message.',
+
+  // Flash messages
+  'pl.oa4mp_client_authorization.add.flash.success'    => 'Authorization Configuration Added',
+  'pl.oa4mp_client_authorization.delete.flash.success' => 'Authorization Configuration Deleted',
+  'pl.oa4mp_client_authorization.edit.flash.success'   => 'Authorization Configuration Updated',
+
+  // View titles
+  'pl.oa4mp_client_authorization.add.name'   => 'Add Authorization Configuration for %s',
+  'pl.oa4mp_client_authorization.edit.name'  => 'Edit Authorization Configuration for %s',
+  'pl.oa4mp_client_authorization.index.name' => 'Authorization Configuration for %s',
+
+  // ===========================================================================
+  // Access Controls (Editors)
+  // ===========================================================================
+
+  // Tab name
+  'pl.oa4mp_client_access_control.tab.name' => 'Editors',
+
+  // Field definitions
+  'pl.oa4mp_client_access_control.fd.co_group_id'              => 'Editor Group',
+  'pl.oa4mp_client_access_control.fd.co_group_id.desc'         => 'Group whose members may edit this OIDC client configuration. Default is CO admins and delegated client managers',
+  'pl.oa4mp_client_access_control.fd.co_group_id.select.empty' => '-- Select Group (or leave for no group) --',
+
+  // Flash messages
+  'pl.oa4mp_client_access_control.manage.flash.success' => 'Editor configuration updated',
+
+  // View titles
+  'pl.oa4mp_client_access_control.manage.name' => 'Editor configuration for %s',
+
+  // ===========================================================================
   // Enumerations
+  // ===========================================================================
+
   'pl.oa4mp_client.en.scope' => array(
     Oa4mpClientScopeEnum::OpenId             => 'openid',
     Oa4mpClientScopeEnum::Profile            => 'profile',
@@ -198,19 +505,27 @@ $cm_oa4mp_client_texts['en_US'] = array(
     Oa4mpClientScopeEnum::Getcert            => 'edu.uiuc.ncsa.myproxy.getcert'
   ),
 
+  // ===========================================================================
+  // Signature
+  // ===========================================================================
+
   // Text flag to signal OIDC client created by COmanage Registry Oa4mpClient Plugin.
   'pl.oa4mp_client_co_oidc_client.signature' => 'Created by COmanage Oa4mpClient Plugin',
 
-  // Exceptions
-  'pl.oa4mp_client_co_oidc_client.er.bad_signature' => 'Client object from Oa4mp server failed signature check',
-  'pl.oa4mp_client_co_oidc_client.er.marshall' => 'Error marshalling OIDC client object for Oa4mp server',
-  'pl.oa4mp_client_co_oidc_client.er.unmarshall' => 'Error unmarshalling OIDC client object from Oa4mp server',
-  'pl.oa4mp_client_co_oidc_client.er.unmarshall.cfg' => 'Error unmarshalling cfg object from Oa4mp server',
-  'pl.oa4mp_client_co_oidc_client.er.preprocessing' => 'Found bad preProcessing block from Oa4mp server',
-  'pl.oa4mp_client_co_oidc_client.er.bad_client' => 'This client has been modified outside of the Registry. Please email help@cilogon.org for assistance.',
-  'pl.oa4mp_client_co_oidc_client.er.wildcards' => 'Wildcards are not allowed in callback URLs',
-  'pl.oa4mp_client_co_oidc_client.er.invalid_scheme' => 'Please use a valid scheme for callback URLs',
-  'pl.oa4mp_client_co_oidc_client.er.valid_domain' => 'Private-use URI schemes require a valid domain',
-  'pl.oa4mp_client_co_oidc_client.er.callback_default' => 'Please provide a valid callback URL',
-  'pl.oa4mp_client_co_oidc_client.er.bad_admin_id' => 'The selected OAuth2 server is not available',
+  // ===========================================================================
+  // Errors and Exceptions
+  // ===========================================================================
+
+  'pl.oa4mp_client_co_oidc_client.er.bad_admin_id'    => 'The selected OAuth2 server is not available',
+  'pl.oa4mp_client_co_oidc_client.er.bad_client'      => 'This client has been modified outside of the Registry. Please email help@cilogon.org for assistance.',
+  'pl.oa4mp_client_co_oidc_client.er.bad_signature'   => 'Client object from Oa4mp server failed signature check',
+  'pl.oa4mp_client_co_oidc_client.er.callback_default'=> 'Please provide a valid callback URL',
+  'pl.oa4mp_client_co_oidc_client.er.id'              => 'The OIDC client with ID %1%s cannot be found',
+  'pl.oa4mp_client_co_oidc_client.er.invalid_scheme'  => 'Please use a valid scheme for callback URLs',
+  'pl.oa4mp_client_co_oidc_client.er.marshall'        => 'Error marshalling OIDC client object for Oa4mp server',
+  'pl.oa4mp_client_co_oidc_client.er.preprocessing'   => 'Found bad preProcessing block from Oa4mp server',
+  'pl.oa4mp_client_co_oidc_client.er.unmarshall'      => 'Error unmarshalling OIDC client object from Oa4mp server',
+  'pl.oa4mp_client_co_oidc_client.er.unmarshall.cfg'  => 'Error unmarshalling cfg object from Oa4mp server',
+  'pl.oa4mp_client_co_oidc_client.er.valid_domain'    => 'Private-use URI schemes require a valid domain',
+  'pl.oa4mp_client_co_oidc_client.er.wildcards'       => 'Wildcards are not allowed in callback URLs',
 );

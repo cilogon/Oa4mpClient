@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.0.0 (2026-01-13)
+
+- Use DynamoDB and Registry model references for claim resolution.
+- Use tab UI.
+- Add access control, access token, authorization management.
+
 ## 6.0.0 (2023-06-21)
 
 - Enable multiple admin clients per CO.
