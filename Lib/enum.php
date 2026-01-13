@@ -41,10 +41,3 @@ class Oa4mpClientScopeEnum
     Oa4mpClientScopeEnum::Getcert,
   );
 }
-
-class Oa4mpClientClaimModelEnum
-{
-  const Identifier   = 'Identifier';
-  const Name         = 'Name';
-  const EmailAddress = 'EmailAddress';
-}
