@@ -31,49 +31,6 @@ class Oa4mpClientOa4mpServer extends AppModel {
   public $useTable = false;
 
   /**
-   * Return the base64 encoded claim mapping source to be
-   * decoded and then interpreted on the OA4MP server.
-   *
-   * @param array $claim The Oa4mpClientClaim object and associated Oa4mpClientClaimConstraint objects.
-   * @return array An array where the first element is the base64 encoded claim mapping source to be decoded
-   *               and then interpreted on the OA4MP server and the second element is a comment.
-   */
-
-  private function claimMappingSource($claim) {
-    $mappingString = '';
-    $comment = '';
-
-    if($claim['source_model'] == 'Identifier') {
-      $mappingString .= 'registry#dynamodb#identifier(item., ';
-      foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
-        if($constraint['constraint_field'] == 'type') {
-          $mappingString .= "'" . $constraint['constraint_value'] . "')";
-        }
-      }
-    }
-
-    if($claim['claim_value_selection'] == 'first') {
-      $mappingString .= '.0';
-    }
-
-    // Ensure the mapping string ends with a semicolon for QDL parsing.
-    if(!str_ends_with($mappingString, ';')) {
-      $mappingString .= ';';
-    }
-
-    $comment = $mappingString;
-
-    // Remove single quotes from the comment so that the OA4MP server
-    // can parse the JSON.
-    $comment = str_replace("'", "", $comment);
-
-    // Base64 encode the mapping string.
-    $mappingString = base64_encode($mappingString);
-
-    return array($mappingString, $comment);
-  }
-
-  /**
    * Determine if our representation of the client and the Oa4mp server
    * representation of the client is synchronized, in order to detect
    * if the client has been changed outside of this plugin.
