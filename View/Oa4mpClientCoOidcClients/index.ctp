@@ -36,9 +36,18 @@
   // Add top links
   $params['topLinks'] = array();
 
-  // The link to add a new client uses a different action
-  // depending on how many admin clients the CO has available.
-  $addAction = $this->viewVars['vv_next_action'];
+  if($permissions['delegate']) {
+    $params['topLinks'][] = $this->Html->link(
+      _txt('pl.oa4mp_client_co_admin_client.delegate.button'),
+      array(
+        'plugin' => 'oa4mp_client',
+        'controller' => 'oa4mp_client_co_admin_clients',
+        'action' => 'delegate',
+        $this->params['named']['co']
+      ),
+      array('class' => 'editbutton')
+    );
+  }
 
   if($permissions['add']) {
     $params['topLinks'][] = $this->Html->link(
@@ -46,7 +55,7 @@
       array(
         'plugin' => 'oa4mp_client',
         'controller' => 'oa4mp_client_co_oidc_clients',
-        'action' => $addAction,
+        'action' => 'add',
         'co' => $this->params['named']['co']
       ),
       array('class' => 'addbutton')
@@ -55,7 +64,7 @@
 
   print $this->element("pageTitleAndButtons", $params);
 ?>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.10/clipboard.min.js"></script>
+<?php print $this->Html->script('Oa4mpClient.clipboard.min'); ?>
 
 <script type="text/javascript">
 
@@ -86,7 +95,7 @@ function js_local_onload() {
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_oidc_clients',
-              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              'action' => 'edit',
               $c['Oa4mpClientCoOidcClient']['id']
             )
           );
@@ -99,7 +108,7 @@ function js_local_onload() {
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_oidc_clients',
-              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              'action' => 'edit',
               $c['Oa4mpClientCoOidcClient']['id']
             )
           );
@@ -113,7 +122,7 @@ function js_local_onload() {
             array(
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_oidc_clients',
-              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+              'action' => 'edit',
               $c['Oa4mpClientCoOidcClient']['id']
             )
           );
@@ -127,7 +136,6 @@ function js_local_onload() {
       </td>
       <td>
         <?php
-          if($permissions['edit']) {
             print $this->Html->link(
                 _txt('op.edit'),
                 array(
@@ -136,8 +144,6 @@ function js_local_onload() {
                   'action' => 'edit', $c['Oa4mpClientCoOidcClient']['id']
                 ),
                 array('class' => 'editbutton')) . "\n";
-          }
-          if($permissions['delete']) {
             print '<button type="button" class="deletebutton" title="' . _txt('op.delete')
               . '" onclick="javascript:js_confirm_generic(\''
               . _txt('js.remove') . '\',\''    // dialog body text
@@ -156,7 +162,6 @@ function js_local_onload() {
               . '\']);">'
               . _txt('op.delete')
               . '</button>';
-          }
         ?>
         <?php ; ?>
       </td>

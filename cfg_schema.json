@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cilogon.org/schemas/COmanage/Registry/plugin/Oa4mpClient/cfg/v3/flex.schema.json",
+  "title": "COmanage Registry Oa4mpClient Plugin OA4MP Client Configuration cfg (Flexible)",
+  "type": "object",
+
+  "required": ["tokens"],
+  "additionalProperties": true,
+
+  "properties": {
+    "tokens": {
+      "type": "object",
+      "required": ["identity"],
+      "additionalProperties": true,
+      "properties": {
+        "access": { "$ref": "#/$defs/accessTokenConfig" },
+        "identity": { "$ref": "#/$defs/identityTokenConfig" }
+      }
+    }
+  },
+
+  "$defs": {
+    "accessTokenConfig": {
+      "type": "object",
+      "description": "Optional access token configuration. When present, access tokens are JWTs.",
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "access"
+        }
+      }
+    },
+
+    "identityTokenConfig": {
+      "type": "object",
+      "required": ["qdl", "type"],
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "identity"
+        },
+        "qdl": { "$ref": "#/$defs/qdlConfig" },
+
+        "extensions": {
+          "type": "object",
+          "description": "Optional extension bucket for vendor-specific fields.",
+          "additionalProperties": true
+        }
+      }
+    },
+
+    "qdlConfig": {
+      "type": "object",
+      "required": ["args", "load"],
+      "additionalProperties": true,
+      "properties": {
+        "load": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path of the QDL module to load."
+        },
+        "args": { "$ref": "#/$defs/qdlArgs" },
+        "xmd": { "$ref": "#/$defs/xmdConfig" }
+      }
+    },
+
+    "xmdConfig": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "exec_phase": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["post_auth", "post_refresh", "post_token", "post_user_info"]
+          },
+          "uniqueItems": true,
+          "description": "Execution phases when the QDL script runs."
+        }
+      }
+    },
+
+    "qdlArgs": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["dynamo_module_config", "partition_key_template", "partition_key_claim_name"],
+      "properties": {
+        "claim_mappings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/claimMapping" }
+        },
+
+        "dynamo_module_config": { "$ref": "#/$defs/dynamoModuleConfig" },
+
+        "partition_key_claim_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the claim to use as the partition key value."
+        },
+        "partition_key_template": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Template string for constructing the partition key value."
+        },
+        "sort_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional DynamoDB sort key name."
+        },
+        "sort_key_template": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional template string for constructing the sort key value."
+        },
+
+        "authorization_group_id": {
+          "type": ["string", "integer"],
+          "description": "CO Group ID required for authorization."
+        },
+        "authorization_group_redirect_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to redirect to when authorization group check fails."
+        },
+        "require_active_redirect_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to redirect to when require active status check fails."
+        },
+        "require_active_status": {
+          "type": "boolean",
+          "description": "Whether an active CO Person status is required."
+        }
+      }
+    },
+
+    "dynamoModuleConfig": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["region", "table_name", "access_key_id", "secret_access_key", "partition_key"],
+      "properties": {
+        "access_key_id": {
+          "type": "string",
+          "description": "AWS Access Key ID."
+        },
+        "secret_access_key": {
+          "type": "string",
+          "description": "AWS Access Key secret."
+        },
+        "region": {
+          "type": "string",
+          "minLength": 1,
+          "description": "AWS region for DynamoDB table."
+        },
+        "table_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "DynamoDB table name."
+        },
+        "partition_key": {
+          "type": "string",
+          "minLength": 1,
+          "description": "DynamoDB partition key attribute name."
+        }
+      }
+    },
+
+    "claimMapping": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["claim_name", "source_model"],
+      "properties": {
+        "claim_constraints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/claimConstraint" },
+          "description": "Optional constraints to filter source model objects."
+        },
+
+        "claim_multiple_value_serialization": {
+          "type": "string",
+          "enum": ["delimited_string", "json_array"],
+          "description": "Serialization format when claim has multiple values."
+        },
+
+        "claim_name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Name of the claim in the token."
+        },
+
+        "claim_value_json_format": {
+          "type": "string",
+          "enum": ["number", "string"],
+          "description": "JSON type for the claim value."
+        },
+
+        "claim_value_selection": {
+          "type": "string",
+          "enum": ["all", "first"],
+          "description": "Which values to include when multiple match."
+        },
+
+        "claim_value_string_serialization_delimiter": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Delimiter for delimited_string serialization."
+        },
+
+        "source_model": {
+          "type": "string",
+          "minLength": 1,
+          "description": "COmanage Registry model to source claim values from."
+        },
+
+        "source_model_claim_value_field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Field from the source model to use as the claim value."
+        }
+      }
+    },
+
+    "claimConstraint": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["constraint_field", "constraint_value"],
+      "properties": {
+        "constraint_field": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Field on the source model to constrain."
+        },
+        "constraint_value": {
+          "type": "string",
+          "description": "Value or pattern to match against the constraint field."
+        }
+      }
+    }
+  }
+}

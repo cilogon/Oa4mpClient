@@ -36,7 +36,9 @@ class Oa4mpClientCoScope extends AppModel {
   public $belongsTo = array(
     // An Oa4mp Client Scope is attached to an OIDC client
     // or a named configuration
-    "Oa4mpClient.Oa4mpClientCoOidcClient",
+    "Oa4mpClient.Oa4mpClientCoOidcClient" => array(
+      'foreignKey' => 'client_id'
+    ),
     "Oa4mpClient.Oa4mpClientCoNamedConfig"
   );
 
@@ -66,5 +68,4 @@ class Oa4mpClientCoScope extends AppModel {
       'allowEmpty' => false
     )
   );
-  
 }
