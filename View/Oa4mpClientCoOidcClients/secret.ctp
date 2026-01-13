@@ -50,7 +50,7 @@
   print $this->element("pageTitleAndButtons", $params);
 
 ?>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.10/clipboard.min.js"></script>
+<?php print $this->Html->script('Oa4mpClient.clipboard.min'); ?>
 
 <script type="text/javascript">
   <!-- JS specific to these fields -->
