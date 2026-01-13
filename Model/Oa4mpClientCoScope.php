@@ -68,5 +68,4 @@ class Oa4mpClientCoScope extends AppModel {
       'allowEmpty' => false
     )
   );
-  
 }

@@ -57,7 +57,6 @@ class Oa4mpClientCoCallback extends AppModel {
     )
   );
 
-
   /**
    * Find the CO ID for a callback.
    *

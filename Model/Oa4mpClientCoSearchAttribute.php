@@ -72,6 +72,17 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
     )
   );
 
+  /**
+   * Convert an LDAP search attribute to a claim object.
+   *
+   * @param integer $clientId The ID of the OIDC client.
+   * @param integer $coId The ID of the CO.
+   * @param array $dynamoConfig Instance of Oa4mpClientDynamoConfig.
+   * @param array $coLdapConfig Instance of Oa4mpClientCoLdapConfig.
+   * @param array $searchAttribute Instance of Oa4mpClientCoSearchAttribute.
+   * @return void
+   */
+
   public function toClaim($clientId, $coId, $dynamoConfig, $coLdapConfig, $searchAttribute) {
     $claim = array();
     $claimConstraints = array();
