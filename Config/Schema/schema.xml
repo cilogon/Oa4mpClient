@@ -68,6 +68,7 @@
         <field name="named_config_id" type="I">
             <constraint>REFERENCES cm_oa4mp_client_co_named_configs(id)</constraint>
         </field>
+        <field name="oa4mp_server_extra" type="X" size="65535" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
@@ -134,6 +135,11 @@
         <field name="name" type="C" size="64" />
         <field name="return_as_list" type="L" />
         <field name="return_name" type="C" size="64" />
+        <!-- We do not set the claim_id to be a foreign key to the claims table because
+             a claim may later be deleted but we want to keep the search attribute record
+             for historical purposes.
+        -->
+        <field name="claim_id" type="I"/>
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
@@ -208,6 +214,142 @@
 
         <index name="oa4mp_client_co_named_config_i1">
             <col>admin_id</col>
+        </index>
+    </table>
+
+    <table name="oa4mp_client_dynamo_configs">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="admin_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_admin_clients(id)</constraint>
+        </field>
+        <field name="aws_region" type="C" size="64" />
+        <field name="aws_access_key_id" type="C" size="64" />
+        <field name="aws_secret_access_key" type="C" size="64" />
+        <field name="table_name" type="C" size="256" />
+        <field name="partition_key" type="C" size="256" />
+        <field name="partition_key_template" type="C" size="256" />
+        <field name="partition_key_claim_name" type="C" size="256" />
+        <field name="sort_key" type="C" size="256" />
+        <field name="sort_key_template" type="C" size="256" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+    </table>
+
+    <table name="oa4mp_client_claims">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="claim_name" type="C" size="256" />
+        <field name="source_model" type="C" size="64" />
+        <field name="source_model_claim_value_field" type="C" size="64" />
+        <field name="claim_value_selection" type="C" size="64" />
+        <field name="claim_value_json_format" type="C" size="32" />
+        <field name="claim_multiple_value_serialization" type="C" size="32" />
+        <field name="claim_value_string_serialization_delimiter" type="C" size="32" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+    </table>
+
+    <table name="oa4mp_client_claim_constraints">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="claim_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_claims(id)</constraint>
+        </field>
+        <field name="constraint_field" type="C" size="64" />
+        <field name="constraint_value" type="C" size="64" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+    </table>
+
+    <table name="oa4mp_client_refresh_tokens">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="token_lifetime" type="I" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+
+        <index name="oa4mp_client_refresh_tokens_i1">
+            <col>client_id</col>
+            <unique />
+        </index>
+    </table>
+
+    <table name="oa4mp_client_access_tokens">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="is_jwt" type="L" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+
+        <index name="oa4mp_client_access_tokens_i1">
+            <col>client_id</col>
+            <unique />
+        </index>
+    </table>
+
+    <table name="oa4mp_client_authorizations">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="authz_co_group_id" type="I">
+            <constraint>REFERENCES cm_co_groups(id)</constraint>
+        </field>
+        <field name="require_active" type="L" />
+        <field name="authz_group_redirect_url" type="C" size="512" />
+        <field name="require_active_redirect_url" type="C" size="512" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+
+        <index name="oa4mp_client_authorizations_i1">
+            <col>client_id</col>
+            <unique />
+        </index>
+    </table>
+
+    <table name="oa4mp_client_access_controls">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="client_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_oidc_clients(id)</constraint>
+        </field>
+        <field name="co_group_id" type="I">
+            <constraint>REFERENCES cm_co_groups(id)</constraint>
+        </field>
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+
+        <index name="oa4mp_client_access_controls_i1">
+            <col>client_id</col>
+            <unique />
         </index>
     </table>
 </schema> 
