@@ -50,6 +50,25 @@
         </index>
     </table>
 
+    <table name="oa4mp_client_co_named_configs">
+        <field name="id" type="I">
+            <key />
+            <autoincrement />
+        </field>
+        <field name="admin_id" type="I">
+            <constraint>REFERENCES cm_oa4mp_client_co_admin_clients(id)</constraint>
+        </field>
+        <field name="config_name" type="C" size="256" />
+        <field name="description" type="X" size="1024" />
+        <field name="config" type="X" size="4096" />
+        <field name="created" type="T" />
+        <field name="modified" type="T" />
+
+        <index name="oa4mp_client_co_named_config_i1">
+            <col>admin_id</col>
+        </index>
+    </table>
+
     <table name="oa4mp_client_co_oidc_clients">
         <field name="id" type="I">
             <key />
@@ -195,25 +214,6 @@
             <col>client_id</col>
             <col>admin_id</col>
             <col>mail</col>
-        </index>
-    </table>
-
-    <table name="oa4mp_client_co_named_configs">
-        <field name="id" type="I">
-            <key />
-            <autoincrement />
-        </field>
-        <field name="admin_id" type="I">
-            <constraint>REFERENCES cm_oa4mp_client_co_admin_clients(id)</constraint>
-        </field>
-        <field name="config_name" type="C" size="256" />
-        <field name="description" type="X" size="1024" />
-        <field name="config" type="X" size="4096" />
-        <field name="created" type="T" />
-        <field name="modified" type="T" />
-
-        <index name="oa4mp_client_co_named_config_i1">
-            <col>admin_id</col>
         </index>
     </table>
 
