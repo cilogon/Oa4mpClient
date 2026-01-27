@@ -102,6 +102,15 @@ class Oa4mpClientCoCallback extends AppModel {
       return _txt('pl.oa4mp_client_co_oidc_client.er.wildcards');
     }
 
+    // Allow OAuth 2.0 "out of band" flow but no other URNs.
+    if(preg_match('/^urn:/', $url)) {
+      if($url == 'urn:ietf:wg:oauth:2.0:oob' || $url == 'urn:ietf:wg:oauth:2.0:oob:auto') {
+        return true;
+      } else {
+        return _txt('pl.oa4mp_client_co_oidc_client.er.invalid_urn');
+      }
+    }
+
     // Try to have the PHP filter_var with FILTER_VALIDATE_URL do
     // most of the checking, but continue with other constraints.
     if(filter_var($check['url'], FILTER_VALIDATE_URL)) {
