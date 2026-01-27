@@ -522,6 +522,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.er.callback_default'=> 'Please provide a valid callback URL',
   'pl.oa4mp_client_co_oidc_client.er.id'              => 'The OIDC client with ID %1%s cannot be found',
   'pl.oa4mp_client_co_oidc_client.er.invalid_scheme'  => 'Please use a valid scheme for callback URLs',
+  'pl.oa4mp_client_co_oidc_client.er.invalid_urn'     => 'The only URN allowed is the deprecated OAuth 2.0 "out of band" flow',
   'pl.oa4mp_client_co_oidc_client.er.marshall'        => 'Error marshalling OIDC client object for Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.preprocessing'   => 'Found bad preProcessing block from Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.unmarshall'      => 'Error unmarshalling OIDC client object from Oa4mp server',
