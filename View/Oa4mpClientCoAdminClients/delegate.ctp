@@ -60,7 +60,12 @@
     <li>
       <div class="field-name">
         <div class="field-title">
-          <?php print filter_var($client['Oa4mpClientCoAdminClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS); ?>
+          <?php 
+            $name = filter_var($client['Oa4mpClientCoAdminClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS);
+            $issuer = filter_var($client['Oa4mpClientCoAdminClient']['issuer'], FILTER_SANITIZE_SPECIAL_CHARS);
+            $label = $name . " - " . $issuer;
+            print $label;
+          ?>
         </div>
         <div class="field-desc"><?php print _txt('pl.oa4mp_client_co_admin_client.fd.manage_co_group_id.desc'); ?></div>
       </div>
