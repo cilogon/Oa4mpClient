@@ -527,6 +527,19 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // Find all the clients for the current CO.
     $clients = $this->Paginator->paginate('Oa4mpClientCoOidcClient', array(), array());
 
+    // It's possible that Paginator->paginate() returns duplicates. This may be due to the relationship
+    // between the Oa4mpClientCoOidcClient and Oa4mpClientCoNamedConfig models.
+    $seen = [];
+    $uniqueClients = [];
+    foreach($clients as $client) {
+      $key = $client['Oa4mpClientCoOidcClient']['id'];
+      if(!isset($seen[$key])) {
+        $seen[$key] = true;
+        $uniqueClients[] = $client;
+      }
+    }
+    $clients = $uniqueClients;
+
     // If the user is not a platform admin or CO admin, remove the clients for which they are not an editor.
     $roles = $this->Role->calculateCMRoles();
     if(empty($roles['cmadmin']) && empty($roles['coadmin'])) {
