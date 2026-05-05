@@ -957,7 +957,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $oa4mpClient['Oa4mpClientCoOidcClient']  = array();
     $oa4mpClient['Oa4mpClientCoAdminClient'] = array();
     $oa4mpClient['Oa4mpClientCoCallback']    = array();
-    $oa4mpClient['Oa4mpClientCoLdapConfig']  = array();
+    $oa4mpClient['Oa4mpClientClaim']         = array();
     $oa4mpClient['Oa4mpClientCoScope']       = array();
     $oa4mpClient['Oa4mpClientRefreshToken']  = array();
     $oa4mpClient['Oa4mpClientAccessToken']   = array();
@@ -1093,17 +1093,34 @@ class Oa4mpClientOa4mpServer extends AppModel {
         return $oa4mpClient;
       }
 
+      // Per-call memoization for the CoProvisioningTarget lookup the legacy-format
+      // claim conversion uses. Shared across the QDLv2 and deprecated paths.
+      $lookupCache = array();
+
       // Try cfg format 2 next.
       $ldapConfigs = $this->oa4mpUnMarshallCfgQdlv2($cfg);
 
       if(!empty($ldapConfigs)) {
         $this->log("Unmarshalled cfg QDL syntax to " . print_r($ldapConfigs, true));
         foreach($ldapConfigs as $ldapConfig) {
-          $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
+          if(empty($ldapConfig['Oa4mpClientCoSearchAttribute'])) {
+            continue;
+          }
+          foreach($ldapConfig['Oa4mpClientCoSearchAttribute'] as $sa) {
+            $mapping = array(
+              'ldap_attribute_name' => $sa['name'],
+              'return_name'         => $sa['return_name'],
+              'return_as_list'      => !empty($sa['return_as_list']),
+            );
+            $claim = $this->buildClaimFromLdapMapping($mapping, $ldapConfig['serverurl'], $adminClient, $lookupCache);
+            if($claim !== null) {
+              $oa4mpClient['Oa4mpClientClaim'][] = $claim;
+            }
+          }
         }
 
         return $oa4mpClient;
-      } 
+      }
 
       // If QDL syntax did not work try assuming older deprecated syntax.
       $ldapConfigs = $this->oa4mpUnMarshallCfgDeprecated($cfg);
