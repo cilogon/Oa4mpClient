@@ -73,7 +73,15 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
   );
 
   /**
-   * Convert an LDAP search attribute to a claim object.
+   * Convert an LDAP search attribute to a claim object (and persist it).
+   *
+   * IMPORTANT: the read-only output shape of this function (the switch
+   * table and provisioner-target lookup, lines 98-313) is mirrored by
+   * Oa4mpClientOa4mpServer::buildClaimFromLdapMapping() so the legacy-cfg
+   * unmarshall paths can produce comparable claims for sync verification.
+   * When changing the switch cases, source_model/field assignments, or
+   * constraint construction here, mirror the change there to avoid
+   * silent sync drift on legacy-cfg clients.
    *
    * @param integer $clientId The ID of the OIDC client.
    * @param integer $coId The ID of the CO.

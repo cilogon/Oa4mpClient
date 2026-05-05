@@ -1143,6 +1143,252 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * Build a claim array from an LDAP-search-attribute mapping descriptor.
+   * Read-only mirror of Oa4mpClientCoSearchAttribute::toClaim() used by the
+   * legacy-cfg unmarshall paths (deprecated, QDLv2) so the resulting claims
+   * compare correctly against the persisted-side Oa4mpClientClaim records
+   * that toClaim() produced at migration time.
+   *
+   * IMPORTANT: when changing the switch table or constraint construction
+   * here, mirror the change in Oa4mpClientCoSearchAttribute::toClaim() —
+   * the two are duplicates by design and must move in lockstep to avoid
+   * silent sync drift on legacy-cfg clients.
+   *
+   * @since COmanage Registry 4.5.0
+   * @param array $mapping     Array with 'ldap_attribute_name', 'return_name',
+   *                           'return_as_list' keys.
+   * @param string $serverUrl  LDAP server URL from the cfg's $ldapConfig['serverurl'];
+   *                           used to match the CoLdapProvisionerTarget.
+   * @param array $adminClient Admin client carrying CO context; must contain
+   *                           $adminClient['Oa4mpClientCoAdminClient']['co_id'].
+   * @param array &$lookupCache Per-call memoization for the CoProvisioningTarget
+   *                            find result. Keyed by "<coId>|<serverUrl>".
+   * @return array|null Claim array (with nested Oa4mpClientClaimConstraint) on
+   *                    success, null when the claim cannot be fully reconstructed
+   *                    (unknown attribute, missing context, no matching
+   *                    provisioner target / attribute).
+   */
+  function buildClaimFromLdapMapping($mapping, $serverUrl, $adminClient, &$lookupCache) {
+    if(empty($mapping['ldap_attribute_name'])) {
+      return null;
+    }
+    $searchAttributeName = $mapping['ldap_attribute_name'];
+
+    if(empty($adminClient['Oa4mpClientCoAdminClient']['co_id'])) {
+      $this->log("buildClaimFromLdapMapping: missing co_id from adminClient; skipping " . $searchAttributeName);
+      return null;
+    }
+    if(empty($serverUrl)) {
+      $this->log("buildClaimFromLdapMapping: missing serverUrl; skipping " . $searchAttributeName);
+      return null;
+    }
+
+    $coId = $adminClient['Oa4mpClientCoAdminClient']['co_id'];
+
+    $claim = array();
+    $claim['claim_name'] = $mapping['return_name'];
+    $claimConstraints = array();
+    $useLdapProvisionerConfig = false;
+
+    switch($searchAttributeName) {
+      case 'eduPersonOrcid':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'orcid'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'employeeNumber':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $useLdapProvisionerConfig = true;
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'gecos':
+        $claim['source_model'] = 'Name';
+        $claim['source_model_claim_value_field'] = 'all';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'all'
+        );
+        $claimConstraints[] = array(
+          'constraint_field' => 'primary',
+          'constraint_value' => 'true'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'gidNumber':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'gidNumber'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'number';
+        break;
+      case 'givenName':
+        $claim['source_model'] = 'Name';
+        $claim['source_model_claim_value_field'] = 'given';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'all'
+        );
+        $claimConstraints[] = array(
+          'constraint_field' => 'primary',
+          'constraint_value' => 'true'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'isMemberOf':
+        $claim['source_model'] = 'CoGroupMember';
+        $claim['source_model_claim_value_field'] = 'member';
+        $claimConstraints[] = array(
+          'constraint_field' => 'owner',
+          'constraint_value' => 'false'
+        );
+        $claim['claim_value_selection'] = 'all';
+        $claim['claim_value_json_format'] = 'string';
+        $claim['claim_multiple_value_serialization'] = 'delimited_string';
+        $claim['claim_value_string_serialization_delimiter'] = ',';
+        break;
+      case 'mail':
+        $claim['source_model'] = 'EmailAddress';
+        $claim['source_model_claim_value_field'] = 'mail';
+        $useLdapProvisionerConfig = true;
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'sn':
+        $claim['source_model'] = 'Name';
+        $claim['source_model_claim_value_field'] = 'family';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'all'
+        );
+        $claimConstraints[] = array(
+          'constraint_field' => 'primary',
+          'constraint_value' => 'true'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'uid':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $useLdapProvisionerConfig = true;
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'uidNumber':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $claimConstraints[] = array(
+          'constraint_field' => 'type',
+          'constraint_value' => 'uidNumber'
+        );
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'number';
+        break;
+      case 'voPersonApplicationUID':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $useLdapProvisionerConfig = true;
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'voPersonExternalID':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $useLdapProvisionerConfig = true;
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      case 'voPersonID':
+        $claim['source_model'] = 'Identifier';
+        $claim['source_model_claim_value_field'] = 'identifier';
+        $useLdapProvisionerConfig = true;
+        $claim['claim_value_selection'] = 'first';
+        $claim['claim_value_json_format'] = 'string';
+        break;
+      default:
+        $this->log("buildClaimFromLdapMapping: did not convert LDAP search attribute " . $searchAttributeName . " (not in switch table)");
+        return null;
+    }
+
+    if($useLdapProvisionerConfig) {
+      $cacheKey = $coId . '|' . $serverUrl;
+      if(!isset($lookupCache[$cacheKey])) {
+        $coProvisioningTargetModel = ClassRegistry::init('CoProvisioningTarget');
+        $coProvisioningTargetModel->bindModel(array(
+          'hasOne' => array(
+            'CoLdapProvisionerTarget' => array(
+              'className' => 'LdapProvisioner.CoLdapProvisionerTarget',
+              'foreignKey' => 'co_provisioning_target_id'
+            )
+          )
+        ));
+
+        $args = array();
+        $args['conditions']['CoProvisioningTarget.co_id'] = $coId;
+        $args['conditions']['CoProvisioningTarget.plugin'] = 'LdapProvisioner';
+        $args['contain'] = array('CoLdapProvisionerTarget' => array('CoLdapProvisionerAttribute'));
+
+        $lookupCache[$cacheKey] = $coProvisioningTargetModel->find('all', $args);
+      }
+      $coProvisioningTargets = $lookupCache[$cacheKey];
+
+      if(empty($coProvisioningTargets)) {
+        $this->log("buildClaimFromLdapMapping: no CoProvisioningTargets for co_id " . $coId . "; skipping " . $searchAttributeName);
+        return null;
+      }
+
+      $ldapProvisionerTarget = null;
+      foreach($coProvisioningTargets as $coProvisioningTarget) {
+        if(!empty($coProvisioningTarget['CoLdapProvisionerTarget']['serverurl'])
+            && $coProvisioningTarget['CoLdapProvisionerTarget']['serverurl'] == $serverUrl) {
+          $ldapProvisionerTarget = $coProvisioningTarget['CoLdapProvisionerTarget'];
+          break;
+        }
+      }
+
+      if(empty($ldapProvisionerTarget)) {
+        $this->log("buildClaimFromLdapMapping: no CoLdapProvisionerTarget matched serverurl " . $serverUrl . "; skipping " . $searchAttributeName);
+        return null;
+      }
+
+      $matchedAttribute = null;
+      if(!empty($ldapProvisionerTarget['CoLdapProvisionerAttribute'])) {
+        foreach($ldapProvisionerTarget['CoLdapProvisionerAttribute'] as $ldapProvisionerAttribute) {
+          if($ldapProvisionerAttribute['attribute'] == $searchAttributeName) {
+            $matchedAttribute = $ldapProvisionerAttribute;
+            break;
+          }
+        }
+      }
+
+      if(empty($matchedAttribute)) {
+        $this->log("buildClaimFromLdapMapping: no CoLdapProvisionerAttribute named " . $searchAttributeName . " on target for serverurl " . $serverUrl . "; skipping");
+        return null;
+      }
+
+      $claimConstraints[] = array(
+        'constraint_field' => 'type',
+        'constraint_value' => $matchedAttribute['type']
+      );
+    }
+
+    $claim['Oa4mpClientClaimConstraint'] = $claimConstraints;
+    return $claim;
+  }
+
+  /**
    * Unmarshall oa4mp cfg object to oa4mpClient['Oa4mpClientCoLdapConfig'] objects
    * assuming the deprecated cfg syntax.
    *
