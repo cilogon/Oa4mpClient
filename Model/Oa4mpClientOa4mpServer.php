@@ -1128,7 +1128,20 @@ class Oa4mpClientOa4mpServer extends AppModel {
       if(!empty($ldapConfigs)) {
         $this->log("Unmarshalled deprecated cfg to " . print_r($ldapConfigs, true));
         foreach($ldapConfigs as $ldapConfig) {
-          $oa4mpClient['Oa4mpClientCoLdapConfig'][] = $ldapConfig;
+          if(empty($ldapConfig['Oa4mpClientCoSearchAttribute'])) {
+            continue;
+          }
+          foreach($ldapConfig['Oa4mpClientCoSearchAttribute'] as $sa) {
+            $mapping = array(
+              'ldap_attribute_name' => $sa['name'],
+              'return_name'         => $sa['return_name'],
+              'return_as_list'      => !empty($sa['return_as_list']),
+            );
+            $claim = $this->buildClaimFromLdapMapping($mapping, $ldapConfig['serverurl'], $adminClient, $lookupCache);
+            if($claim !== null) {
+              $oa4mpClient['Oa4mpClientClaim'][] = $claim;
+            }
+          }
         }
 
         // Check the preProcessing block. Currently we should find a sincle claim source
