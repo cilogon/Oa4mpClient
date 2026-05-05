@@ -304,11 +304,13 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // If one side has claims and the other doesn't, they are out of sync.
     if(empty($curClaims) && !empty($oa4mpClaims)) {
       $this->log("Oa4mpClientClaim: OA4MP server has claims but plugin does not");
+      $this->log("oa4mpClaims: " . print_r($oa4mpClaims, true));
       return false;
     }
 
     if(!empty($curClaims) && empty($oa4mpClaims)) {
       $this->log("Oa4mpClientClaim: Plugin has claims but OA4MP server does not");
+      $this->log("curClaims: " . print_r($curClaims, true));
       return false;
     }
 
@@ -316,7 +318,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
     if(!empty($curClaims) && !empty($oa4mpClaims)) {
       // Compare the number of claims.
       if(count($curClaims) != count($oa4mpClaims)) {
-        $this->log("Oa4mpClientClaim: Number of claims is out of sync");
+        $this->log("Oa4mpClientClaim: Number of claims is out of sync"
+                   . " (plugin=" . count($curClaims)
+                   . ", oa4mp=" . count($oa4mpClaims) . ")");
+        $this->log("curClaims: " . print_r($curClaims, true));
+        $this->log("oa4mpClaims: " . print_r($oa4mpClaims, true));
         return false;
       }
 
