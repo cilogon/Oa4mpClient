@@ -1191,8 +1191,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * silent sync drift on legacy-cfg clients.
    *
    * @since COmanage Registry 4.5.0
-   * @param array $mapping     Array with 'ldap_attribute_name', 'return_name',
-   *                           'return_as_list' keys.
+   * @param array $mapping     Array with 'ldap_attribute_name' and 'return_name'
+   *                           keys. Callers may also include 'return_as_list'
+   *                           but the value is currently not consumed.
    * @param string $serverUrl  LDAP server URL from the cfg's $ldapConfig['serverurl'];
    *                           used to match the CoLdapProvisionerTarget.
    * @param array $adminClient Admin client carrying CO context; must contain
@@ -1212,10 +1213,6 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     if(empty($adminClient['Oa4mpClientCoAdminClient']['co_id'])) {
       $this->log("buildClaimFromLdapMapping: missing co_id from adminClient; skipping " . $searchAttributeName);
-      return null;
-    }
-    if(empty($serverUrl)) {
-      $this->log("buildClaimFromLdapMapping: missing serverUrl; skipping " . $searchAttributeName);
       return null;
     }
 
@@ -1359,6 +1356,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
     }
 
     if($useLdapProvisionerConfig) {
+      if(empty($serverUrl)) {
+        $this->log("buildClaimFromLdapMapping: missing serverUrl; skipping " . $searchAttributeName);
+        return null;
+      }
       $cacheKey = $coId . '|' . $serverUrl;
       if(!isset($lookupCache[$cacheKey])) {
         $coProvisioningTargetModel = ClassRegistry::init('CoProvisioningTarget');
