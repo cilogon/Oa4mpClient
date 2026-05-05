@@ -447,8 +447,13 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // GET request
 
     // Find and convert any deprecated LDAP search attribute objects to claim configurations.
+    // This is a one-time migration: once any Oa4mpClientClaim row exists for this client
+    // the conversion has already happened. Re-running it produces duplicate claim rows
+    // because the per-search-attr `claim_id` guard below has been observed to fail to
+    // suppress reconversion on subsequent edits.
     $hasSearchAttr = !empty($client['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute']);
-    if($hasSearchAttr) {
+    $alreadyMigrated = !empty($client['Oa4mpClientClaim']);
+    if($hasSearchAttr && !$alreadyMigrated) {
       foreach($client['Oa4mpClientCoLdapConfig'] as $ldapConfig) {
         foreach($ldapConfig['Oa4mpClientCoSearchAttribute'] as $searchAttr) {
           if($searchAttr['claim_id'] == null) {
