@@ -941,9 +941,13 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * Unmarshall oa4mp server object to Oa4mpClientCoOidcClient object.
    *
    * @since COmanage Registry 3.1.1
+   * @param  Array $oa4mpObject json_decode'd OA4MP server response
+   * @param  Array $adminClient admin client carrying CO context (used by the
+   *                            legacy-format claim conversion to look up the
+   *                            CoProvisioningTarget for constraint values)
    * @return Array
    */
-  function oa4mpUnMarshallContent($oa4mpObject) {
+  function oa4mpUnMarshallContent($oa4mpObject, $adminClient) {
 
     // The input oa4mpObject should already be converted from the
     // JSON returned by the Oa4mp server to an associative array
@@ -1461,7 +1465,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // Unmarshall the Oa4mp server representation of the client
       // and compare it to the current client to detect if the client
       // has been changed outside of this plugin.
-      $oa4mpServerData = $this->oa4mpUnMarshallContent($oa4mpObject);
+      $oa4mpServerData = $this->oa4mpUnMarshallContent($oa4mpObject, $adminClient);
       $synchronized = $this->isClientDataSynchronized($curClient, $oa4mpServerData);
 
       // Capture any extra keys from the OA4MP server response.
