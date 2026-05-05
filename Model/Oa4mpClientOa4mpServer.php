@@ -299,7 +299,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     // Compare claim mappings.
     $curClaims = $curData['Oa4mpClientClaim'] ?? array();
-    $oa4mpClaims = $oa4mpServerData['Oa4mpClaim'] ?? array();
+    $oa4mpClaims = $oa4mpServerData['Oa4mpClientClaim'] ?? array();
 
     // If one side has claims and the other doesn't, they are out of sync.
     if(empty($curClaims) && !empty($oa4mpClaims)) {
@@ -369,10 +369,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
         $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
         $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
 
-        // Normalize constraints (note different key name from OA4MP server).
+        // Normalize constraints.
         $constraints = array();
-        if(!empty($claim['ClaimConstraint'])) {
-          foreach($claim['ClaimConstraint'] as $constraint) {
+        if(!empty($claim['Oa4mpClientClaimConstraint'])) {
+          foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
             if(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
               $constraints[] = array(
                 'constraint_field' => $constraint['constraint_field'] ?? null,
@@ -1405,12 +1405,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
               $claimConstraint['constraint_value'] = $qdlClaimConstraint['constraint_value'];
               $claimConstraints[] = $claimConstraint;
             }
-            $claimMapping['ClaimConstraint'] = $claimConstraints;
+            $claimMapping['Oa4mpClientClaimConstraint'] = $claimConstraints;
           }
           $claimMappings[] = $claimMapping;
         }
 
-        $oa4mpClient['Oa4mpClaim'] = $claimMappings;
+        $oa4mpClient['Oa4mpClientClaim'] = $claimMappings;
       }
     }
 
