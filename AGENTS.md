@@ -30,6 +30,10 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   used as a template for both add and edit actions. The plugin further uses the
   file `View/Oa4mpClientCoOidcClients/tabs.inc` and symlinks to it as view
   elements.
+- `docs/solutions/`: documented solutions to past problems (bugs,
+  best practices, workflow patterns), organized by category with
+  YAML frontmatter (`module`, `tags`, `problem_type`). Relevant
+  when implementing or debugging in documented areas.
 
 ## Coding Style & Conventions
 - Language: PHP version 8.3 is preferred.
