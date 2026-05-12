@@ -1636,7 +1636,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
           $ldapConfig['basedn'] = $qdl_args['search_base'];
           $ldapConfig['search_name'] = $qdl_args['search_attribute'];
 
-          $listAttributes = $qdl_args['list_attributes'];
+          // Default to an empty array when 'list_attributes' is absent so the
+          // in_array() call below does not throw a TypeError under PHP 8.x.
+          // An absent 'list_attributes' means no attributes are multi-valued
+          // lists; every attribute defaults to return_as_list = false.
+          $listAttributes = $qdl_args['list_attributes'] ?? array();
 
           // Initialize the LDAP to claim mappings as empty.
           $ldapToClaimMappings = array();
@@ -1674,10 +1678,14 @@ class Oa4mpClientOa4mpServer extends AppModel {
         }
       }
     } catch (Exception $e) {
-      $this->log("Oa4mpClientCoOidcClient cfg is not a defined format, perhaps a NamedConfiguration");
+      $this->log("Oa4mpClientCoOidcClient cfg is not a defined format, perhaps a NamedConfiguration"
+                 . " (Exception at " . $e->getFile() . ":" . $e->getLine()
+                 . " - " . $e->getMessage() . ")");
       return array();
     } catch (TypeError $e) {
-      $this->log("Oa4mpClientCoOidcClient cfg is not a defined format, perhaps a NamedConfiguration");
+      $this->log("Oa4mpClientCoOidcClient cfg is not a defined format, perhaps a NamedConfiguration"
+                 . " (TypeError at " . $e->getFile() . ":" . $e->getLine()
+                 . " - " . $e->getMessage() . ")");
       return array();
     }
 
