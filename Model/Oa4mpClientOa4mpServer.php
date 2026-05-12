@@ -31,6 +31,41 @@ class Oa4mpClientOa4mpServer extends AppModel {
   public $useTable = false;
 
   /**
+   * Return a copy of $row with known secret-bearing field values replaced
+   * by a redaction sentinel.
+   *
+   * Used by isClientDataSynchronized() and any future caller that logs a
+   * row that may contain a credential field. Centralizes the list of
+   * field names treated as secret so adding a new secret-bearing field
+   * to a logged structure only requires updating this list.
+   *
+   * Null-safe: a missing key stays missing; an explicit null value is
+   * left as null (no need to redact what is already empty).
+   *
+   * @param array $row An associative array, e.g. an Oa4mpClientDynamoConfig row.
+   * @return array A copy of $row with secret-field values replaced by '[REDACTED]'.
+   */
+
+  private function redactSecrets($row) {
+    // Known secret-bearing fields. When adding a new secret-bearing field
+    // anywhere in the OIDC client data model that may be passed to this
+    // helper, add its name here so any log output that dumps a row
+    // containing it automatically masks the value.
+    $secretFields = array(
+      'aws_access_key_id',
+      'aws_secret_access_key',
+    );
+
+    foreach($secretFields as $field) {
+      if(isset($row[$field])) {
+        $row[$field] = '[REDACTED]';
+      }
+    }
+
+    return $row;
+  }
+
+  /**
    * Determine if our representation of the client and the Oa4mp server
    * representation of the client is synchronized, in order to detect
    * if the client has been changed outside of this plugin.
@@ -47,22 +82,30 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $oa4mpClient = $oa4mpServerData['Oa4mpClientCoOidcClient'];
 
     if($curClient['oa4mp_identifier'] !== $oa4mpClient['oa4mp_identifier']) {
-      $this->log("Oa4mpClientCoOidcClient oa4mp_identifier is out of sync");
+      $this->log("Oa4mpClientCoOidcClient oa4mp_identifier is out of sync"
+                 . " (plugin=" . var_export($curClient['oa4mp_identifier'], true)
+                 . ", oa4mp=" . var_export($oa4mpClient['oa4mp_identifier'], true) . ")");
       return false;
     }
 
     if($curClient['name'] !== $oa4mpClient['name']) {
-      $this->log("Oa4mpClientCoOidcClient name is out of sync");
+      $this->log("Oa4mpClientCoOidcClient name is out of sync"
+                 . " (plugin=" . var_export($curClient['name'], true)
+                 . ", oa4mp=" . var_export($oa4mpClient['name'], true) . ")");
       return false;
     }
 
     if($curClient['proxy_limited'] != $oa4mpClient['proxy_limited']) {
-      $this->log("Oa4mpClientCoOidcClient proxy_limited is out of sync");
+      $this->log("Oa4mpClientCoOidcClient proxy_limited is out of sync"
+                 . " (plugin=" . var_export($curClient['proxy_limited'], true)
+                 . ", oa4mp=" . var_export($oa4mpClient['proxy_limited'], true) . ")");
       return false;
     }
 
     if($curClient['public_client'] != $oa4mpClient['public_client']) {
-      $this->log("Oa4mpClientCoOidcClient public_client is out of sync");
+      $this->log("Oa4mpClientCoOidcClient public_client is out of sync"
+                 . " (plugin=" . var_export($curClient['public_client'], true)
+                 . ", oa4mp=" . var_export($oa4mpClient['public_client'], true) . ")");
       return false;
     }
 
@@ -77,7 +120,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     if($curRefreshToken['token_lifetime'] != $oa4mpRefreshToken['token_lifetime']) {
       if(!(is_null($curRefreshToken['token_lifetime']) && ($oa4mpRefreshToken['token_lifetime'] === 0))) {
-        $this->log("Oa4mpClientRefreshToken token_lifetime is out of sync");
+        $this->log("Oa4mpClientRefreshToken token_lifetime is out of sync"
+                   . " (plugin=" . var_export($curRefreshToken['token_lifetime'], true)
+                   . ", oa4mp=" . var_export($oa4mpRefreshToken['token_lifetime'], true) . ")");
         return false;
       }
     }
@@ -98,7 +143,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
     sort($oa4mpEmails);
 
     if($curEmails != $oa4mpEmails) {
-      $this->log("Oa4mpClientCoEmailAddress emails are out of sync");
+      $this->log("Oa4mpClientCoEmailAddress emails are out of sync"
+                 . " (plugin=" . count($curEmails)
+                 . ", oa4mp=" . count($oa4mpEmails) . ")");
+      $this->log("curEmails: " . print_r($curEmails, true));
+      $this->log("oa4mpEmails: " . print_r($oa4mpEmails, true));
       return false;
     }
 
@@ -118,7 +167,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
     sort($oa4mpCallbacks);
 
     if($curCallbacks != $oa4mpCallbacks) {
-      $this->log("Oa4mpClientCoCallback callbacks are out of sync");
+      $this->log("Oa4mpClientCoCallback callbacks are out of sync"
+                 . " (plugin=" . count($curCallbacks)
+                 . ", oa4mp=" . count($oa4mpCallbacks) . ")");
+      $this->log("curCallbacks: " . print_r($curCallbacks, true));
+      $this->log("oa4mpCallbacks: " . print_r($oa4mpCallbacks, true));
       return false;
     }
 
@@ -163,7 +216,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
     sort($oa4mpScopes);
 
     if($curScopes != $oa4mpScopes) {
-      $this->log("Oa4mpClientCoScope scopes are out of sync");
+      $this->log("Oa4mpClientCoScope scopes are out of sync"
+                 . " (plugin=" . count($curScopes)
+                 . ", oa4mp=" . count($oa4mpScopes) . ")");
+      $this->log("curScopes: " . print_r($curScopes, true));
+      $this->log("oa4mpScopes: " . print_r($oa4mpScopes, true));
       return false;
     }
 
@@ -190,17 +247,21 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // Compare access token configuration.
     if($curData['Oa4mpClientAccessToken'] && $curData['Oa4mpClientAccessToken']['is_jwt'] && !$oa4mpServerData['Oa4mpClientAccessToken']) {
       $this->log("Oa4mpClientAccessToken plugin has access token configuration but Oa4mp server does not");
+      $this->log("curAccessToken: " . print_r($curData['Oa4mpClientAccessToken'], true));
       return false;
     }
 
     if(!$curData['Oa4mpClientAccessToken'] && $oa4mpServerData['Oa4mpClientAccessToken']) {
       $this->log("Oa4mpClientAccessToken Oa4mp server has access token configuration but plugin does not");
+      $this->log("oa4mpAccessToken: " . print_r($oa4mpServerData['Oa4mpClientAccessToken'], true));
       return false;
     }
 
     if($curData['Oa4mpClientAccessToken'] && $oa4mpServerData['Oa4mpClientAccessToken']) {
       if($curData['Oa4mpClientAccessToken']['is_jwt'] != $oa4mpServerData['Oa4mpClientAccessToken']['is_jwt']) {
-        $this->log("Oa4mpClientAccessToken is_jwt is out of sync");
+        $this->log("Oa4mpClientAccessToken is_jwt is out of sync"
+                   . " (plugin=" . var_export($curData['Oa4mpClientAccessToken']['is_jwt'], true)
+                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientAccessToken']['is_jwt'], true) . ")");
         return false;
       }
     }
@@ -210,24 +271,30 @@ class Oa4mpClientOa4mpServer extends AppModel {
         empty($oa4mpServerData['Oa4mpClientAuthorization']) &&
         ($curData['Oa4mpClientAuthorization']['require_active'] == true)) {
       $this->log("Oa4mpClientAuthorization plugin has authorization configuration but Oa4mp server does not");
+      $this->log("curAuthorization: " . print_r($curData['Oa4mpClientAuthorization'], true));
       return false;
     }
 
     if(empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
       $this->log("Oa4mpClientAuthorization Oa4mp server has authorization configuration but plugin does not");
+      $this->log("oa4mpAuthorization: " . print_r($oa4mpServerData['Oa4mpClientAuthorization'], true));
       return false;
     }
 
     if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
       if($curData['Oa4mpClientAuthorization']['require_active'] != ($oa4mpServerData['Oa4mpClientAuthorization']['require_active'] ?? null)) {
-        $this->log("Oa4mpClientAuthorization require_active is out of sync");
+        $this->log("Oa4mpClientAuthorization require_active is out of sync"
+                   . " (plugin=" . var_export($curData['Oa4mpClientAuthorization']['require_active'], true)
+                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientAuthorization']['require_active'] ?? null, true) . ")");
         return false;
       }
     }
 
     if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
       if($curData['Oa4mpClientAuthorization']['authz_co_group_id'] != ($oa4mpServerData['Oa4mpClientAuthorization']['authz_co_group_id'] ?? null)) {
-        $this->log("Oa4mpClientAuthorization authz_co_group_id is out of sync");
+        $this->log("Oa4mpClientAuthorization authz_co_group_id is out of sync"
+                   . " (plugin=" . var_export($curData['Oa4mpClientAuthorization']['authz_co_group_id'], true)
+                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientAuthorization']['authz_co_group_id'] ?? null, true) . ")");
         return false;
       }
     }
@@ -235,6 +302,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
     if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
       if($curData['Oa4mpClientAuthorization']['authz_group_redirect_url'] != ($oa4mpServerData['Oa4mpClientAuthorization']['authz_group_redirect_url'] ?? null)) {
         $this->log("Oa4mpClientAuthorization authz_group_redirect_url is out of sync");
+        $this->log("  plugin: " . var_export($curData['Oa4mpClientAuthorization']['authz_group_redirect_url'], true));
+        $this->log("  oa4mp:  " . var_export($oa4mpServerData['Oa4mpClientAuthorization']['authz_group_redirect_url'] ?? null, true));
         return false;
       }
     }
@@ -242,6 +311,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
     if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
       if($curData['Oa4mpClientAuthorization']['require_active_redirect_url'] != ($oa4mpServerData['Oa4mpClientAuthorization']['require_active_redirect_url'] ?? null)) {
         $this->log("Oa4mpClientAuthorization require_active_redirect_url is out of sync");
+        $this->log("  plugin: " . var_export($curData['Oa4mpClientAuthorization']['require_active_redirect_url'], true));
+        $this->log("  oa4mp:  " . var_export($oa4mpServerData['Oa4mpClientAuthorization']['require_active_redirect_url'] ?? null, true));
         return false;
       }
     }
@@ -249,27 +320,48 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // Compare DynamoDB configurations.
     if(!empty($curData['Oa4mpClientDynamoConfig']) && !empty($oa4mpServerData['Oa4mpClientDynamoConfig'])) {
       if($curData['Oa4mpClientDynamoConfig']['aws_region'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_region']) {
-        $this->log("Oa4mpClientDynamoConfig aws_region is out of sync");
+        $this->log("Oa4mpClientDynamoConfig aws_region is out of sync"
+                   . " (plugin=" . var_export($curData['Oa4mpClientDynamoConfig']['aws_region'], true)
+                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['aws_region'], true) . ")");
         return false;
       }
       if($curData['Oa4mpClientDynamoConfig']['aws_access_key_id'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_access_key_id']) {
-        $this->log("Oa4mpClientDynamoConfig aws_access_key_id is out of sync");
+        // aws_access_key_id is a secret credential. Route both sides through
+        // redactSecrets() so the masking list stays the single enforcement
+        // point — any field name added to redactSecrets is masked here.
+        $curMasked = $this->redactSecrets(array(
+          'aws_access_key_id' => $curData['Oa4mpClientDynamoConfig']['aws_access_key_id'],
+        ));
+        $oa4mpMasked = $this->redactSecrets(array(
+          'aws_access_key_id' => $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_access_key_id'],
+        ));
+        $this->log("Oa4mpClientDynamoConfig aws_access_key_id is out of sync"
+                   . " (plugin=" . $curMasked['aws_access_key_id']
+                   . ", oa4mp=" . $oa4mpMasked['aws_access_key_id'] . ")");
         return false;
       }
       if($curData['Oa4mpClientDynamoConfig']['table_name'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['table_name']) {
-        $this->log("Oa4mpClientDynamoConfig table_name is out of sync");
+        $this->log("Oa4mpClientDynamoConfig table_name is out of sync"
+                   . " (plugin=" . var_export($curData['Oa4mpClientDynamoConfig']['table_name'], true)
+                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['table_name'], true) . ")");
         return false;
       }
       if($curData['Oa4mpClientDynamoConfig']['partition_key'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key']) {
-        $this->log("Oa4mpClientDynamoConfig partition_key is out of sync");
+        $this->log("Oa4mpClientDynamoConfig partition_key is out of sync"
+                   . " (plugin=" . var_export($curData['Oa4mpClientDynamoConfig']['partition_key'], true)
+                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key'], true) . ")");
         return false;
       }
       if($curData['Oa4mpClientDynamoConfig']['partition_key_template'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_template']) {
         $this->log("Oa4mpClientDynamoConfig partition_key_template is out of sync");
+        $this->log("  plugin: " . var_export($curData['Oa4mpClientDynamoConfig']['partition_key_template'], true));
+        $this->log("  oa4mp:  " . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_template'], true));
         return false;
       }
       if($curData['Oa4mpClientDynamoConfig']['partition_key_claim_name'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_claim_name']) {
-        $this->log("Oa4mpClientDynamoConfig partition_key_claim_name is out of sync");
+        $this->log("Oa4mpClientDynamoConfig partition_key_claim_name is out of sync"
+                   . " (plugin=" . var_export($curData['Oa4mpClientDynamoConfig']['partition_key_claim_name'], true)
+                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_claim_name'], true) . ")");
         return false;
       }
 
@@ -281,7 +373,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
                       ? $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key']
                       : null;
       if($curSortKey !== $oa4mpSortKey) {
-        $this->log("Oa4mpClientDynamoConfig sort_key is out of sync");
+        $this->log("Oa4mpClientDynamoConfig sort_key is out of sync"
+                   . " (plugin=" . var_export($curSortKey, true)
+                   . ", oa4mp=" . var_export($oa4mpSortKey, true) . ")");
         return false;
       }
 
@@ -293,6 +387,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
                               : null;
       if($curSortKeyTemplate !== $oa4mpSortKeyTemplate) {
         $this->log("Oa4mpClientDynamoConfig sort_key_template is out of sync");
+        $this->log("  plugin: " . var_export($curSortKeyTemplate, true));
+        $this->log("  oa4mp:  " . var_export($oa4mpSortKeyTemplate, true));
         return false;
       }
     }
