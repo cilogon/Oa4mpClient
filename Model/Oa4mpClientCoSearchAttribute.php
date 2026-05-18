@@ -315,9 +315,17 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
         return;
       }
 
+      // The LdapProvisioner attribute config allows an "All Types" choice, which
+      // is persisted as an empty string in cm_co_ldap_provisioner_attributes.type.
+      // The OA4MP server's QDL expects the literal 'all' in that case.
+      $provisionerType = $ldapProvisionerAttribute['type'];
+      if($provisionerType === '' || $provisionerType === null) {
+        $provisionerType = 'all';
+      }
+
       $claimConstraints[] = array(
         'constraint_field' => 'type',
-        'constraint_value' => $ldapProvisionerAttribute['type']
+        'constraint_value' => $provisionerType
       );
     }
 
