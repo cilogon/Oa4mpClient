@@ -832,8 +832,13 @@ class Oa4mpClientOa4mpServer extends AppModel {
         unset($constraintMapping['created']);
         unset($constraintMapping['modified']);
 
-        // Only add the constraint if it is not empty.
-        if(!empty($constraintMapping['constraint_field']) || !empty($constraintMapping['constraint_value'])) {
+        // Only emit a constraint when BOTH fields are populated. A constraint with
+        // only a field or only a value is meaningless to the OA4MP server's QDL.
+        // Defense-in-depth: Oa4mpClientClaimConstraint validates both fields as
+        // notBlank, so persisted rows shouldn't reach here half-populated, but the
+        // guard keeps malformed constraints from being serialized to the server
+        // even if validation is ever bypassed (raw SQL inserts, future code).
+        if(!empty($constraintMapping['constraint_field']) && !empty($constraintMapping['constraint_value'])) {
           $mapping['claim_constraints'][] = $constraintMapping;
         }
       }
