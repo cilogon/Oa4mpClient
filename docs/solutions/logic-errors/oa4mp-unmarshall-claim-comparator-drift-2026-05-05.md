@@ -273,6 +273,8 @@ if($hasSearchAttr && !$alreadyMigrated) {
 
 This is explicitly a stop-the-bleed measure. It does not fix the underlying reason `claim_id` stays null; it prevents the migration loop from firing again as long as any `Oa4mpClientClaim` row exists for the client.
 
+**Update 2026-05-18:** the underlying reason `claim_id` stayed null has been root-caused — `toClaim()`'s save sequence was non-atomic, with an `Oa4mpClientDynamoConfig::save()` between `saveAssociated()` and `saveField('claim_id', ...)`. A failure in that middle save aborted the function before the back-pointer was set, leaving an orphan claim row. With the save reordered so the claim row and its back-pointer land atomically (commit `1659690`), the per-row guard is once again reliable; the `$alreadyMigrated` gate has been removed and partial-migration recovery is restored. See `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md` for the full investigation and the inversion of Prevention rule 4 below.
+
 ### Step 7 — Move serverUrl guard inside provisioner branch (3d05b48)
 
 An early return in `buildClaimFromLdapMapping()` rejected any mapping with an empty `$serverUrl` before the switch, silently dropping non-provisioner-backed claims (e.g., `isMemberOf`, `givenName`, `sn`) when cfg lacked a `serverurl` field. The guard was moved inside the provisioner-lookup cases only:
@@ -302,6 +304,8 @@ if($useLdapProvisionerConfig) {
 **Bug 2 (QDLv3 wrong keys)** arose because the unmarshaller used abbreviated key names (`Oa4mpClaim`, `ClaimConstraint`) that do not match the CakePHP model names (`Oa4mpClientClaim`, `Oa4mpClientClaimConstraint`) used everywhere else in the plugin. The fix (U1) is a rename: both the writer (unmarshaller) and the reader (comparator) now use the canonical model-name keys.
 
 **Bug 3 (duplicate claim rows)** arose because the per-row idempotency guard relied on `claim_id` being durably written per search-attribute row, but `claim_id` was not persisting across edit cycles. The coarser `$alreadyMigrated` gate (d6ffbe1) does not depend on per-row state — it asks "does this client have ANY claim rows?" If yes, skip the entire migration block. This survives whatever is resetting the per-row `claim_id` field.
+
+**Update 2026-05-18:** "whatever is resetting the per-row `claim_id` field" was a non-atomic save sequence in `toClaim()` — the `Oa4mpClientDynamoConfig::save()` between the claim insert and the back-pointer save could fail and abort the function before the back-pointer landed. Reordering the saves so claim row + back-pointer are atomic (commit `1659690`) made the per-row guard reliable on its own; the `$alreadyMigrated` gate has been removed and partial-migration recovery has been restored. See `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`.
 
 The `$lookupCache` pass-by-reference pattern works because it is initialized fresh on each `oa4mpUnMarshallContent()` call (not as a class property or static variable), so there is no cross-request contamination. Multiple calls within a single request share the cache (avoiding redundant DB queries), but each new verify call starts clean.
 
@@ -362,24 +366,28 @@ function buildClaimFromLdapMapping(...) { ... }
 
 The duplication is intentional (the write-side helper has DB side effects that must not run during a read-only verify), but the lockstep requirement must be explicit in both places.
 
-**4. Prefer coarse, set-level idempotency guards over per-row guards for one-time migrations.**
+**4. Make per-row migration markers atomic with their primary entity; coarse set-level gates are a last resort.**
 
-Per-row guards depend on a durable per-row marker being written and read back correctly across save cycles. In CakePHP 2.x, association recreation during a parent-model save can silently reset dependent-record fields. A set-level guard is more robust:
+This rule was originally written as "prefer coarse set-level guards over per-row guards" based on the observation that per-row `claim_id` markers were not surviving save cycles. The 2026-05-18 investigation root-caused that observation: `toClaim()`'s save sequence was non-atomic, with an `Oa4mpClientDynamoConfig::save()` between the claim insert and the back-pointer save. When the middle save failed validation, the back-pointer was never written, leaving an orphan claim row with `claim_id` NULL — which the per-row guard then read as "not yet migrated" on the next pass, producing duplicates.
+
+The correct discipline is to make the claim row and its back-pointer atomic, then trust the per-row guard:
 
 ```php
-// Fragile: depends on per-row claim_id surviving association recreation
-foreach($searchAttributes as $searchAttr) {
-  if($searchAttr['claim_id'] == null) { /* might always be null */ }
-}
+// Fragile: claim insert and back-pointer save are not adjacent; any
+// failure between them strands the claim without a back-pointer.
+$this->Claim->saveAssociated($claim);
+$this->OtherThing->save($otherData);                  // can fail
+$this->SearchAttr->saveField('claim_id', $this->Claim->id);
 
-// Durable: one check at the set level
-$alreadyMigrated = !empty($client['Oa4mpClientClaim']);
-if($hasSearchAttr && !$alreadyMigrated) {
-  foreach($searchAttributes as $searchAttr) { /* runs once */ }
-}
+// Robust: back-pointer save runs immediately after the claim insert,
+// before any other save that can fail. Independent saves run as
+// separately-failing tail steps.
+$this->Claim->saveAssociated($claim);
+$this->SearchAttr->saveField('claim_id', $this->Claim->id);
+$this->OtherThing->save($otherData);                  // can fail, doesn't strand the back-pointer
 ```
 
-The coarser guard is slightly more conservative (it blocks re-migration even if only one claim row exists), but that is the correct behavior for a one-time migration.
+A coarse set-level guard remains a useful last-resort fallback when atomicity genuinely cannot be guaranteed (cross-service writes, no transaction support, etc.) — but it carries a significant cost: it blocks partial-migration recovery, since a client with one failed search-attribute migration can never retry that one attribute as long as any sibling claim row exists. See `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md` for the full reasoning and the removal of the `$alreadyMigrated` gate this doc originally added (commit `1659690`).
 
 **5. Scope pass-by-reference caches at the entry point, not inside the helper.**
 
@@ -411,17 +419,17 @@ If the function has only one call site now, it may grow more later. Documenting 
 
 **7. Avoid variable shadowing in inner match loops.**
 
-`Oa4mpClientCoSearchAttribute::toClaim()` contains a loop that reuses the outer loop variable name for the inner match variable, so a no-match case silently leaves the outer variable's last value in scope. The fix pattern (used in `buildClaimFromLdapMapping`) is to use a distinct name and initialize to null before the inner loop:
+`Oa4mpClientCoSearchAttribute::toClaim()` originally contained a loop that reused the outer loop variable name for the inner match variable, so a no-match case silently left the outer variable's last value in scope. The fix pattern (used in `buildClaimFromLdapMapping`, and as of commit `c503465` also in `toClaim()`) is to use a distinct name and initialize to null before the inner loop:
 
 ```php
-// toClaim() — shadowing bug still present:
+// Anti-pattern (the original toClaim() code, fixed in commit c503465):
 foreach($ldapProvisionerAttributes as $ldapProvisionerAttribute) {
   if($ldapProvisionerAttribute['attribute'] === $attrName) {
     $ldapProvisionerAttribute = $ldapProvisionerAttribute; // no-op, masks no-match
   }
 }
 
-// buildClaimFromLdapMapping() — fixed:
+// Correct pattern (used in buildClaimFromLdapMapping and now in toClaim):
 $matchedAttribute = null;
 foreach($ldapProvisionerAttributes as $attr) {
   if($attr['attribute'] === $attrName) {
@@ -432,12 +440,12 @@ foreach($ldapProvisionerAttributes as $attr) {
 if($matchedAttribute === null) { return null; }
 ```
 
-This pattern should be backported to `toClaim()` in a future cleanup pass.
+This pattern was backported to `toClaim()` in commit `c503465` (see `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`).
 
 ## Related Issues
 
 - Origin requirements doc: `docs/brainstorms/2026-05-05-oa4mp-unmarshall-claim-output-brainstorm.md` — full problem frame, requirements R1–R9, acceptance examples, and the open/deferred questions including the duplication-drift and provisioner-state-drift risks.
 - Implementation plan: `docs/plans/2026-05-05-001-fix-oa4mp-unmarshall-claim-output-plan.md` — the six implementation units (U1–U6) with exact line-number call sites, key technical decisions (memoization strategy, helper location, discovery approach, implementation order), risks table, and the manual U6 verification gate.
 - Future migration cross-reference: `docs/plans/2026-02-04-feat-cakephp5-migration-plan.md` — when the CakePHP 5.x migration proceeds, the long-form key naming convention (`Oa4mpClientClaim` / `Oa4mpClientClaimConstraint`) established by this fix is the canonical name to preserve. Old short names (`Oa4mpClaim`, `ClaimConstraint`) must not be reintroduced as part of any class-renaming sweep.
-- Outstanding follow-up: root cause of `Oa4mpClientCoSearchAttribute.claim_id` resetting to null between edits is not yet investigated. Suspect interaction between `Oa4mpClientCoOidcClient::saveAssociated` and dependent-association recreation. The `$alreadyMigrated` gate makes this unobservable but does not fix it.
-- Outstanding follow-up: the variable-shadowing bug in `Oa4mpClientCoSearchAttribute::toClaim()` (Prevention rule 7) is fixed in the read-only mirror but still present in the persisted-side function. Worth a small follow-up commit since the correct pattern is already encoded in the mirror.
+- Resolved 2026-05-18: the `claim_id` non-persistence was root-caused as a non-atomic save sequence in `toClaim()` — `Oa4mpClientDynamoConfig::save()` between `saveAssociated()` and `saveField('claim_id', ...)` could fail validation and abort the function before the back-pointer was written. Fixed by reordering the saves so claim row + back-pointer land atomically; the `$alreadyMigrated` gate has been removed and partial-migration recovery is restored (commit `1659690`). See `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`.
+- Resolved 2026-05-18: the variable-shadowing bug in `Oa4mpClientCoSearchAttribute::toClaim()` (Prevention rule 7) has been fixed by mirroring the read-only twin's accumulator pattern (commit `c503465`).
