@@ -340,7 +340,24 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
       return;
     }
 
-    // Save the Dynamo configuration.
+    // Set the searchAttribute's claim_id back-pointer immediately after the claim
+    // row is persisted, before any other save that could fail. This keeps the
+    // claim row and its back-pointer atomic: the inner per-search-attr guard in
+    // the controller's migration block can then reliably suppress reconversion
+    // (and the duplicate-claim accumulation that motivated the coarse gate
+    // added in d6ffbe1).
+    $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->id = $searchAttribute['id'];
+    $newId = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientClaim->id;
+    $ret = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->saveField('claim_id', $newId);
+    if(!$ret) {
+      $this->log("saveField failed for searchAttribute with ID " . $searchAttribute['id'] . " to mark it as converted");
+      return;
+    }
+
+    // Save the Dynamo configuration. If this fails, the claim row and its
+    // back-pointer above remain in place — the search attribute is correctly
+    // marked as migrated and will not be reprocessed. A missing dynamoConfig
+    // is a separate recoverable state and is logged below.
     $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->clear();
     $dynamoConfig['client_id'] = $clientId;
     unset($dynamoConfig['admin_id']);
@@ -349,22 +366,13 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
     unset($dynamoConfig['modified']);
 
     if(!$this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->save($dynamoConfig)) {
-      $this->log("saveAssociated failed for dynamoConfig " . print_r($dynamoConfig, true));
+      $this->log("save failed for dynamoConfig " . print_r($dynamoConfig, true));
       $this->log("Validation errors are " . print_r($this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->validationErrors, true));
-      $this->log("Did not convert LDAP search attribute " . $searchAttribute['name'] . " to claim object");
+      $this->log("LDAP search attribute " . $searchAttribute['name'] . " converted to claim but dynamoConfig save failed");
       return;
     }
 
     $this->log("Converted LDAP search attribute " . $searchAttribute['name'] . " to claim object " . print_r($claim, true));
-
-    // Update the searchAttribute's claim_id to the new claim's id to mark it as converted.
-    $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->id = $searchAttribute['id'];
-    $newId = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientClaim->id;
-    $ret = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->saveField('claim_id', $newId);
-    if(!$ret) {
-      $this->log("saveField failed for searchAttribute with ID " . $searchAttribute['id'] . " to mark it as converted");
-      return;
-    }
 
     return;
   }

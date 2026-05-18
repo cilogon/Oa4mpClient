@@ -446,14 +446,16 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     // GET request
 
-    // Find and convert any deprecated LDAP search attribute objects to claim configurations.
-    // This is a one-time migration: once any Oa4mpClientClaim row exists for this client
-    // the conversion has already happened. Re-running it produces duplicate claim rows
-    // because the per-search-attr `claim_id` guard below has been observed to fail to
-    // suppress reconversion on subsequent edits.
+    // Find and convert any deprecated LDAP search attribute objects to claim
+    // configurations. The per-search-attr `claim_id` guard is the duplicate
+    // suppressor: toClaim() persists the claim row and its claim_id back-pointer
+    // atomically (Oa4mpClientCoSearchAttribute::toClaim does saveField immediately
+    // after saveAssociated, before any other save that can fail), so a search
+    // attribute with claim_id set has already been migrated and is skipped on
+    // subsequent loads. Search attributes still showing claim_id == null
+    // represent unmigrated or partially-recoverable state and are (re)processed.
     $hasSearchAttr = !empty($client['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute']);
-    $alreadyMigrated = !empty($client['Oa4mpClientClaim']);
-    if($hasSearchAttr && !$alreadyMigrated) {
+    if($hasSearchAttr) {
       foreach($client['Oa4mpClientCoLdapConfig'] as $ldapConfig) {
         foreach($ldapConfig['Oa4mpClientCoSearchAttribute'] as $searchAttr) {
           if($searchAttr['claim_id'] == null) {
@@ -466,7 +468,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
           }
         }
       }
-    } 
+    }
 
     // Convert any deprecated refresh token lifetime to the new object.
     $convertRefreshTokenLifetime = !empty($client['Oa4mpClientCoOidcClient']['refresh_token_lifetime']) &&
