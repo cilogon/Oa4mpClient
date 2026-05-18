@@ -300,11 +300,14 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
       }
 
       // Loop over the ldapProvisionerTarget's CoLdapProvisionerAttributes and pick out the one
-      // where the name matches the searchAttribute's name.
+      // where the name matches the searchAttribute's name. Mirror the accumulator pattern used
+      // by Oa4mpClientOa4mpServer::buildClaimFromLdapMapping so a non-empty list with no match
+      // leaves $ldapProvisionerAttribute null instead of leaking the last iterated element
+      // (PHP foreach preserves the loop variable after fall-through).
       $ldapProvisionerAttribute = null;
-      foreach($ldapProvisionerTarget['CoLdapProvisionerAttribute'] as $ldapProvisionerAttribute) {
-        if($ldapProvisionerAttribute['attribute'] == $searchAttributeName){
-          $ldapProvisionerAttribute = $ldapProvisionerAttribute;
+      foreach($ldapProvisionerTarget['CoLdapProvisionerAttribute'] as $candidate) {
+        if($candidate['attribute'] == $searchAttributeName) {
+          $ldapProvisionerAttribute = $candidate;
           break;
         }
       }
