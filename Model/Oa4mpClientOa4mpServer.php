@@ -1516,18 +1516,34 @@ class Oa4mpClientOa4mpServer extends AppModel {
         return null;
       }
 
-      // The LdapProvisioner attribute config allows an "All Types" choice, which
-      // is persisted as an empty string in cm_co_ldap_provisioner_attributes.type.
-      // Mirror Oa4mpClientCoSearchAttribute::toClaim()'s normalization so the
-      // comparator-side claim matches what the OA4MP server's QDL expects ('all').
-      $provisionerType = $matchedAttribute['type'];
-      if($provisionerType === '' || $provisionerType === null) {
-        $provisionerType = 'all';
+      // Compute the constraint value via the shared helper on
+      // Oa4mpClientCoSearchAttribute. This is the comparator side of the
+      // lockstep-mirror contract -- the writer (toClaim) calls the same helper
+      // with the same arguments and produces byte-identical output, so a
+      // freshly-migrated client reports "in sync" here. When the helper
+      // returns null (effective filter empty for voPersonApplicationUID with
+      // attr_opts enabled), the persisted claim should not exist; return null
+      // from buildClaimFromLdapMapping so isClientDataSynchronized reports
+      // drift if a claim row is present despite the empty effective filter.
+      $attrOpts = !empty($ldapProvisionerTarget['attr_opts']);
+      $useEffectiveFilter = ($searchAttributeName === 'voPersonApplicationUID' && $attrOpts);
+
+      $searchAttributeModel = ClassRegistry::init('Oa4mpClient.Oa4mpClientCoSearchAttribute');
+      $constraintValue = $searchAttributeModel->computeVoPersonApplicationUidConstraint(
+        $coId,
+        $matchedAttribute['type'],
+        $useEffectiveFilter,
+        $lookupCache
+      );
+
+      if($useEffectiveFilter && $constraintValue === null) {
+        $this->log("buildClaimFromLdapMapping: voPersonApplicationUID effective filter empty for co_id " . $coId . " (LdapProvisionerAttribute.type='" . $matchedAttribute['type'] . "', attr_opts=on, no matching CoService); expecting no claim");
+        return null;
       }
 
       $claimConstraints[] = array(
         'constraint_field' => 'type',
-        'constraint_value' => $provisionerType
+        'constraint_value' => $constraintValue
       );
     }
 
