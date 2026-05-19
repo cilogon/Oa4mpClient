@@ -1,7 +1,7 @@
 ---
 title: Fix OA4MP voPersonApplicationUID Claim Constraint Under LdapProvisioner Attribute Options
 type: fix
-status: active
+status: completed
 date: 2026-05-19
 origin: docs/brainstorms/2026-05-19-oa4mp-attr-opts-claim-constraint-brainstorm.md
 ---
