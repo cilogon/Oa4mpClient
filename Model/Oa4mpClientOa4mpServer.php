@@ -1526,17 +1526,17 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // from buildClaimFromLdapMapping so isClientDataSynchronized reports
       // drift if a claim row is present despite the empty effective filter.
       $attrOpts = !empty($ldapProvisionerTarget['attr_opts']);
-      $useEffectiveFilter = ($searchAttributeName === 'voPersonApplicationUID' && $attrOpts);
+      $useCoServiceFilter = ($searchAttributeName === 'voPersonApplicationUID' && $attrOpts);
 
       $searchAttributeModel = ClassRegistry::init('Oa4mpClient.Oa4mpClientCoSearchAttribute');
       $constraintValue = $searchAttributeModel->computeVoPersonApplicationUidConstraint(
         $coId,
         $matchedAttribute['type'],
-        $useEffectiveFilter,
+        $useCoServiceFilter,
         $lookupCache
       );
 
-      if($useEffectiveFilter && $constraintValue === null) {
+      if($useCoServiceFilter && $constraintValue === null) {
         $this->log("buildClaimFromLdapMapping: voPersonApplicationUID effective filter empty for co_id " . $coId . " (LdapProvisionerAttribute.type='" . $matchedAttribute['type'] . "', attr_opts=on, no matching CoService); expecting no claim");
         return null;
       }

@@ -94,31 +94,45 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
    *
    * @param integer $coId CO ID.
    * @param string|null $ldapProvisionerAttributeType The CoLdapProvisionerAttribute.type value ('' or null = "All Types").
-   * @param boolean $attrOpts Whether the CoLdapProvisionerTarget has attribute options enabled.
+   * @param boolean $useCoServiceFilter True only when the effective-filter (CoService-based) path
+   *                                    should apply: i.e. the search attribute is voPersonApplicationUID
+   *                                    AND the CoLdapProvisionerTarget has attribute options enabled.
+   *                                    Callers pre-compose this compound boolean from
+   *                                    ($searchAttributeName === 'voPersonApplicationUID' AND attr_opts).
+   *                                    When false, the helper falls into the bare-literal-with-empty
+   *                                    normalization branch regardless of which attribute type the
+   *                                    caller is processing.
    * @param array|null $lookupCache Optional reference to the buildClaimFromLdapMapping lookup cache so
    *                                the CoService query result is reused across multiple search attributes
    *                                within a single sync run. Pass null from the writer (single-shot edit).
+   *                                Cache key shape: 'coService|{coId}' (will not collide with the
+   *                                existing CoProvisioningTarget cache keys which use a different shape).
    * @return string|null The encoded constraint_value, or null to signal "suppress the claim entirely".
    *                     Encoding:
-   *                       - attr_opts OFF: bare literal type with empty/null normalized to 'all'.
-   *                       - attr_opts ON, effective set empty: null (caller suppresses).
-   *                       - attr_opts ON, effective set non-empty: uniform anchored regex.
+   *                       - $useCoServiceFilter false: bare literal type with empty/null normalized to 'all'.
+   *                       - $useCoServiceFilter true, effective set empty: null (caller suppresses).
+   *                       - $useCoServiceFilter true, effective set non-empty: uniform anchored regex.
    *                         Single element: '^<escaped>$'. Multi: '^(<escaped1>|<escaped2>|...)$'
    *                         with alternation parts sorted lexicographically on the escaped form.
    */
 
-  public function computeVoPersonApplicationUidConstraint($coId, $ldapProvisionerAttributeType, $attrOpts, &$lookupCache = null) {
-    // attr_opts OFF: existing literal-with-empty-normalization shape. The empty-to-'all'
+  public function computeVoPersonApplicationUidConstraint($coId, $ldapProvisionerAttributeType, $useCoServiceFilter, &$lookupCache = null) {
+    // Bare-literal branch: existing literal-with-empty-normalization shape. The empty-to-'all'
     // normalization here mirrors what toClaim has emitted since commit f298ba0 (see
     // docs/solutions/logic-errors/oa4mp-ldap-provisioner-empty-type-claim-constraint-2026-05-18.md).
-    if(!$attrOpts) {
+    // This branch fires for every search attribute when attr_opts is OFF, and for every search
+    // attribute other than voPersonApplicationUID even when attr_opts is ON -- the CoService-derived
+    // filter is voPersonApplicationUID-specific in the LdapProvisioner, so the helper mirrors that.
+    if(!$useCoServiceFilter) {
       if($ldapProvisionerAttributeType === '' || $ldapProvisionerAttributeType === null) {
         return 'all';
       }
       return $ldapProvisionerAttributeType;
     }
 
-    // attr_opts ON: compute the effective identifier-type set from CoService.
+    // CoService-filter branch (only reached when the caller has confirmed both
+    // $searchAttributeName === 'voPersonApplicationUID' AND attr_opts is enabled).
+    // Compute the effective identifier-type set from CoService.
     // Cache the per-CO CoService query alongside the buildClaimFromLdapMapping
     // lookupCache so a sync run over a client with many search attributes does
     // not repeat the query.
@@ -437,15 +451,15 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
       // all other cases (attr_opts OFF, or any other search attribute) the helper
       // returns the existing bare literal with empty -> 'all' normalization.
       $attrOpts = !empty($ldapProvisionerTarget['attr_opts']);
-      $useEffectiveFilter = ($searchAttributeName === 'voPersonApplicationUID' && $attrOpts);
+      $useCoServiceFilter = ($searchAttributeName === 'voPersonApplicationUID' && $attrOpts);
 
       $constraintValue = $this->computeVoPersonApplicationUidConstraint(
         $coId,
         $ldapProvisionerAttribute['type'],
-        $useEffectiveFilter
+        $useCoServiceFilter
       );
 
-      if($useEffectiveFilter && $constraintValue === null) {
+      if($useCoServiceFilter && $constraintValue === null) {
         // The effective filter is empty -- no CoService in this CO has a matching
         // identifier_type, so the LdapProvisioner would not export any value. Mirror
         // that on the plugin side by suppressing the claim entirely (no claim row,
