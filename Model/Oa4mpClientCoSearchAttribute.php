@@ -430,17 +430,34 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
         return;
       }
 
-      // The LdapProvisioner attribute config allows an "All Types" choice, which
-      // is persisted as an empty string in cm_co_ldap_provisioner_attributes.type.
-      // The OA4MP server's QDL expects the literal 'all' in that case.
-      $provisionerType = $ldapProvisionerAttribute['type'];
-      if($provisionerType === '' || $provisionerType === null) {
-        $provisionerType = 'all';
+      // Compute the constraint value via the shared helper. For voPersonApplicationUID
+      // with attr_opts enabled, the helper consults CoService to compute the effective
+      // identifier-type set the LdapProvisioner would actually export, returning either
+      // a uniform anchored regex or null to signal "suppress the claim entirely". For
+      // all other cases (attr_opts OFF, or any other search attribute) the helper
+      // returns the existing bare literal with empty -> 'all' normalization.
+      $attrOpts = !empty($ldapProvisionerTarget['attr_opts']);
+      $useEffectiveFilter = ($searchAttributeName === 'voPersonApplicationUID' && $attrOpts);
+
+      $constraintValue = $this->computeVoPersonApplicationUidConstraint(
+        $coId,
+        $ldapProvisionerAttribute['type'],
+        $useEffectiveFilter
+      );
+
+      if($useEffectiveFilter && $constraintValue === null) {
+        // The effective filter is empty -- no CoService in this CO has a matching
+        // identifier_type, so the LdapProvisioner would not export any value. Mirror
+        // that on the plugin side by suppressing the claim entirely (no claim row,
+        // no back-pointer). This matches the existing "did not convert" early-return
+        // pattern in this function.
+        $this->log("voPersonApplicationUID claim suppressed for client " . $clientId . " co_id " . $coId . ": effective filter is empty (LdapProvisionerAttribute.type='" . $ldapProvisionerAttribute['type'] . "', attr_opts=on, no matching CoService)");
+        return;
       }
 
       $claimConstraints[] = array(
         'constraint_field' => 'type',
-        'constraint_value' => $provisionerType
+        'constraint_value' => $constraintValue
       );
     }
 
