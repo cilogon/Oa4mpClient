@@ -492,6 +492,133 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
 
     $claim['Oa4mpClientClaimConstraint'] = $claimConstraints;
 
+    // Orphan-recovery: before persisting a new claim row, check whether an
+    // existing claim row for this (client_id, claim_name) is orphaned (no
+    // Oa4mpClientCoSearchAttribute back-pointer) AND matches the identity
+    // and constraints we are about to write. If exactly one such matching
+    // orphan exists, rewire this search attribute's claim_id to it and skip
+    // creation -- this avoids accumulating duplicate claim rows on clients
+    // that suffered the pre-1659690 non-atomic-save bug (DynamoConfig->save()
+    // between saveAssociated and saveField could fail, leaving the claim row
+    // committed but the back-pointer NULL; see
+    // docs/solutions/logic-errors/oa4mp-claim-migration-three-latent-bugs-2026-05-18.md
+    // Bug 1). Re-running migration after 1659690 lands creates a new claim
+    // and sets the back-pointer atomically, but without this guard the old
+    // orphans remain forever and drive the "Number of claims is out of sync"
+    // comparator error (server side dedupes via ldap_to_claim_mappings JSON
+    // object key uniqueness; plugin side counts every claim row).
+    //
+    // Matching is strict: every claim identity field this function sets, plus
+    // the full constraint set, must match canonically. Orphans with the same
+    // name but different shape (e.g. voPersonApplicationUID orphans from
+    // before the CoService-derived effective filter landed) intentionally
+    // fall through to new-claim creation; the operator cleanup runbook in
+    // docs/solutions/ handles those.
+    $claimModel = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientClaim;
+
+    $candidatesArgs = array();
+    $candidatesArgs['conditions']['Oa4mpClientClaim.client_id'] = $clientId;
+    $candidatesArgs['conditions']['Oa4mpClientClaim.claim_name'] = $claim['claim_name'];
+    $candidatesArgs['contain'] = array('Oa4mpClientClaimConstraint');
+    $candidates = $claimModel->find('all', $candidatesArgs);
+
+    if($candidates === false) {
+      // CakePHP 2 find('all') can return false on DB error. Skip the orphan-
+      // recovery path and fall through to normal claim creation -- if the DB
+      // is genuinely broken the saveAssociated below will surface it; we do
+      // not want to silently iterate false as empty and proceed without ever
+      // having checked for orphans.
+      $this->log("toClaim: orphan-recovery: Oa4mpClientClaim->find('all') returned false for client " . $clientId . " name '" . $claim['claim_name'] . "'; falling through to normal claim creation");
+    } else {
+      // Canonicalize the new claim's identity fields and constraint set so
+      // candidates can be compared with byte-equality. Mirrors the lockstep
+      // R5 discipline used between toClaim and buildClaimFromLdapMapping:
+      // rewire only when the orphan would be a perfect substitute for the
+      // new claim, so the very next sync run finds no drift.
+      $identityFields = array(
+        'source_model',
+        'source_model_claim_value_field',
+        'claim_value_selection',
+        'claim_value_json_format',
+        'claim_multiple_value_serialization',
+        'claim_value_string_serialization_delimiter'
+      );
+
+      $newIdentityParts = array();
+      foreach($identityFields as $f) {
+        $val = isset($claim[$f]) ? $claim[$f] : null;
+        $newIdentityParts[] = $f . '=' . ($val === null ? '<null>' : $val);
+      }
+      $newIdentityCanonical = implode("\n", $newIdentityParts);
+
+      $newConstraintParts = array();
+      foreach($claimConstraints as $c) {
+        $newConstraintParts[] = $c['constraint_field'] . '=' . $c['constraint_value'];
+      }
+      sort($newConstraintParts);
+      $newConstraintsCanonical = implode("\n", $newConstraintParts);
+
+      $matchingOrphanIds = array();
+      $unmatchingOrphanIds = array();
+      foreach($candidates as $candidate) {
+        $candidateId = $candidate['Oa4mpClientClaim']['id'];
+
+        // Orphan test: no Oa4mpClientCoSearchAttribute row currently points at
+        // this claim. Two-step find rather than a NOT-EXISTS subquery because
+        // CakePHP 2's find DSL has no clean expression for the subquery form
+        // and the candidate count per (client_id, claim_name) is bounded
+        // small by the duplication pattern we are recovering from.
+        $pointers = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->find('count', array(
+          'conditions' => array('Oa4mpClientCoSearchAttribute.claim_id' => $candidateId),
+          'recursive' => -1
+        ));
+        if($pointers !== 0) {
+          // Either a non-zero pointer count (claim is in active use by some
+          // search attribute -- skip) or a DB error returning false/null
+          // (treat conservatively as "do not rewire to this candidate").
+          continue;
+        }
+
+        $orphanIdentityParts = array();
+        foreach($identityFields as $f) {
+          $val = isset($candidate['Oa4mpClientClaim'][$f]) ? $candidate['Oa4mpClientClaim'][$f] : null;
+          $orphanIdentityParts[] = $f . '=' . ($val === null ? '<null>' : $val);
+        }
+        $orphanIdentityCanonical = implode("\n", $orphanIdentityParts);
+
+        $orphanConstraintParts = array();
+        $orphanConstraintRows = isset($candidate['Oa4mpClientClaimConstraint']) ? $candidate['Oa4mpClientClaimConstraint'] : array();
+        foreach($orphanConstraintRows as $cc) {
+          $orphanConstraintParts[] = $cc['constraint_field'] . '=' . $cc['constraint_value'];
+        }
+        sort($orphanConstraintParts);
+        $orphanConstraintsCanonical = implode("\n", $orphanConstraintParts);
+
+        if($orphanIdentityCanonical === $newIdentityCanonical
+           && $orphanConstraintsCanonical === $newConstraintsCanonical) {
+          $matchingOrphanIds[] = $candidateId;
+        } else {
+          $unmatchingOrphanIds[] = $candidateId;
+        }
+      }
+
+      if(count($matchingOrphanIds) === 1) {
+        $orphanId = $matchingOrphanIds[0];
+        $this->log("toClaim: orphan-recovery: rewiring search_attribute " . $searchAttribute['id'] . " to existing matching orphan claim " . $orphanId . " for client " . $clientId . " name '" . $claim['claim_name'] . "' (avoids creating duplicate)");
+        $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->id = $searchAttribute['id'];
+        $ret = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->saveField('claim_id', $orphanId);
+        if(!$ret) {
+          $this->log("toClaim: orphan-recovery: saveField failed for search_attribute " . $searchAttribute['id'] . " to claim " . $orphanId);
+        }
+        return;
+      } elseif(count($matchingOrphanIds) > 1) {
+        $this->log("toClaim: orphan-recovery: client " . $clientId . " has " . count($matchingOrphanIds) . " orphan claims (ids: " . implode(',', $matchingOrphanIds) . ") matching new identity+constraints for name '" . $claim['claim_name'] . "'; ambiguous, falling through to new-claim creation -- operator cleanup required");
+      }
+      if(!empty($unmatchingOrphanIds)) {
+        $this->log("toClaim: orphan-recovery: client " . $clientId . " has " . count($unmatchingOrphanIds) . " orphan claim(s) (ids: " . implode(',', $unmatchingOrphanIds) . ") with matching name '" . $claim['claim_name'] . "' but differing identity/constraints; not rewiring -- operator cleanup required");
+      }
+    }
+
     // Save the claim and the associated claim constraint(s).
     $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientClaim->clear();
     if(!$this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientClaim->saveAssociated($claim)) {
