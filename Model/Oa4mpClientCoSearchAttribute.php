@@ -73,6 +73,118 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
   );
 
   /**
+   * Compute the persisted 'type' constraint_value for a voPersonApplicationUID
+   * claim, mirroring the LdapProvisioner's effective LDAP export filter.
+   *
+   * When LDAP attribute options are enabled on the CoLdapProvisionerTarget,
+   * the LdapProvisioner (see comanage-registry app/Plugin/LdapProvisioner/
+   * Model/CoLdapProvisionerTarget.php lines 692-718) exports the
+   * voPersonApplicationUID identifier ONLY for identifier types where at
+   * least one CoService in the CO has a matching identifier_type. Without
+   * attribute options, the LdapProvisioner exports every identifier matching
+   * the configured 'type' filter (or all types if the filter is empty/'all').
+   *
+   * This helper is the single source of truth for both the writer
+   * (Oa4mpClientCoSearchAttribute::toClaim) and the sync comparator
+   * (Oa4mpClientOa4mpServer::buildClaimFromLdapMapping) so the constraint
+   * value persisted by toClaim is byte-identical to the value the
+   * comparator computes from current CoService state -- the architectural
+   * enforcement of the lockstep-mirror discipline documented in
+   * docs/solutions/logic-errors/oa4mp-unmarshall-claim-comparator-drift-2026-05-05.md.
+   *
+   * @param integer $coId CO ID.
+   * @param string|null $ldapProvisionerAttributeType The CoLdapProvisionerAttribute.type value ('' or null = "All Types").
+   * @param boolean $attrOpts Whether the CoLdapProvisionerTarget has attribute options enabled.
+   * @param array|null $lookupCache Optional reference to the buildClaimFromLdapMapping lookup cache so
+   *                                the CoService query result is reused across multiple search attributes
+   *                                within a single sync run. Pass null from the writer (single-shot edit).
+   * @return string|null The encoded constraint_value, or null to signal "suppress the claim entirely".
+   *                     Encoding:
+   *                       - attr_opts OFF: bare literal type with empty/null normalized to 'all'.
+   *                       - attr_opts ON, effective set empty: null (caller suppresses).
+   *                       - attr_opts ON, effective set non-empty: uniform anchored regex.
+   *                         Single element: '^<escaped>$'. Multi: '^(<escaped1>|<escaped2>|...)$'
+   *                         with alternation parts sorted lexicographically on the escaped form.
+   */
+
+  public function computeVoPersonApplicationUidConstraint($coId, $ldapProvisionerAttributeType, $attrOpts, &$lookupCache = null) {
+    // attr_opts OFF: existing literal-with-empty-normalization shape. The empty-to-'all'
+    // normalization here mirrors what toClaim has emitted since commit f298ba0 (see
+    // docs/solutions/logic-errors/oa4mp-ldap-provisioner-empty-type-claim-constraint-2026-05-18.md).
+    if(!$attrOpts) {
+      if($ldapProvisionerAttributeType === '' || $ldapProvisionerAttributeType === null) {
+        return 'all';
+      }
+      return $ldapProvisionerAttributeType;
+    }
+
+    // attr_opts ON: compute the effective identifier-type set from CoService.
+    // Cache the per-CO CoService query alongside the buildClaimFromLdapMapping
+    // lookupCache so a sync run over a client with many search attributes does
+    // not repeat the query.
+    $cacheKey = 'coService|' . $coId;
+    if(is_array($lookupCache) && isset($lookupCache[$cacheKey])) {
+      $coServiceIdentifierTypes = $lookupCache[$cacheKey];
+    } else {
+      $coServiceModel = ClassRegistry::init('CoService');
+
+      $args = array();
+      $args['conditions']['CoService.co_id'] = $coId;
+      $args['fields'] = array('CoService.identifier_type');
+      $args['contain'] = false;
+
+      $rows = $coServiceModel->find('all', $args);
+
+      // Mirror the accumulator pattern from commit c503465 -- no foreach self-assign.
+      $coServiceIdentifierTypes = array();
+      foreach($rows as $row) {
+        if(!empty($row['CoService']['identifier_type'])) {
+          $coServiceIdentifierTypes[] = $row['CoService']['identifier_type'];
+        }
+      }
+      $coServiceIdentifierTypes = array_values(array_unique($coServiceIdentifierTypes));
+
+      if(is_array($lookupCache)) {
+        $lookupCache[$cacheKey] = $coServiceIdentifierTypes;
+      }
+    }
+
+    // If the LdapProvisionerAttribute.type is specific (non-empty, non-null), intersect
+    // with the CoService set. If empty/null ("All Types"), use the full CoService set.
+    if($ldapProvisionerAttributeType === '' || $ldapProvisionerAttributeType === null) {
+      $effectiveSet = $coServiceIdentifierTypes;
+    } else {
+      $effectiveSet = array();
+      foreach($coServiceIdentifierTypes as $type) {
+        if($type === $ldapProvisionerAttributeType) {
+          $effectiveSet[] = $type;
+        }
+      }
+    }
+
+    // Empty effective set -> no claim should exist (mirrors LdapProvisioner suppressing the export).
+    if(empty($effectiveSet)) {
+      return null;
+    }
+
+    // Encode the effective set as a uniform anchored regex. Single-element: '^X$'. Multi: '^(A|B|...)$'.
+    // Each element is regex-escaped (preg_quote) before inclusion so future operator-defined
+    // identifier types containing regex metacharacters cannot break matching at the QDL layer.
+    // Sort on the escaped form so writer and comparator produce byte-identical strings regardless
+    // of database row order.
+    $escaped = array();
+    foreach($effectiveSet as $type) {
+      $escaped[] = preg_quote($type, '/');
+    }
+    sort($escaped);
+
+    if(count($escaped) == 1) {
+      return '^' . $escaped[0] . '$';
+    }
+    return '^(' . implode('|', $escaped) . ')$';
+  }
+
+  /**
    * Convert an LDAP search attribute to a claim object (and persist it).
    *
    * IMPORTANT: the read-only output shape of this function (the switch
