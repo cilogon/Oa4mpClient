@@ -149,6 +149,21 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
 
       $rows = $coServiceModel->find('all', $args);
 
+      // CakePHP 2's find('all') can return false on a DB error (e.g., connection
+      // lost mid-request). foreach(false) on PHP 8 emits a warning but iterates
+      // zero times, which would silently treat the error as "no CoServices
+      // matched" -- and worse, poison the per-sync-run $lookupCache with that
+      // empty array so every subsequent voPersonApplicationUID claim in the
+      // same sync run also returns null (driving false-positive drift reports
+      // in isClientDataSynchronized). Bail out before the foreach and before
+      // writing the cache when the find failed. Returning null here is
+      // semantically overloaded with "genuinely empty effective set"; callers
+      // distinguish via the log line below for incident diagnostics.
+      if($rows === false) {
+        $this->log("computeVoPersonApplicationUidConstraint: CoService->find('all') returned false for co_id " . $coId . "; treating as suppress-claim without caching the empty result");
+        return null;
+      }
+
       // Mirror the accumulator pattern from commit c503465 -- no foreach self-assign.
       $coServiceIdentifierTypes = array();
       foreach($rows as $row) {
