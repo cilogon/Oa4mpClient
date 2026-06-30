@@ -34,6 +34,9 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   best practices, workflow patterns), organized by category with
   YAML frontmatter (`module`, `tags`, `problem_type`). Relevant
   when implementing or debugging in documented areas.
+- `CONCEPTS.md`: shared domain vocabulary (entities, named processes,
+  status concepts) with project-specific meaning — relevant when
+  orienting to the codebase or discussing domain concepts.
 
 ## Coding Style & Conventions
 - Language: PHP version 8.3 is preferred.
