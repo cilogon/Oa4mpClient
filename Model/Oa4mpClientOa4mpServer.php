@@ -796,7 +796,15 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // Configure the arguments to pass to the QDL script.
     $qdl['args'] = $qdl['args'] ?? array();
 
-    if(!empty($data['Oa4mpClientDynamoConfig'])) {
+    // Select the per-client Oa4mpClientDynamoConfig if one exists, otherwise fall
+    // back to the admin client's DefaultDynamoConfig. Oa4mpClientDynamoConfig is a
+    // hasOne association: when a client has no per-client row, CakePHP's Containable
+    // returns it as an array of null-valued fields (not an empty array), so a bare
+    // !empty($data['Oa4mpClientDynamoConfig']) check is fooled into selecting that
+    // phantom config and never reaches the fallback. Guard on aws_region instead,
+    // which is required+notBlank on any real persisted row and therefore reliably
+    // distinguishes a real per-client config from the phantom all-null array.
+    if(!empty($data['Oa4mpClientDynamoConfig']['aws_region'])) {
       $dynamoConfig = $data['Oa4mpClientDynamoConfig'];
     } else {
       $dynamoConfig = $data['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'];
