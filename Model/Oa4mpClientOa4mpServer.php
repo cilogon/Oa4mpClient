@@ -66,6 +66,36 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * Resolve the effective DynamoDB configuration for a client. Prefers the
+   * per-client Oa4mpClientDynamoConfig and falls back to the admin client's
+   * DefaultDynamoConfig when the client has no per-client row.
+   *
+   * Oa4mpClientDynamoConfig is a hasOne association: when a client has no
+   * per-client row, CakePHP's Containable returns it as an array of null-valued
+   * fields (not an empty array), so a bare !empty($data['Oa4mpClientDynamoConfig'])
+   * check is fooled into selecting that phantom config and never reaches the
+   * fallback. aws_region is required+notBlank on any real persisted row, so its
+   * presence reliably distinguishes a real per-client config from the phantom.
+   *
+   * Both the marshalling path (oa4mpMarshallCfgQdl) and the sync-comparison path
+   * (isClientDataSynchronized) must resolve the config identically, otherwise a
+   * client without a per-client row is sent the default values but compared
+   * against the phantom nulls, producing a spurious out-of-sync result.
+   *
+   * @param array $data Client data including Oa4mpClientDynamoConfig and
+   *                    Oa4mpClientCoAdminClient.DefaultDynamoConfig.
+   * @return array The effective Dynamo configuration, or an empty array if none.
+   * @since COmanage Registry 4.4.2
+   */
+
+  function resolveDynamoConfig($data) {
+    if(!empty($data['Oa4mpClientDynamoConfig']['aws_region'])) {
+      return $data['Oa4mpClientDynamoConfig'];
+    }
+    return $data['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'] ?? array();
+  }
+
+  /**
    * Determine if our representation of the client and the Oa4mp server
    * representation of the client is synchronized, in order to detect
    * if the client has been changed outside of this plugin.
@@ -317,20 +347,24 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
     }
 
-    // Compare DynamoDB configurations.
-    if(!empty($curData['Oa4mpClientDynamoConfig']) && !empty($oa4mpServerData['Oa4mpClientDynamoConfig'])) {
-      if($curData['Oa4mpClientDynamoConfig']['aws_region'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_region']) {
+    // Compare DynamoDB configurations. Resolve the plugin-side config the same
+    // way marshalling does (resolveDynamoConfig) so a client without a per-client
+    // row is compared against the DefaultDynamoConfig values that were actually
+    // sent to the server, rather than the phantom all-null hasOne array.
+    $curDynamo = $this->resolveDynamoConfig($curData);
+    if(!empty($curDynamo) && !empty($oa4mpServerData['Oa4mpClientDynamoConfig'])) {
+      if($curDynamo['aws_region'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_region']) {
         $this->log("Oa4mpClientDynamoConfig aws_region is out of sync"
-                   . " (plugin=" . var_export($curData['Oa4mpClientDynamoConfig']['aws_region'], true)
+                   . " (plugin=" . var_export($curDynamo['aws_region'], true)
                    . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['aws_region'], true) . ")");
         return false;
       }
-      if($curData['Oa4mpClientDynamoConfig']['aws_access_key_id'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_access_key_id']) {
+      if($curDynamo['aws_access_key_id'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_access_key_id']) {
         // aws_access_key_id is a secret credential. Route both sides through
         // redactSecrets() so the masking list stays the single enforcement
         // point — any field name added to redactSecrets is masked here.
         $curMasked = $this->redactSecrets(array(
-          'aws_access_key_id' => $curData['Oa4mpClientDynamoConfig']['aws_access_key_id'],
+          'aws_access_key_id' => $curDynamo['aws_access_key_id'],
         ));
         $oa4mpMasked = $this->redactSecrets(array(
           'aws_access_key_id' => $oa4mpServerData['Oa4mpClientDynamoConfig']['aws_access_key_id'],
@@ -340,34 +374,34 @@ class Oa4mpClientOa4mpServer extends AppModel {
                    . ", oa4mp=" . $oa4mpMasked['aws_access_key_id'] . ")");
         return false;
       }
-      if($curData['Oa4mpClientDynamoConfig']['table_name'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['table_name']) {
+      if($curDynamo['table_name'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['table_name']) {
         $this->log("Oa4mpClientDynamoConfig table_name is out of sync"
-                   . " (plugin=" . var_export($curData['Oa4mpClientDynamoConfig']['table_name'], true)
+                   . " (plugin=" . var_export($curDynamo['table_name'], true)
                    . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['table_name'], true) . ")");
         return false;
       }
-      if($curData['Oa4mpClientDynamoConfig']['partition_key'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key']) {
+      if($curDynamo['partition_key'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key']) {
         $this->log("Oa4mpClientDynamoConfig partition_key is out of sync"
-                   . " (plugin=" . var_export($curData['Oa4mpClientDynamoConfig']['partition_key'], true)
+                   . " (plugin=" . var_export($curDynamo['partition_key'], true)
                    . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key'], true) . ")");
         return false;
       }
-      if($curData['Oa4mpClientDynamoConfig']['partition_key_template'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_template']) {
+      if($curDynamo['partition_key_template'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_template']) {
         $this->log("Oa4mpClientDynamoConfig partition_key_template is out of sync");
-        $this->log("  plugin: " . var_export($curData['Oa4mpClientDynamoConfig']['partition_key_template'], true));
+        $this->log("  plugin: " . var_export($curDynamo['partition_key_template'], true));
         $this->log("  oa4mp:  " . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_template'], true));
         return false;
       }
-      if($curData['Oa4mpClientDynamoConfig']['partition_key_claim_name'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_claim_name']) {
+      if($curDynamo['partition_key_claim_name'] != $oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_claim_name']) {
         $this->log("Oa4mpClientDynamoConfig partition_key_claim_name is out of sync"
-                   . " (plugin=" . var_export($curData['Oa4mpClientDynamoConfig']['partition_key_claim_name'], true)
+                   . " (plugin=" . var_export($curDynamo['partition_key_claim_name'], true)
                    . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientDynamoConfig']['partition_key_claim_name'], true) . ")");
         return false;
       }
 
       // Normalize empty values to null before comparing optional fields.
-      $curSortKey = !empty($curData['Oa4mpClientDynamoConfig']['sort_key'])
-                    ? $curData['Oa4mpClientDynamoConfig']['sort_key']
+      $curSortKey = !empty($curDynamo['sort_key'])
+                    ? $curDynamo['sort_key']
                     : null;
       $oa4mpSortKey = !empty($oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key'])
                       ? $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key']
@@ -379,8 +413,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
         return false;
       }
 
-      $curSortKeyTemplate = !empty($curData['Oa4mpClientDynamoConfig']['sort_key_template'])
-                            ? $curData['Oa4mpClientDynamoConfig']['sort_key_template']
+      $curSortKeyTemplate = !empty($curDynamo['sort_key_template'])
+                            ? $curDynamo['sort_key_template']
                             : null;
       $oa4mpSortKeyTemplate = !empty($oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key_template'])
                               ? $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key_template']
@@ -796,19 +830,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // Configure the arguments to pass to the QDL script.
     $qdl['args'] = $qdl['args'] ?? array();
 
-    // Select the per-client Oa4mpClientDynamoConfig if one exists, otherwise fall
-    // back to the admin client's DefaultDynamoConfig. Oa4mpClientDynamoConfig is a
-    // hasOne association: when a client has no per-client row, CakePHP's Containable
-    // returns it as an array of null-valued fields (not an empty array), so a bare
-    // !empty($data['Oa4mpClientDynamoConfig']) check is fooled into selecting that
-    // phantom config and never reaches the fallback. Guard on aws_region instead,
-    // which is required+notBlank on any real persisted row and therefore reliably
-    // distinguishes a real per-client config from the phantom all-null array.
-    if(!empty($data['Oa4mpClientDynamoConfig']['aws_region'])) {
-      $dynamoConfig = $data['Oa4mpClientDynamoConfig'];
-    } else {
-      $dynamoConfig = $data['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'];
-    }
+    // Resolve the per-client Oa4mpClientDynamoConfig, falling back to the admin
+    // client's DefaultDynamoConfig. See resolveDynamoConfig() for why this cannot
+    // be a bare !empty() check on the hasOne association. The sync-comparison path
+    // (isClientDataSynchronized) resolves the config the same way so the values
+    // sent here always match the values compared on a subsequent edit.
+    $dynamoConfig = $this->resolveDynamoConfig($data);
 
     // Add the Dynamo module configuration.
 
