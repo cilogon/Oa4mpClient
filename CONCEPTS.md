@@ -25,6 +25,20 @@ A reusable, stored cfg that an OIDC client can reference by id instead of carryi
 A claim-source configuration (LDAP or DynamoDB connection settings) attached to an Admin client and inherited by the OIDC clients it manages. A per-client configuration overrides it; when a client has no per-client row, the Default configuration applies.
 *Avoid:* DefaultDynamoConfig, DefaultLdapConfig (these are the model names, not the concept).
 
+## Claims
+
+### Claim
+A piece of identity information the OA4MP server releases in a token (for example email, groups, or ORCID), configured per OIDC client as a mapping from a Registry value to an output claim name. A Claim carries zero or more Claim constraints.
+
+### Search attribute
+The deprecated predecessor of a Claim — an LDAP search-attribute definition that the plugin migrates into a Claim when the client's edit page loads, recording a back-pointer from the search attribute to the Claim it produced so the migration is not repeated.
+
+### Claim constraint
+A condition attached to a Claim that restricts when or how its value is emitted (for example a type filter or a value pattern). Both its field and its value must be present; a constraint missing either is dropped rather than sent to the server.
+
+### Orphan claim
+A Claim row left with no Search attribute pointing at it, produced when claim migration persisted the Claim but failed before writing the back-pointer. It surfaces as a plugin-versus-server claim-count mismatch during Sync verification.
+
 ## Synchronization
 
 ### Sync verification
