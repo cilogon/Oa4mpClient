@@ -49,6 +49,11 @@
 
   if(isset($oa4mp_client_co_admin_clients) && $e) {
     print $this->Form->hidden('DefaultLdapConfig.id', array('default' => $oa4mp_client_co_admin_clients[0]['DefaultLdapConfig']['id'])) . "\n";
+    // Without the existing DefaultDynamoConfig.id in the POST, CakePHP's
+    // associated save inserts a new oa4mp_client_dynamo_configs row on every
+    // edit instead of updating in place (one duplicate per SAVE). Mirror the
+    // DefaultLdapConfig.id hidden field above so the hasOne save is an UPDATE.
+    print $this->Form->hidden('DefaultDynamoConfig.id', array('default' => $oa4mp_client_co_admin_clients[0]['DefaultDynamoConfig']['id'])) . "\n";
     print $this->Form->hidden('Oa4mpClientCoEmailAddress.0.id', array('default' => $oa4mp_client_co_admin_clients[0]['Oa4mpClientCoEmailAddress'][0]['id'])) . "\n";
     print $this->Form->hidden('Oa4mpClientCoEmailAddress.0.admin_id', array('default' => $oa4mp_client_co_admin_clients[0]['Oa4mpClientCoEmailAddress'][0]['admin_id'])) . "\n";
   }
