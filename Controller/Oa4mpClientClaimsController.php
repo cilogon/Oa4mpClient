@@ -134,7 +134,7 @@ class Oa4mpClientClaimsController extends StandardController {
     $this->request->data = null;
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.claims.add.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
 
     // Set the identifier types for the view
     $this->set('vv_identifier_types', $this
@@ -318,7 +318,7 @@ class Oa4mpClientClaimsController extends StandardController {
     }
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.claims.edit.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
 
     // Set the identifier types for the view
     $this->set('vv_identifier_types', $this
@@ -405,7 +405,7 @@ class Oa4mpClientClaimsController extends StandardController {
     $this->request->data = $client;
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.claims.edit.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
   }
 
   /**

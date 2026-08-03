@@ -139,7 +139,7 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $this->request->data = $client;
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.edit.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
   }
 
   /**

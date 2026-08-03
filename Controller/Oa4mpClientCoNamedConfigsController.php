@@ -171,7 +171,7 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     }
 
     // Set the title for the view.
-    $this->set('title_for_layout', _txt('op.edit-a', array(filter_var($curdata['Oa4mpClientCoNamedConfig']['config_name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+    $this->set('title_for_layout', _txt('op.edit-a', array($curdata['Oa4mpClientCoNamedConfig']['config_name'])));
 
     // PUT request
     if($this->request->is(array('post','put'))) {
@@ -336,7 +336,7 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     $this->request->data = $client;
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_named_config.manage.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
   }
 
   /**

@@ -159,7 +159,7 @@ class Oa4mpClientCoScopesController extends StandardController {
 
     // Set the title for the view.
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_scope.scope.edit.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
   }
 
   /**

@@ -122,7 +122,7 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     }
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.callbacks.add.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
   }
 
   /**
@@ -262,7 +262,7 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     }
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.callbacks.edit.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
 
     foreach($client['Oa4mpClientCoCallback'] as $i => $c) {
       if($c['id'] == $id) {
@@ -312,7 +312,7 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $this->request->data = $client;
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.callbacks.edit.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
   }
 
   /**

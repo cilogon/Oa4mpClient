@@ -119,7 +119,7 @@ class Oa4mpClientRefreshTokensController extends StandardController {
     $this->request->data = $client;
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_refresh_token.edit.name',
-               array(filter_var($client['Oa4mpClientCoOidcClient']['name'], FILTER_SANITIZE_SPECIAL_CHARS))));
+               array($client['Oa4mpClientCoOidcClient']['name'])));
   }
 
   /**
