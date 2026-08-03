@@ -89,9 +89,10 @@
             $c['claim_name'],
             array(
               'plugin' => 'oa4mp_client',
-              'controller' => 'oa4mp_client_co_claims',
+              'controller' => 'oa4mp_client_claims',
               'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
-              $c['id']
+              $c['id'],
+              'clientid' => $this->params['named']['clientid']
             )
           );
         ?>
