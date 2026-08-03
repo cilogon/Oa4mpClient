@@ -46,6 +46,32 @@ class Oa4mpClientClaimsController extends StandardController {
   public $requires_co = true;
 
   /**
+   * Redirect to the claims index with an error when the client is a public
+   * client. Public clients release only the standard sub claim, so claim
+   * configuration (add, edit, delete) is not permitted for them. Guards the
+   * write paths even against a hand-crafted POST or a direct edit/delete URL.
+   *
+   * @since  COmanage Registry v4.4.2
+   * @param  array   $client   Current client data (with Oa4mpClientCoOidcClient)
+   * @param  integer $clientId Oa4mpClientCoOidcClient ID
+   * @return void    Redirects and exits when the client is a public client
+   */
+
+  private function _blockIfPublicClient($client, $clientId) {
+    if(!empty($client['Oa4mpClientCoOidcClient']['public_client'])) {
+      $this->Flash->set(_txt('pl.oa4mp_client_claim.er.public_client'), array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_claims';
+      $args['action'] = 'index';
+      $args['clientid'] = $clientId;
+
+      $this->redirect($args);
+    }
+  }
+
+  /**
    * Add a claim.
    *
    * @since  COmanage Registry v4.4.2
@@ -61,6 +87,9 @@ class Oa4mpClientClaimsController extends StandardController {
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // Public clients cannot have claims configured.
+    $this->_blockIfPublicClient($client, $clientId);
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
@@ -188,6 +217,9 @@ class Oa4mpClientClaimsController extends StandardController {
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // Public clients cannot have claims configured.
+    $this->_blockIfPublicClient($client, $clientId);
+
     $oa4mpServer = new Oa4mpClientOa4mpServer();
 
     $newClient = $client;
@@ -245,6 +277,9 @@ class Oa4mpClientClaimsController extends StandardController {
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // Public clients cannot have claims configured.
+    $this->_blockIfPublicClient($client, $clientId);
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {

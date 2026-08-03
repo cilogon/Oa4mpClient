@@ -289,6 +289,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_claim.add.flash.success'    => 'Claim Added',
   'pl.oa4mp_client_claim.delete.flash.success' => 'Claim Deleted',
   'pl.oa4mp_client_claim.edit.flash.success'   => 'Claim Updated',
+  'pl.oa4mp_client_claim.er.public_client'     => 'Claims cannot be configured for a public client. A public client releases only the standard sub claim.',
 
   // ===========================================================================
   // Scopes
