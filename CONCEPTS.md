@@ -13,7 +13,7 @@ A privileged OA4MP client whose credentials the plugin uses to create and edit O
 ## Configuration
 
 ### cfg
-The OA4MP server's JSON configuration object for an OIDC client, describing how identity tokens and claims are produced — which QDL script to load, the phases at which it runs, and the arguments passed to it. The plugin marshals its own data model into a cfg when sending a client to the server, and compares the server's cfg against a freshly marshalled one to detect drift.
+The OA4MP server's JSON configuration object for an OIDC client, describing how identity tokens and claims are produced — which QDL script to load, the phases at which it runs, and the arguments passed to it. The plugin marshals its own data model into a cfg when sending a client to the server, and compares the server's cfg against a freshly marshalled one to detect drift. A cfg is permitted only on confidential clients; OA4MP rejects a custom configuration on a public client, so the plugin must not marshal one for a public OIDC client.
 
 ### QDL
 The scripting language the OA4MP server executes to compute identity-token claims. A client's cfg names a QDL script to load, the execution phases at which it runs (e.g. post-auth, post-token), and the arguments passed to it, including the claim source connection settings.
