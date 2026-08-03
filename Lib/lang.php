@@ -203,6 +203,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.claims.add.name' => 'Add Claim for %1$s',
   'pl.oa4mp_client_co_oidc_client.claims.edit.name'=> 'Edit Claim for %1$s',
   'pl.oa4mp_client_co_oidc_client.claims.tab.name' => 'Claims',
+  'pl.oa4mp_client_co_oidc_client.claims.public_client.description' => 'Public clients release only the standard sub claim, so additional claims cannot be configured.',
 
   // Field definitions
   'pl.oa4mp_client_co_oidc_client.claims.fd.add_button'         => 'Add another claim',

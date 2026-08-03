@@ -44,7 +44,11 @@
   // Add top links
   $params['topLinks'] = array();
 
-  if($permissions['add']) {
+  // Public clients release only the standard sub claim, so claim
+  // configuration is not offered for them.
+  $is_public_client = !empty($this->request->data['Oa4mpClientCoOidcClient']['public_client']);
+
+  if($permissions['add'] && !$is_public_client) {
     $params['topLinks'][] = $this->Html->link(
       _txt('op.add.new', array(_txt('ct.oa4mp_client_co_claims.1'))),
       array(
@@ -71,6 +75,13 @@
 <script type="text/javascript">
 </script>
 
+<?php if($is_public_client): ?>
+<div id="oa4mp_client_co_claims_public_client_info" class="ui-widget">
+  <p><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.public_client.description'); ?></p>
+</div>
+<?php endif; ?>
+
+<?php if(!$is_public_client || !empty($claims)): ?>
 <table id="oa4mp_client_co_claims" class="ui-widget">
   <thead>
     <tr class="ui-widget-header">
@@ -99,7 +110,7 @@
       </td>
       <td>
         <?php
-          if($permissions['edit']) {
+          if(!$is_public_client && $permissions['edit']) {
             print $this->Html->link(
                 _txt('op.edit'),
                 array(
@@ -110,7 +121,7 @@
                 ),
                 array('class' => 'editbutton')) . "\n";
           }
-          if($permissions['delete']) {
+          if(!$is_public_client && $permissions['delete']) {
             print '<button type="button" class="deletebutton" title="' . _txt('op.delete')
               . '" onclick="javascript:js_confirm_generic(\''
               . _txt('js.remove') . '\',\''    // dialog body text
@@ -138,5 +149,6 @@
     <?php $i++; ?>
     <?php endforeach; ?>
   </tbody>
-  
+
 </table>
+<?php endif; ?>
