@@ -1006,11 +1006,18 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $content['comment'] = _txt('pl.oa4mp_client_co_oidc_client.signature') . ': ' . $indexUrl;
 
-    if(!empty($data['Oa4mpClientCoLdapConfig']) || 
-       !empty($data['Oa4mpClientCoOidcClient']['named_config_id']) ||
-       !empty($data['Oa4mpClientAccessToken']) ||
-       !empty($data['Oa4mpClientAuthorization']) ||
-       !empty($data['Oa4mpClientClaim'])) {
+    // OA4MP rejects custom configurations (cfg) on public clients with
+    // "custom configurations not permitted in public clients", so only
+    // marshall and attach a cfg for confidential (non-public) clients.
+    $isPublicClient = !empty($data['Oa4mpClientCoOidcClient']['public_client'])
+                      && $data['Oa4mpClientCoOidcClient']['public_client'];
+
+    if(!$isPublicClient &&
+       (!empty($data['Oa4mpClientCoLdapConfig']) ||
+        !empty($data['Oa4mpClientCoOidcClient']['named_config_id']) ||
+        !empty($data['Oa4mpClientAccessToken']) ||
+        !empty($data['Oa4mpClientAuthorization']) ||
+        !empty($data['Oa4mpClientClaim']))) {
       $cfg = $this->oa4mpMarshallCfgQdl($data);
       if(!empty($cfg)) {
         $content['cfg'] = $cfg;
