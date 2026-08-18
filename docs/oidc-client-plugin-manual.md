@@ -108,3 +108,107 @@ copy before it applies an edit. If the two have drifted apart -- for example,
 because the client was changed on the server directly -- the plugin reports the
 client **out of sync** and blocks the edit so your change cannot silently
 overwrite the server's. Chapter 3 explains what to do when this happens.
+
+---
+
+## 2. Access control and delegation
+
+This chapter explains who can do what in the plugin and how an administrator
+grants others the ability to create and manage clients. It is the part of the
+plugin most often misunderstood, so read it before delegating anything.
+
+### The three roles
+
+The plugin recognizes three effective roles:
+
+- **CO or platform administrator.** Can do everything: create, edit, delete, and
+  manage every OIDC client in the CO, and configure delegation.
+- **Manager.** A member of a CO group that an administrator has designated as an
+  Admin client's *delegated management group*. Managers can create new OIDC
+  clients and manage the clients that do not have their own Editor group.
+- **Editor.** A member of a CO group that an administrator has designated as a
+  specific OIDC client's *Editor group*. An editor can edit and manage that one
+  client, but cannot create new clients.
+
+### Who can do what
+
+The table below summarizes each role's capabilities. Administrators always have
+every capability.
+
+| Capability | CO / platform admin | Manager (delegated management group) | Editor (per-client Editor group) |
+|---|---|---|---|
+| Add a new OIDC client | Yes | Yes | No |
+| Configure delegation | Yes | No | No |
+| Edit / delete / manage a client | Yes | Yes, unless the client has an Editor group | Yes, only when the client has an Editor group |
+| View the client list | Yes | Yes | Yes (the clients they can edit) |
+
+Two subtleties are worth calling out:
+
+- When an OIDC client has an **Editor group**, management of that client passes
+  to its editors: a manager who is not in that group can no longer edit it. This
+  lets an administrator hand a single client to a team without giving them the
+  other clients.
+- A **manager** manages every client that has *no* Editor group. Assign an Editor
+  group to a client to narrow who can manage that particular client.
+
+### Configuring delegated management (administrators)
+
+Delegated management is set per Admin client, and only an administrator can
+configure it.
+
+1. Go to the **OIDC Clients** list.
+2. Select **Edit Delegated Management Group**. This button appears only for
+   administrators.
+3. The **Delegate Management** page lists each Admin client in the CO as
+   *name - issuer*, with a **Management Group** dropdown beside it. The field
+   description reads "Group members allowed to manage OIDC clients for this
+   OAuth2 Server and Issuer."
+4. For each Admin client, choose the CO group whose members should be able to
+   create and manage its OIDC clients, or leave it at "-- Select Group (or leave
+   for no delegation) --" for no delegation.
+5. Select **Save**.
+
+Members of the group you select become **managers** for that Admin client's
+OIDC clients. Because this setting lives on the Admin client -- not on
+individual OIDC clients -- a group you linked earlier keeps granting client
+creation until you change it here.
+
+### Configuring per-client editors (administrators and managers)
+
+To let a group edit one specific OIDC client without giving them the others, set
+that client's Editor group.
+
+1. From the **OIDC Clients** list, edit the client.
+2. Open the **Editors** tab.
+3. In the **Editor Group** dropdown, choose the CO group whose members may edit
+   this client. The field description reads "Group whose members may edit this
+   OIDC client configuration. Default is CO admins and delegated client
+   managers."
+4. Select **Add** (or **Save** if a group is already set).
+
+Once a client has an Editor group, its editors gain edit and manage rights on
+it, and managers who are not in that group lose those rights for that client.
+
+### A current limitation: editors cannot add clients
+
+An editor can edit and manage the client they are assigned to, but **cannot
+create new OIDC clients**. Creating clients requires being a manager -- a member
+of a delegated management group. Today, the only way to let someone add clients
+is to add them to a delegated management group, which also makes them a manager
+of every client that has no Editor group.
+
+If you are an editor and need to add a client, ask an administrator to either
+create the client for you (and assign you as its editor) or add you to a
+delegated management group. This behavior is a current limitation of the plugin
+and is under active review; a future version may let editors add clients
+directly.
+
+### If you used the previous Admin UI
+
+The earlier Admin client interface had a "Delegated Management Group" dropdown
+directly on the Admin client's edit form. That control has moved: delegated
+management is now configured through the **Edit Delegated Management Group**
+button on the OIDC Clients list (see "Configuring delegated management" above).
+A CO group that was linked to an Admin client in the old interface is preserved
+-- its members remain managers and can still create OIDC clients -- so nothing
+you set previously was lost; it is simply edited in a new place.
