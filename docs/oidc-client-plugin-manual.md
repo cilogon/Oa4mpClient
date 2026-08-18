@@ -311,3 +311,94 @@ copy. You will see:
 This is a safety stop, not data loss: your change was not applied and the
 server's copy is untouched. Follow the message and contact CILogon support to
 reconcile the two copies before editing the client again.
+
+---
+
+## 4. Configuring claims, scopes, callbacks, and named configurations
+
+Once a client exists, you configure its behavior through the tabs that appear
+when you edit it: **Claims**, **Scopes**, **Callbacks**, and **Named
+Configuration** (plus the **Editors** and token tabs covered in Chapters 2 and
+5). This chapter covers the first four.
+
+### Scopes
+
+Scopes are the groups of claims a client is allowed to request. Open the
+**Scopes** tab -- you land here automatically right after creating a client. You
+will see a checklist:
+
+- **openid** -- always required; it cannot be unchecked.
+- **profile**, **email**, **org.cilogon.userinfo** -- check the ones this client
+  may request.
+- **edu.uiuc.ncsa.myproxy.getcert** -- shown for existing clients that already
+  have it.
+
+Check the scopes the client should be allowed to request and select **Save**.
+
+**Public clients** may request only the `openid` scope. On the Scopes tab for a
+public client, every other scope is disabled and there is no Save button --
+there is nothing to change.
+
+### Claims
+
+The **Claims** tab lists the custom claims a client releases and lets you add,
+edit, and remove them. Each claim in the list links by name to its editor.
+
+To add a claim, select **Add a New Claim**, then fill in the form:
+
+1. **Claim Name** -- required; the name of the claim as it will be asserted in
+   the token. If you enter the name of a standard claim (such as `email` or
+   `name`), the form warns you that you are overriding a standard claim.
+2. **Source** -- required; where the claim's value comes from. The choices are
+   EmailAddress, Groups, Identifier, Name, Role, SSH Key, Terms & Conditions,
+   and Unix Cluster Account.
+3. Depending on the Source you pick, the form reveals the fields relevant to it,
+   which may include:
+   - a **field selector** (for example, which part of a Name or SSH Key to use);
+   - **constraints** that filter which values qualify (for example, an email
+     type, or a "Verified" checkbox for email addresses);
+   - **Value Selection** -- "First value found" or "All values found";
+   - **Multiple Value Format** -- when a claim can carry several values, whether
+     to serialize them as a JSON array or a delimited string (and, for a
+     delimited string, the delimiter);
+   - **JSON format** -- whether the value is emitted as a JSON string or number.
+
+Select **Add** (or **Save** when editing) to apply.
+
+Public clients release only the standard `sub` claim, so **the Claims tab does
+not offer claim configuration for a public client.** Instead it shows the
+message "Public clients release only the standard sub claim, so additional
+claims cannot be configured," and the Add, Edit, and Delete actions are not
+available.
+
+### Callbacks
+
+The **Callbacks** tab manages the client's callback (redirect) URLs. Each
+callback is a single **Callback URL**; the form notes that "The OIDC protocol
+redirect_uri parameter must exactly match the callback URL." Add one callback
+per URL the client will redirect to, and edit or delete them from the callback
+list.
+
+### Named configurations
+
+A **named configuration** is a reusable server configuration that a client can
+reference instead of building its own. Most clients never need one -- they
+inherit their Admin client's default. Named configurations are managed from the
+**Named Configuration** area, where you can list, add, and edit them.
+
+When you add or edit a named configuration you provide:
+
+- **Admin Client** -- which Admin client (and CO) the configuration belongs to.
+- **Configuration Name** -- required; the name clients reference it by.
+- **Description** -- optional.
+- **Configuration** -- required; the full OA4MP server `cfg` JSON. This is the
+  raw server configuration; for its structure see `cfg_format.md` in the plugin
+  repository. The stored JSON is not displayed back to administrators after it
+  is saved.
+- **Scopes** -- the scopes the configuration allows, including any additional
+  ad-hoc scopes you add.
+
+When you save, the plugin reminds you: "Editing the Named Configuration does NOT
+cause the cfg for any client to be automatically updated. You must edit and
+re-save any client that uses the Named Configuration you just edited." Plan to
+re-save each affected client after changing a named configuration.
