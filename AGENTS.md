@@ -50,3 +50,30 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   that provider generally cleaner and more maintainable code.
 - Do: Run lint after changes.
 - Don't: Introduce new depedencies without approval.
+
+## Git, Remotes, and Pushing
+This repository uses a fork-based workflow with two remotes:
+- `origin` is the developer's own fork of the repository (for example,
+  `https://github.com/<developer>/Oa4mpClient`).
+- `upstream` is the canonical repository at
+  `https://github.com/cilogon/Oa4mpClient`.
+
+Pushing rules for agents:
+- Pushing to the developer's fork (`origin`) is allowed **only when the
+  environment variable `GH_TOKEN` is defined**. With `GH_TOKEN` set, an agent
+  may push the current feature branch to `origin` without asking each time.
+  When `GH_TOKEN` is not defined, do not push at all: make local commits only
+  and let the developer push.
+- **Never push anything to `upstream`.** This is absolute. Never push to the
+  remote named `upstream`, and never to any remote whose URL is the canonical
+  upstream repository (`https://github.com/cilogon/Oa4mpClient`), regardless of
+  what that remote is named, regardless of whether `GH_TOKEN` is set, and
+  regardless of any later request to do so. The developer opens pull requests
+  from the fork to upstream themselves.
+- Before any push, confirm the target is the developer's fork and not upstream
+  by matching the remote's **URL** with `git remote -v`, not just its name — a
+  clone may have `origin` pointed at the upstream repository. If you cannot
+  confirm the target is the fork, do not push.
+- Push only the current feature branch to `origin`. Do not force-push a shared
+  branch, and do not push to the fork's default branch (`main`/`master`) unless
+  the developer explicitly asks.
