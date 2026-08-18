@@ -212,3 +212,102 @@ button on the OIDC Clients list (see "Configuring delegated management" above).
 A CO group that was linked to an Admin client in the old interface is preserved
 -- its members remain managers and can still create OIDC clients -- so nothing
 you set previously was lost; it is simply edited in a new place.
+
+---
+
+## 3. Managing clients
+
+This chapter covers viewing Admin clients and the day-to-day work of creating,
+editing, and deleting OIDC clients.
+
+### Admin clients
+
+The **Admin Clients** list shows the privileged clients whose credentials the
+plugin uses to talk to each OA4MP server (see "Admin client" in Chapter 1). Each
+Admin client owns a set of OIDC clients and supplies the defaults they inherit.
+
+Creating and configuring Admin clients is a one-time setup task usually performed
+by a CILogon deployer, and is documented in the internal CILogon operational
+runbooks rather than here. As an end user you will mostly work with the OIDC
+clients an Admin client owns; you may need the Admin Clients list only to confirm
+which OA4MP server and issuer a client belongs to, or to configure delegated
+management (Chapter 2).
+
+### Viewing OIDC clients
+
+The **OIDC Clients** list is the plugin's main screen. Each row shows:
+
+- **Name** -- the client's display name; links to its edit page.
+- **OAuth2 Server and Issuer** -- the Admin client that owns it, shown as
+  *name - issuer*.
+- **OIDC Identifier** -- the client's identifier on the OA4MP server, with a
+  **Copy ID** button.
+
+The list also carries the action buttons you have permission to use: **Edit** and
+**Delete** per client, an **Add a New OIDC Client** button, and -- for
+administrators -- the **Edit Delegated Management Group** button described in
+Chapter 2.
+
+### Creating an OIDC client
+
+1. From the **OIDC Clients** list, select **Add a New OIDC Client**.
+2. Fill in the form:
+   - **OAuth2 Server and Issuer** (the Admin client) -- required. It *cannot be
+     changed after the client is created*, so choose carefully.
+   - **Name** -- required; the client's display name.
+   - **Home URL** -- required; used as the hyperlink for the client's name on the
+     Identity Provider selection page.
+   - **Contact Email** -- required; used for operational notices about the client.
+   - **Public Client** -- leave unchecked for a confidential client (the common
+     case). Check it only for a public client, which has no client secret and may
+     request only the `openid` scope. **This choice cannot be changed after the
+     client is created.**
+3. Select **Next**.
+
+The plugin creates the client on the OA4MP server and shows the **New OIDC
+Client** page:
+
+- The **OIDC Identifier** (client id), with a **Copy** button.
+- For a **confidential** client, the **Client Secret**, with a **Copy** button
+  and a dialog that warns: "You MUST permanently record the client secret before
+  continuing. The CILogon servers do not store the client secret." Record it now
+  -- it is shown only this once and cannot be retrieved later.
+- For a **public** client, a dialog confirming the client has no secret.
+
+Select **Continue** to go to the client's **Scopes** page, where you choose which
+scopes it may request (see Chapter 4).
+
+### Editing an OIDC client
+
+Select a client's **Name** or its **Edit** button from the list. The edit form
+shows the same fields as creation, with two differences:
+
+- The **OIDC Identifier** and the **OAuth2 Server and Issuer** are shown but
+  cannot be changed.
+- The **Public Client** checkbox is disabled -- a client's type is fixed at
+  creation.
+
+Editing a client also gives you the tab bar for its configuration surfaces
+(Claims, Scopes, Callbacks, Editors, and token management), covered in the next
+chapters. Select **Save** to apply changes to the name, home URL, or contact
+email.
+
+### Deleting an OIDC client
+
+Select a client's **Delete** button and confirm. This removes the client from
+both the plugin and the OA4MP server.
+
+### When a client is "out of sync"
+
+Before it applies an edit, the plugin checks that its stored copy of the client
+still matches the OA4MP server's copy (see "The sync model" in Chapter 1). If the
+client was changed directly on the server -- outside the Registry -- the two no
+longer match, and the plugin blocks the edit rather than overwriting the server's
+copy. You will see:
+
+> This client has been modified outside of the Registry. Please email
+> help@cilogon.org for assistance.
+
+This is a safety stop, not data loss: your change was not applied and the
+server's copy is untouched. Follow the message and contact CILogon support to
+reconcile the two copies before editing the client again.
