@@ -402,3 +402,41 @@ When you save, the plugin reminds you: "Editing the Named Configuration does NOT
 cause the cfg for any client to be automatically updated. You must edit and
 re-save any client that uses the Named Configuration you just edited." Plan to
 re-save each affected client after changing a named configuration.
+
+---
+
+## 5. Managing tokens
+
+The remaining tabs on a client's edit page control token issuance and who is
+authorized to use the client.
+
+### Access Token
+
+The **Access Token** tab has one setting, **JWT Format** -- whether access
+tokens for this client are issued in JWT format. Check or clear it and select
+**Save**.
+
+### Refresh Token
+
+The **Refresh Token** tab sets the **Refresh Token Lifetime**, given as a token
+lifetime in seconds. Enter a value and select **Save**.
+
+### Authorization
+
+The **Authorization** tab controls *who may use* the client -- as distinct from
+the **Editors** tab (Chapter 2), which controls who may *edit its
+configuration*. It has these settings:
+
+- **Authorized User Group** -- a CO group whose members may access this client.
+  Leave it unset to place no group restriction on use.
+- **Group authorization Redirect URL** -- appears once you select an authorized
+  group; the URL to send users to when they are not members of that group. If
+  you leave it blank, the client receives a standard protocol error message
+  instead.
+- **Require Active Status** -- when checked (the default), a user's record must
+  have active status to access the client.
+- **Active Status Redirect URL** -- appears when Require Active Status is
+  checked; where to send users who do not have active status. If blank, the
+  client receives a standard protocol error message.
+
+Select **Save** to apply the authorization policy.
