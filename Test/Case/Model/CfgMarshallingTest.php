@@ -116,4 +116,44 @@ class CfgMarshallingTest extends Oa4mpTestCase {
     $this->assertEqual('client_secret_basic', $content['token_endpoint_auth_method'],
       'a confidential client uses token_endpoint_auth_method client_secret_basic');
   }
+
+  /**
+   * Bug: a valid QDLv2 cfg lacking the optional 'list_attributes' key made
+   * in_array($key, null) throw a PHP 8 TypeError, which a defensive catch
+   * swallowed -- the unmarshaller then returned empty and logged the misleading
+   * "not a defined format" message, so the claim mappings silently vanished.
+   * The fix defaults list_attributes to an empty array.
+   */
+  public function testUnmarshallQdlv2WithoutListAttributesDoesNotSwallowMappings() {
+    $cfg = array(
+      'tokens' => array(
+        'identity' => array(
+          'qdl' => array(
+            0 => array(
+              'args' => array(
+                'server_fqdn' => 'ldap.example.org',
+                'server_port' => 389,
+                'bind_dn' => 'cn=service,dc=example,dc=org',
+                'bind_password' => 'secret',
+                'search_base' => 'ou=people,dc=example,dc=org',
+                'search_attribute' => 'uid',
+                // 'list_attributes' deliberately absent -- the pre-fix trigger.
+                'ldap_to_claim_mappings' => array('isMemberOf' => 'is_member_of'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    $result = $this->server()->oa4mpUnMarshallCfgQdlv2($cfg);
+
+    $this->assertNotEmpty($result,
+      'a valid QDLv2 cfg without list_attributes must not be swallowed as "not a defined format"');
+    $sa = $result[0]['Oa4mpClientCoSearchAttribute'][0];
+    $this->assertEqual('isMemberOf', $sa['name']);
+    $this->assertEqual('is_member_of', $sa['return_name']);
+    $this->assertFalse($sa['return_as_list'],
+      'an attribute absent from list_attributes defaults to return_as_list false');
+  }
 }
