@@ -25,22 +25,31 @@ facts:
   bootstrapped through the console) that load plugin models/components and assert
   directly. `Console/Command/Oa4mpSmokeShell.php` is the smoke proof.
 
-## Running the environment (current spike state)
+## Running the suite
+
+One command brings up the environment, creates the schema, runs the thin-runner
+suite, and tears everything down (exiting non-zero if any test fails):
 
 ```bash
-cd Test/docker
-docker compose up -d
-# create the schema (Registry's native mechanism, applies the overlaid plugin schema):
-docker compose exec -T comanage-registry bash -c '
-  mkdir -p /srv/comanage-registry/local/Config
-  source /usr/local/lib/comanage_utils.sh
-  comanage_utils::prepare_database_config
-  cd /srv/comanage-registry/app && ./Console/cake database'
-# smoke test the thin runner:
-docker compose exec -T comanage-registry bash -c '
-  cd /srv/comanage-registry/app && ./Console/cake Oa4mpClient.Oa4mp_smoke'
-docker compose down
+Test/run.sh
 ```
 
-U2 will fold these steps into a single `Test/run.sh` entry command and add the
-OA4MP stub.
+## Writing tests
+
+A test case extends `Oa4mpTestCase` (`Test/lib/Oa4mpTestCase.php`) and defines
+`test*` methods; put it under `Test/Case/` (one subdirectory deep is discovered).
+The runner shell `Console/Command/Oa4mpTestShell.php` finds and runs them.
+`Test/Case/HarnessSelfTest.php` is the reference example. Most core-logic tests
+assert the marshalled cfg and database state directly and need no server; the
+few that must simulate a server response use `Test/Stub/Oa4mpServerStub.php` with
+a captured response under `Test/fixtures/oa4mp-responses/`.
+
+## Known wrinkle (for U3)
+
+On a fresh database, `./Console/cake database` currently emits a non-fatal
+`relation "cm_oa4mp_client_dynamo_configs" already exists` warning ("Possibly
+failed to update database schema") while still returning success and leaving the
+plugin's tables queryable. This is a `cake database` reconciliation quirk in the
+plugin's schema (KTD2 territory, related to the raw-SQL foreign-key note in
+`Config/Schema/schema.xml`). It does not block the suite, but U3 should confirm
+the overlaid plugin's schema fully applies for a schema-changing checkout (AE2).
