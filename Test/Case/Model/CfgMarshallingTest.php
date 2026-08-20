@@ -156,4 +156,68 @@ class CfgMarshallingTest extends Oa4mpTestCase {
     $this->assertFalse($sa['return_as_list'],
       'an attribute absent from list_attributes defaults to return_as_list false');
   }
+
+  /** Recursively collect every constraint_value in a marshalled cfg. */
+  private function collectConstraintValues($node, &$out) {
+    if (!is_array($node)) {
+      return;
+    }
+    foreach ($node as $key => $value) {
+      if ($key === 'constraint_value') {
+        $out[] = $value;
+      } elseif (is_array($value)) {
+        $this->collectConstraintValues($value, $out);
+      }
+    }
+  }
+
+  /**
+   * Bug: the cfg writer used || where AND was intended, so a degenerate
+   * constraint (constraint_field 'type', constraint_value '') could be
+   * serialized to the OA4MP server. The fix emits a constraint only when BOTH
+   * the field and the value are non-empty.
+   */
+  public function testEmptyConstraintValueIsNotSerialized() {
+    $data = array(
+      'Oa4mpClientCoOidcClient' => array(
+        'public_client' => false,
+        'name' => 'confidential',
+        'home_url' => 'https://example.org/',
+      ),
+      'Oa4mpClientCoAdminClient' => array(
+        'co_id' => 1,
+        'DefaultDynamoConfig' => array(
+          'aws_region' => 'us-east-2',
+          'aws_access_key_id' => 'AKIA',
+          'aws_secret_access_key' => 'secret',
+          'table_name' => 'registry',
+          'partition_key' => 'sub',
+          'partition_key_template' => '${sub}',
+          'partition_key_claim_name' => 'sub',
+        ),
+      ),
+      'Oa4mpClientClaim' => array(
+        array(
+          'claim_name' => 'vo_person_id',
+          'source_model' => 'Identifier',
+          'source_model_claim_value_field' => 'identifier',
+          'Oa4mpClientClaimConstraint' => array(
+            array('constraint_field' => 'type', 'constraint_value' => 'orcid'),
+            // Degenerate: a field but an empty value. Must be dropped.
+            array('constraint_field' => 'type', 'constraint_value' => ''),
+          ),
+        ),
+      ),
+    );
+
+    $cfg = $this->server()->oa4mpMarshallCfgQdl($data);
+
+    $values = array();
+    $this->collectConstraintValues($cfg, $values);
+
+    $this->assertContains('orcid', implode(',', $values),
+      'the valid constraint must be serialized');
+    $this->assertFalse(in_array('', $values, true),
+      'a constraint with an empty constraint_value must not be serialized');
+  }
 }
