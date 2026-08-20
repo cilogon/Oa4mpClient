@@ -1,2 +1,5 @@
 Oa4mpClient.code-workspace
 .worktrees
+
+# Live-server tier credentials (U9). Never commit a real secret.
+Test/.env

@@ -133,6 +133,43 @@ request's code rather than image drift; bumping a pin is an explicit, reviewable
 change. Set `OA4MP_TEST_REGISTRY_IMAGE` or `OA4MP_TEST_DATABASE_IMAGE` to try a
 different image locally without editing the file.
 
+## The live-server tier
+
+A second, non-gating tier exercises a real admin client on `dev.cilogon.org`:
+it creates, edits, verifies, and deletes real OIDC clients. It exists for the
+half the hermetic tier cannot reach -- whether the server *accepts* what the
+plugin sends. The hermetic public-client test asserts the marshalled cfg; only
+the live tier proves the server takes it.
+
+```bash
+cp Test/.env.example Test/.env   # fill in the dedicated test admin client
+Test/run-live.sh
+```
+
+`Test/.env` is gitignored and must never be committed. Use an admin client
+provisioned solely for testing, scoped to the minimum privileges it needs and
+distinct from any staff or production credential.
+
+In CI the tier runs from `.github/workflows/live-server-tests.yml` on a schedule
+or on demand, on `main` only. The credential lives in the `live-server` GitHub
+Environment whose deployment-branch policy is restricted to `main`, and the job
+additionally guards on `github.ref`; the workflow has no `pull_request`,
+`pull_request_target`, or `workflow_run` trigger. `Test/Case/CiWorkflowTest.php`
+runs in the hermetic gate and fails if any of that wiring changes.
+
+The hermetic runner skips `Test/Case/LiveServer` entirely; the live tier runs
+only via `./Console/cake Oa4mpClient.Oa4mp_test live`.
+
+**Not yet verified:** the live tests have never been run against a real server
+from this repository -- no test admin client exists yet. Expect to iterate on
+them the first time they run with a real credential.
+
+**Known gap:** each test deletes the clients it created, including when it
+fails, but a process killed mid-run can still leave a `oa4mp-live-test-` client
+on the server. Sweeping those needs a way to list the admin client's clients,
+which the plugin's server model does not expose today (it addresses clients only
+by `client_id`). Until it does, orphan cleanup is manual.
+
 ## Known wrinkle
 
 On a fresh database, `./Console/cake database` currently emits a non-fatal

@@ -7,7 +7,12 @@
  * if any assertion fails. Replaces CakePHP 2.x's PHPUnit TestSuite, which does
  * not run on PHP 8.x. Run with:
  *
- *   ./Console/cake Oa4mpClient.Oa4mp_test
+ *   ./Console/cake Oa4mpClient.Oa4mp_test          # hermetic tier
+ *   ./Console/cake Oa4mpClient.Oa4mp_test live     # live-server tier only
+ *
+ * The hermetic tier deliberately skips Test/Case/LiveServer: those tests need
+ * the dev.cilogon.org credential and create real clients, so they must never
+ * run as part of the per-pull-request merge gate.
  */
 
 App::uses('AppShell', 'Console/Command');
@@ -31,9 +36,17 @@ class Oa4mpTestShell extends AppShell {
       require_once $stub;
     }
 
-    $files = $this->_discover($testDir . DS . 'Case');
+    $live = !empty($this->args[0]) && $this->args[0] === 'live';
+
+    if ($live) {
+      $this->out('<info>Running the LIVE-SERVER tier (creates real clients).</info>');
+      $files = $this->_discover($testDir . DS . 'Case' . DS . 'LiveServer');
+    } else {
+      $files = $this->_discover($testDir . DS . 'Case', array('LiveServer'));
+    }
+
     if (empty($files)) {
-      $this->out('<warning>No test cases found under Test/Case.</warning>');
+      $this->out('<warning>No test cases found.</warning>');
       return;
     }
 
@@ -82,11 +95,18 @@ class Oa4mpTestShell extends AppShell {
     $this->out('ALL_TESTS_PASSED');
   }
 
-  /** Return all *Test.php files under $dir, at any depth. */
-  protected function _discover($dir) {
+  /**
+   * Return all *Test.php files under $dir, at any depth.
+   *
+   * @param array $skipDirs base names of subdirectories to leave out.
+   */
+  protected function _discover($dir, $skipDirs = array()) {
     $files = glob($dir . DS . '*Test.php') ?: array();
     foreach (glob($dir . DS . '*', GLOB_ONLYDIR) ?: array() as $sub) {
-      $files = array_merge($files, $this->_discover($sub));
+      if (in_array(basename($sub), $skipDirs, true)) {
+        continue;
+      }
+      $files = array_merge($files, $this->_discover($sub, $skipDirs));
     }
     sort($files);
     return $files;
