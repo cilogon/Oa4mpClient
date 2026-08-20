@@ -33,15 +33,34 @@ class CiWorkflowTest extends Oa4mpTestCase {
   /**
    * The merge gate must reference no secret. A fork pull request has none, so a
    * gate that needed one could not gate fork contributions at all.
+   *
+   * The trigger is asserted with its delimiters, and the escalated triggers are
+   * asserted absent: `pull_request_target` and `workflow_run` both run a fork
+   * pull request's code with the base repository's secrets in scope, and either
+   * one satisfies a bare 'pull_request' substring check. The secret check is on
+   * 'secrets' rather than 'secrets.' so the index form, ${{ secrets['NAME'] }},
+   * cannot slip past the dot.
    */
   public function testHermeticGateUsesNoSecrets() {
     $yaml = $this->directives($this->workflow('hermetic-tests.yml'));
 
-    $this->assertTrue(strpos($yaml, 'secrets.') === false,
-      'the hermetic gate must not read any repository secret');
+    $this->assertTrue(strpos($yaml, 'secrets') === false,
+      'the hermetic gate must not read any repository secret, in either the '
+      . 'secrets.NAME or the secrets[\'NAME\'] form');
     $this->assertTrue(strpos($yaml, 'environment:') === false,
       'the hermetic gate must not attach a secret-bearing environment');
-    $this->assertContains('pull_request', $yaml, 'the gate runs on pull requests');
+
+    foreach (array('pull_request_target', 'workflow_run') as $trigger) {
+      $this->assertTrue(strpos($yaml, $trigger) === false,
+        "the gate must not run untrusted pull-request code via $trigger");
+    }
+
+    $this->assertContains("\n  pull_request:\n", $yaml,
+      'the gate runs on the pull_request trigger itself, not a variant of it');
+    $this->assertContains('permissions:', $yaml,
+      'the gate declares an explicit token scope rather than inheriting one');
+    $this->assertContains('contents: read', $yaml,
+      'the gate holds a read-only token; it never needs to write');
     $this->assertContains('Test/run.sh', $yaml, 'the gate runs the one entry command');
   }
 
@@ -64,6 +83,41 @@ class CiWorkflowTest extends Oa4mpTestCase {
       'the credential is bound to the branch-restricted live-server environment');
     $this->assertContains("github.ref == 'refs/heads/main'", $yaml,
       'the job additionally refuses to run off main');
+  }
+
+  /**
+   * The two tests above lock the two workflows by name. This one locks the
+   * directory, so a third workflow added later cannot quietly reintroduce the
+   * combination they exist to forbid: a trigger that runs a pull request's code
+   * together with a repository secret or a secret-bearing environment.
+   *
+   * live-server-tests.yml is the one sanctioned holder of the credential and is
+   * exempt; testLiveTierIsOffThePullRequestPath is what keeps it honest.
+   */
+  public function testNoOtherWorkflowMixesPullRequestCodeWithSecrets() {
+    $dir = App::pluginPath('Oa4mpClient') . '.github' . DS . 'workflows' . DS;
+    $paths = array_merge(glob($dir . '*.yml'), glob($dir . '*.yaml'));
+
+    $this->assertNotEmpty($paths, "workflows are present under $dir");
+
+    foreach ($paths as $path) {
+      $name = basename($path);
+      if ($name === 'live-server-tests.yml') {
+        continue;
+      }
+
+      $yaml = $this->directives(file_get_contents($path));
+      $runsPullRequestCode = strpos($yaml, 'pull_request') !== false
+        || strpos($yaml, 'workflow_run') !== false;
+      if (!$runsPullRequestCode) {
+        continue;
+      }
+
+      foreach (array('secrets.', 'secrets[', 'environment:') as $reach) {
+        $this->assertTrue(strpos($yaml, $reach) === false,
+          "$name runs pull-request code, so it must not reach a secret via $reach");
+      }
+    }
   }
 
   /** The credential file must be gitignored so a real secret cannot be committed. */

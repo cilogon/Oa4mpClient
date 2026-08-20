@@ -34,12 +34,43 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
     $this->adminClient = $this->adminClientFromEnvironment();
   }
 
+  /**
+   * Delete anything this test created, even if it failed part way through.
+   *
+   * A client that survives teardown is a real client left behind on the shared
+   * dev.cilogon.org server, so cleanup is defensive: each identifier gets its
+   * own attempt (one failure must not skip the rest), the list is cleared
+   * unconditionally so a later test cannot retry the same identifiers, and
+   * anything that could not be deleted is named in a loud failure. Silently
+   * discarding the delete result would report a leaking test as passing --
+   * oa4mpDeleteClient() returns false rather than throwing for any non-204
+   * response, so the return value is the only signal there is.
+   */
   public function tearDown() {
-    // Delete anything this test created, even if it failed part way through.
-    foreach ($this->created as $identifier) {
-      $this->deleteClient($identifier);
+    if (empty($this->created)) {
+      // Nothing was created, e.g. the environment fixture was never built.
+      return;
     }
+
+    $leaked = array();
+
+    foreach ($this->created as $identifier) {
+      try {
+        if (!$this->deleteClient($identifier)) {
+          $leaked[] = $identifier;
+        }
+      } catch (Exception $e) {
+        $leaked[] = $identifier . ' (' . $e->getMessage() . ')';
+      }
+    }
+
     $this->created = array();
+
+    if (!empty($leaked)) {
+      $this->fail('the live tier failed to delete ' . count($leaked)
+        . ' real ' . self::CLIENT_PREFIX . ' client(s) on the server; delete '
+        . 'these oa4mp_identifier values by hand: ' . implode(', ', $leaked));
+    }
   }
 
   private function server() {
@@ -107,10 +138,16 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
   private function createClient($data) {
     $result = $this->server()->oa4mpNewClient($this->adminClient, $data);
 
+    // Record the identifier before asserting anything about the result: an
+    // assertion throws, and a client the server did create but tearDown never
+    // learned about is a real client stranded on dev.cilogon.org.
+    if (is_array($result) && !empty($result['clientId'])) {
+      $this->created[] = $result['clientId'];
+    }
+
     $this->assertNotEmpty($result, 'the server returned no result for the create');
     $this->assertNotEmpty($result['clientId'], 'the server returned no client id');
 
-    $this->created[] = $result['clientId'];
     return $result;
   }
 
@@ -155,7 +192,10 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
     $data = $this->clientData(true);
     $result = $this->createClient($data);
 
-    $this->assertEmpty($result['secret'] ?? null,
+    // assertTrue(empty(...)) rather than assertEmpty(): assertEmpty var_exports
+    // the value it received into the failure message, so if the server ever did
+    // issue a secret here the real secret would be written to the CI log.
+    $this->assertTrue(empty($result['secret']),
       'a public client is not issued a secret');
 
     $current = $this->currentData($data, $result['clientId']);

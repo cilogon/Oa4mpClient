@@ -46,8 +46,10 @@ class Oa4mpTestShell extends AppShell {
     }
 
     if (empty($files)) {
-      $this->out('<warning>No test cases found.</warning>');
-      return;
+      // Discovering nothing is a broken gate, not a pass: exit non-zero so
+      // Test/run.sh (and CI with it) goes red instead of silently green.
+      $this->out('<error>No test cases found.</error>');
+      $this->_stop(1);
     }
 
     $total = 0;
@@ -58,6 +60,11 @@ class Oa4mpTestShell extends AppShell {
       require_once $file;
       $class = basename($file, '.php');
       if (!class_exists($class)) {
+        // The file loaded but defines no class named after it. Skipping in
+        // silence would retire a whole test file unnoticed, so fail instead.
+        $failed++;
+        $failures[] = "$file -> expected class $class is not defined";
+        $this->out("  <error>FAIL</error> $class (no such class in $file)");
         continue;
       }
       $case = new $class();
@@ -87,6 +94,13 @@ class Oa4mpTestShell extends AppShell {
     $this->out(sprintf('%d tests run, %d failed.', $total, $failed));
     foreach ($failures as $f) {
       $this->out('  - ' . $f);
+    }
+
+    // Same floor after the run: files may load yet contribute no test method,
+    // and a run of zero tests must never be reported as success.
+    if ($total === 0) {
+      $this->out('<error>No tests were executed.</error>');
+      $this->_stop(1);
     }
 
     if ($failed > 0) {
