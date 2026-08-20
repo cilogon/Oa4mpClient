@@ -69,15 +69,23 @@ Locked with passing tests (`Test/Case/Model/`):
   rewires the search attribute to the existing claim rather than duplicating it
   (ClaimMigrationPersistenceTest).
 
-Each of the three above was additionally verified red by temporarily restoring
-the documented pre-fix code path and observing only its own test fail.
+- **admin-client duplicate insert** (#1) -- the admin-client edit form renders
+  the hidden `DefaultDynamoConfig.id`, so the hasOne save updates in place
+  instead of inserting a row per save (AdminClientEditSaveTest).
+- **view title double-encoding** (#9) -- no controller pre-encodes a value it
+  hands to `title_for_layout`; the core `pageTitleAndButtons` element is the
+  single escape point (ViewTitleEncodingTest).
 
-Remaining regressions to add:
+All nine documented bugs are locked. Each regression was additionally verified
+red by temporarily restoring the documented pre-fix code path (or, for the
+authorization matrix, by mutating the rule under test) and observing only its
+own test fail.
 
-- **admin-client duplicate insert** (#1, U6) and **view double-encoding** (#9, U6)
-  are view-/form-layer bugs; a model-focused thin runner does not exercise them
-  cleanly. They need either view-rendering support in the harness or coverage in
-  the live-server tier.
+The two view-layer bugs (#1, #9) are locked at the seam the thin runner can
+reach: the real render of the core escaping element plus a statement-scoped
+source check for the exact pattern each fix removed or added. Full page
+rendering is not available here; the live-server tier (U9) is where a rendered
+edit page could assert the same invariants end to end.
 
 ## Core-logic coverage
 
