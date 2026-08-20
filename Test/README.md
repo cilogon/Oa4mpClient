@@ -104,6 +104,35 @@ drop them in `tearDown()`; CakePHP 2.x's PHPUnit fixture machinery does not run
 on this stack. `Test/Case/Model/ClaimMigrationPersistenceTest.php` is the
 reference example.
 
+## The compounding norm
+
+Every bug fixed in this plugin gets a regression test here, in the same pull
+request as the fix, linked to its `docs/solutions/` learning. That is what keeps
+the suite growing where the bugs actually are rather than where coverage is easy.
+
+The norm is backed by a checklist item in `.github/pull_request_template.md` and
+by the reviewer expectation that a bug-fix pull request without a regression
+test is asked for one before approval.
+
+A good regression test is verified red: temporarily restore the pre-fix code
+path (or mutate the rule under test), confirm the new test -- and only it --
+fails, then restore. Every test in this suite was checked that way; say so in
+the commit message so the next reader does not have to redo it.
+
+## Continuous integration
+
+`.github/workflows/hermetic-tests.yml` runs `Test/run.sh` on every pull request
+and on pushes to `main`. It uses no repository secrets and never contacts
+`dev.cilogon.org`, so it also runs on pull requests from forks, where GitHub
+withholds secrets. A second job runs gitleaks over the full history as a
+backstop against a committed credential.
+
+The Registry and database images are pinned by digest in
+`Test/docker/docker-compose.yml`, so a pass or fail is attributable to the pull
+request's code rather than image drift; bumping a pin is an explicit, reviewable
+change. Set `OA4MP_TEST_REGISTRY_IMAGE` or `OA4MP_TEST_DATABASE_IMAGE` to try a
+different image locally without editing the file.
+
 ## Known wrinkle
 
 On a fresh database, `./Console/cake database` currently emits a non-fatal

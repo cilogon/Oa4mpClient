@@ -10,7 +10,10 @@
 
 services:
   comanage-registry-database:
-    image: postgres:14
+    # Digest-pinned so a pass or fail is attributable to the pull request's code
+    # rather than image drift. Override only deliberately, e.g. when checking a
+    # newer image before bumping the pin here.
+    image: ${OA4MP_TEST_DATABASE_IMAGE:-postgres@sha256:2fdfb9b432d4a73bd3eea3d989752c1e669b68d502347e0bfd2cc6d709f3d6b4}
     environment:
       POSTGRES_USER: registry_user
       POSTGRES_PASSWORD: password
@@ -22,8 +25,10 @@ services:
       retries: 20
 
   comanage-registry:
-    # Pin to a digest for the gating tier (KTD4); :latest shown here for the spike.
-    image: public.ecr.aws/cilogon/comanage-registry:latest
+    # Digest-pinned for the gating tier (KTD4, R7). Bumping this pin is an
+    # explicit, reviewable change; set OA4MP_TEST_REGISTRY_IMAGE to try another
+    # image without editing the file.
+    image: ${OA4MP_TEST_REGISTRY_IMAGE:-public.ecr.aws/cilogon/comanage-registry@sha256:e41c82a9148757bd310351ffdac8f3bdd10a6a37c8865f9c98ceb7bc319279d9}
     depends_on:
       comanage-registry-database:
         condition: service_healthy
