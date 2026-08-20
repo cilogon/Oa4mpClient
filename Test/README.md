@@ -55,26 +55,26 @@ Locked with passing tests (`Test/Case/Model/`):
   `list_attributes` is not swallowed (CfgMarshallingTest).
 - **ldap empty-type constraint** (#5) -- `computeVoPersonApplicationUidConstraint`
   normalizes empty/null to `all` (ClaimMigrationTest).
+- **empty-type never serialized** (#3c) -- `oa4mpMarshallCfgQdl` drops a
+  `{constraint_field: type, constraint_value: ''}` constraint (CfgMarshallingTest).
+- **comparator drift** (#7) -- `isClientDataSynchronized` reports in-sync for a
+  matching pair and out-of-sync for a real difference (SyncVerificationTest).
 
-Remaining regressions to add (each needs heavier fixtures; seams identified):
+Remaining regressions to add (each needs a harness extension, not just a fixture):
 
-- **empty-type never serialized** (#3c) -- the `&&` guard in
-  `Oa4mpClientOa4mpServer::oa4mpMarshallCfgQdl` (~line 876). Needs a full
-  ldap-config + claim + `Oa4mpClientClaimConstraint` cfg fixture; assert a
-  `{constraint_field: type, constraint_value: ''}` constraint is dropped.
-- **foreach loop-variable leak** (#3b) -- `buildClaimFromLdapMapping`
-  (line 1351) with a no-match attribute set; assert no leaked wrong `type`.
-  Needs `adminClient` CoLdapProvisionerTarget attributes.
 - **non-atomic save / orphan claims** (#3a) -- `Oa4mpClientCoSearchAttribute::toClaim`.
-  DB-transactional: needs a forced middle-save failure (a `DefaultDynamoConfig`
-  missing a notBlank field) and an assertion that no orphan claim row remains.
-- **comparator drift** (#7) -- `isClientDataSynchronized` (~line 431), full
-  round-trip of a marshalled cfg unmarshalled and compared in-sync across
-  QDLv3/QDLv2/deprecated formats.
-- **view double-encoding** (#9, U6) and **admin-client duplicate insert**
-  (#1, U6); the **authorization matrix** (U3, `Oa4mpClientAuthzComponent::permissionSet`)
-  which is coupled to Registry's Session/Role/CoGroupMember and needs the most
-  scaffolding.
+  DB-transactional: needs seeded LDAP-config/search-attribute rows and a forced
+  middle-save failure (a `DefaultDynamoConfig` missing a notBlank field), then an
+  assertion that no orphan claim row remains.
+- **foreach loop-variable leak** (#3b) -- `buildClaimFromLdapMapping` (line 1351)
+  with a no-match attribute set. Needs seeded CoProvisioningTarget /
+  CoLdapProvisionerTarget / CoLdapProvisionerAttribute rows (LdapProvisioner core).
+- **admin-client duplicate insert** (#1, U6) and **view double-encoding** (#9, U6)
+  are view-/form-layer bugs; a model-focused thin runner does not exercise them
+  cleanly. They need either view-rendering support in the harness or coverage in
+  the live-server tier.
+- The **authorization matrix** (U3, `Oa4mpClientAuthzComponent::permissionSet`) is
+  coupled to Registry's Session/Role/CoGroupMember and needs the most scaffolding.
 
 ## Known wrinkle
 
