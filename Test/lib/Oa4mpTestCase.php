@@ -10,6 +10,11 @@
  */
 
 App::uses('ClassRegistry', 'Utility');
+// Prime the app-level base classes. Tests that construct a model or component
+// directly (rather than through ClassRegistry) otherwise trip over "Class
+// AppModel not found" in the console context.
+App::uses('AppModel', 'Model');
+App::uses('AppController', 'Controller');
 
 class Oa4mpAssertionError extends Exception {}
 

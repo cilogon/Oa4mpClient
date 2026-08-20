@@ -58,12 +58,14 @@ class Oa4mpTestShell extends AppShell {
           $case->$method();
           $case->tearDown();
           $this->out("  <success>PASS</success> $class::$method");
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+          // Throwable, not Exception: a PHP 8 Error (missing class, type
+          // error) in one test must fail that test, not abort the suite.
           $failed++;
-          $failures[] = "$class::$method -> " . $e->getMessage();
+          $failures[] = "$class::$method -> " . get_class($e) . ': ' . $e->getMessage();
           $this->out("  <error>FAIL</error> $class::$method");
           // Best-effort cleanup even on failure.
-          try { $case->tearDown(); } catch (Exception $ignored) {}
+          try { $case->tearDown(); } catch (Throwable $ignored) {}
         }
       }
     }

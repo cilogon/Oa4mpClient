@@ -78,8 +78,16 @@ Remaining regressions to add:
   are view-/form-layer bugs; a model-focused thin runner does not exercise them
   cleanly. They need either view-rendering support in the harness or coverage in
   the live-server tier.
-- The **authorization matrix** (U3, `Oa4mpClientAuthzComponent::permissionSet`) is
-  coupled to Registry's Session/Role/CoGroupMember and needs the most scaffolding.
+
+## Core-logic coverage
+
+Beyond the bug regressions, the authorization matrix
+(`Oa4mpClientAuthzComponent::permissionSet`) is covered by
+`Test/Case/Controller/Component/Oa4mpClientAuthzComponentTest.php`: admin,
+manager, and editor roles across add/delegate/edit/delete/manage/index,
+including the hand-off where a manager loses per-client rights once the client
+has an authorization group they are not in. Group membership resolves through
+the real Registry `RoleComponent` against real `cm_co_group_members` rows.
 
 ## Fixtures
 
