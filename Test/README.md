@@ -59,22 +59,34 @@ Locked with passing tests (`Test/Case/Model/`):
   `{constraint_field: type, constraint_value: ''}` constraint (CfgMarshallingTest).
 - **comparator drift** (#7) -- `isClientDataSynchronized` reports in-sync for a
   matching pair and out-of-sync for a real difference (SyncVerificationTest).
+- **non-atomic save / orphan claims** (#3a) -- a failing `DefaultDynamoConfig`
+  save no longer strands a claim without its `claim_id` back-pointer
+  (ClaimMigrationPersistenceTest).
+- **foreach loop-variable leak** (#3b) -- a provisioner-attribute list with no
+  matching entry produces no claim instead of leaking the last entry's type
+  into a constraint (ClaimMigrationPersistenceTest).
+- **legacy orphan-claim recovery** (#6) -- re-running migration over an orphan
+  rewires the search attribute to the existing claim rather than duplicating it
+  (ClaimMigrationPersistenceTest).
 
-Remaining regressions to add (each needs a harness extension, not just a fixture):
+Each of the three above was additionally verified red by temporarily restoring
+the documented pre-fix code path and observing only its own test fail.
 
-- **non-atomic save / orphan claims** (#3a) -- `Oa4mpClientCoSearchAttribute::toClaim`.
-  DB-transactional: needs seeded LDAP-config/search-attribute rows and a forced
-  middle-save failure (a `DefaultDynamoConfig` missing a notBlank field), then an
-  assertion that no orphan claim row remains.
-- **foreach loop-variable leak** (#3b) -- `buildClaimFromLdapMapping` (line 1351)
-  with a no-match attribute set. Needs seeded CoProvisioningTarget /
-  CoLdapProvisionerTarget / CoLdapProvisionerAttribute rows (LdapProvisioner core).
+Remaining regressions to add:
+
 - **admin-client duplicate insert** (#1, U6) and **view double-encoding** (#9, U6)
   are view-/form-layer bugs; a model-focused thin runner does not exercise them
   cleanly. They need either view-rendering support in the harness or coverage in
   the live-server tier.
 - The **authorization matrix** (U3, `Oa4mpClientAuthzComponent::permissionSet`) is
   coupled to Registry's Session/Role/CoGroupMember and needs the most scaffolding.
+
+## Fixtures
+
+DB-backed tests seed the rows they need with `Test/lib/Oa4mpFixtures.php` and
+drop them in `tearDown()`; CakePHP 2.x's PHPUnit fixture machinery does not run
+on this stack. `Test/Case/Model/ClaimMigrationPersistenceTest.php` is the
+reference example.
 
 ## Known wrinkle
 

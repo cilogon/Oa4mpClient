@@ -21,7 +21,15 @@ class Oa4mpTestShell extends AppShell {
     }
 
     $testDir = App::pluginPath('Oa4mpClient') . 'Test';
+    // The test-case base first, then every other shared lib (fixture helpers,
+    // stubs) so a test case can rely on them without its own requires.
     require_once $testDir . DS . 'lib' . DS . 'Oa4mpTestCase.php';
+    foreach (glob($testDir . DS . 'lib' . DS . '*.php') ?: array() as $lib) {
+      require_once $lib;
+    }
+    foreach (glob($testDir . DS . 'Stub' . DS . '*.php') ?: array() as $stub) {
+      require_once $stub;
+    }
 
     $files = $this->_discover($testDir . DS . 'Case');
     if (empty($files)) {
@@ -72,11 +80,11 @@ class Oa4mpTestShell extends AppShell {
     $this->out('ALL_TESTS_PASSED');
   }
 
-  /** Return all *Test.php files under $dir, one level of subdirectories deep. */
+  /** Return all *Test.php files under $dir, at any depth. */
   protected function _discover($dir) {
     $files = glob($dir . DS . '*Test.php') ?: array();
     foreach (glob($dir . DS . '*', GLOB_ONLYDIR) ?: array() as $sub) {
-      $files = array_merge($files, glob($sub . DS . '*Test.php') ?: array());
+      $files = array_merge($files, $this->_discover($sub));
     }
     sort($files);
     return $files;
