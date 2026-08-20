@@ -22,4 +22,35 @@ class HarnessSelfTest extends Oa4mpTestCase {
     $this->assertNull(null);
     $this->assertContains('bar', 'foobarbaz');
   }
+
+  /**
+   * The test above only ever calls assertions with inputs that pass. If a
+   * helper silently stopped throwing, every test in the suite would keep
+   * reporting PASS while asserting nothing, and that would go unnoticed.
+   * Prove the failure path actually throws Oa4mpAssertionError.
+   */
+  public function testAssertionFailureActuallyThrows() {
+    $threw = false;
+    try {
+      $this->assertEqual(1, 2);
+    } catch (Oa4mpAssertionError $e) {
+      $threw = true;
+    }
+    $this->assertTrue($threw, 'assertEqual(1, 2) must throw Oa4mpAssertionError');
+  }
+
+  /**
+   * If assertEqual regressed from strict (!==) to loose (!=) comparison,
+   * type-juggled values that are == but not === would silently pass.
+   * '1' and 1 must still be treated as unequal.
+   */
+  public function testAssertionFailureStaysStrict() {
+    $threw = false;
+    try {
+      $this->assertEqual('1', 1);
+    } catch (Oa4mpAssertionError $e) {
+      $threw = true;
+    }
+    $this->assertTrue($threw, "assertEqual('1', 1) must throw -- comparison must stay strict");
+  }
 }

@@ -71,7 +71,10 @@ class AdminClientEditSaveTest extends Oa4mpTestCase {
 
   /**
    * The POST body the edit form produces. $withId mirrors whether the hidden
-   * DefaultDynamoConfig.id field is rendered.
+   * DefaultDynamoConfig.id field is rendered: `true` submits the real id,
+   * `false` omits the field entirely, and any other value (e.g. `''`) is
+   * submitted verbatim -- FormHelper's actual behaviour when the hidden
+   * field is rendered but its bound value is missing.
    */
   private function editPost($withId, $tableName) {
     $dynamo = array(
@@ -84,8 +87,10 @@ class AdminClientEditSaveTest extends Oa4mpTestCase {
       'partition_key_claim_name' => 'sub'
     );
 
-    if ($withId) {
+    if ($withId === true) {
       $dynamo['id'] = $this->dynamoConfigId;
+    } elseif ($withId !== false) {
+      $dynamo['id'] = $withId;
     }
 
     return array(
@@ -138,6 +143,32 @@ class AdminClientEditSaveTest extends Oa4mpTestCase {
 
     $this->assertEqual(2, $this->dynamoConfigCount(),
       'omitting the id inserts a second dynamo config instead of updating');
+  }
+
+  /**
+   * FormHelper does not submit "absent" for a hidden field whose bound value
+   * is missing -- it submits an empty string. That is the real-world shape
+   * the render check in testEditFormRendersHiddenDynamoConfigId cannot see:
+   * the hidden field can be present in the markup while the id it is bound to
+   * is empty (e.g. a phantom-null hasOne read, see
+   * docs/solutions/logic-errors/oa4mp-dynamo-config-hasone-phantom-null-array-2026-06-30.md),
+   * so the browser still posts DefaultDynamoConfig.id="".
+   *
+   * Verified against the real database: an empty-string id behaves exactly
+   * like an absent id -- CakePHP's Model::set() assigns $this->id the
+   * submitted value even when it is '', and Model::getID() treats an empty
+   * id as no id (empty('') is true), so exists() is false and the associated
+   * save still INSERTs a duplicate rather than updating in place. Rendering
+   * the hidden field is therefore necessary but not sufficient; the value it
+   * is bound to must also be a real, non-empty id.
+   */
+  public function testSaveWithEmptyStringDynamoConfigIdInsertsDuplicate() {
+    $this->assertTrue((bool)$this->save($this->editPost('', 'empty-id-save')),
+      'the save succeeds');
+
+    $this->assertEqual(2, $this->dynamoConfigCount(),
+      'an empty-string id inserts a second dynamo config instead of updating, '
+      . 'the same as an absent id');
   }
 
   /**

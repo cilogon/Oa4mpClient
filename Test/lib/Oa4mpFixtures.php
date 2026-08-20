@@ -131,14 +131,63 @@ class Oa4mpFixtures {
     ));
   }
 
+  /**
+   * Seed a CO person in $coId. $overrides sets or adds columns.
+   *
+   * co_person_id is the ChangelogBehavior self-reference and must be NULL for
+   * a current (non-historical) row.
+   */
+  public function person($coId, $overrides = array()) {
+    return $this->insert('cm_co_people', $overrides + array(
+      'co_id' => $coId,
+      'status' => 'A',
+      'deleted' => false,
+      'co_person_id' => null
+    ));
+  }
+
+  /**
+   * Seed a CO group in $coId named $name. $overrides sets or adds columns.
+   *
+   * co_group_id is the ChangelogBehavior self-reference and must be NULL for
+   * a current (non-historical) row.
+   */
+  public function group($coId, $name, $overrides = array()) {
+    return $this->insert('cm_co_groups', $overrides + array(
+      'co_id' => $coId,
+      'name' => $name,
+      'description' => 'hermetic test group',
+      'open' => false,
+      'status' => 'A',
+      'group_type' => 'S',
+      'auto' => false,
+      'nesting_mode_all' => false,
+      'deleted' => false,
+      'co_group_id' => null
+    ));
+  }
+
+  /**
+   * Seed a membership of $coPersonId in $groupId. $overrides sets or adds
+   * columns.
+   *
+   * co_group_member_id is the ChangelogBehavior self-reference and must be
+   * NULL for a current (non-historical) row.
+   */
+  public function member($groupId, $coPersonId, $overrides = array()) {
+    return $this->insert('cm_co_group_members', $overrides + array(
+      'co_group_id' => $groupId,
+      'co_person_id' => $coPersonId,
+      'member' => true,
+      'owner' => false,
+      'deleted' => false,
+      'co_group_member_id' => null
+    ));
+  }
+
   /** A unique, traceable tag for one test's fixture rows. */
   public static function tag($prefix) {
     return $prefix . '-' . getmypid() . '-' . substr(uniqid(), -6);
-  }
-
-  /** Quote a value for interpolation into a hand-written WHERE clause. */
-  public function value($val) {
-    return $this->db->value($val);
   }
 
   /**

@@ -41,15 +41,15 @@ class Oa4mpClientAuthzComponentTest extends Oa4mpTestCase {
     $tag = Oa4mpFixtures::tag('oa4mpauthz');
     $this->coId = $this->fx->co($tag);
 
-    $this->managerId = $this->person();
-    $this->editorId = $this->person();
-    $this->strangerId = $this->person();
+    $this->managerId = $this->fx->person($this->coId);
+    $this->editorId = $this->fx->person($this->coId);
+    $this->strangerId = $this->fx->person($this->coId);
 
-    $this->manageGroupId = $this->group('manage-' . $tag);
-    $this->editorGroupId = $this->group('editors-' . $tag);
+    $this->manageGroupId = $this->fx->group($this->coId, 'manage-' . $tag);
+    $this->editorGroupId = $this->fx->group($this->coId, 'editors-' . $tag);
 
-    $this->member($this->manageGroupId, $this->managerId);
-    $this->member($this->editorGroupId, $this->editorId);
+    $this->fx->member($this->manageGroupId, $this->managerId);
+    $this->fx->member($this->editorGroupId, $this->editorId);
 
     $this->adminId = $this->fx->adminClient($this->coId, $tag,
       array('manage_co_group_id' => $this->manageGroupId));
@@ -69,41 +69,6 @@ class Oa4mpClientAuthzComponentTest extends Oa4mpTestCase {
     }
     $this->fx->cleanup();
     $this->fx = null;
-  }
-
-  private function person() {
-    return $this->fx->insert('cm_co_people', array(
-      'co_id' => $this->coId,
-      'status' => 'A',
-      'deleted' => false,
-      'co_person_id' => null
-    ));
-  }
-
-  private function group($name) {
-    return $this->fx->insert('cm_co_groups', array(
-      'co_id' => $this->coId,
-      'name' => $name,
-      'description' => 'hermetic authz test group',
-      'open' => false,
-      'status' => 'A',
-      'group_type' => 'S',
-      'auto' => false,
-      'nesting_mode_all' => false,
-      'deleted' => false,
-      'co_group_id' => null
-    ));
-  }
-
-  private function member($groupId, $coPersonId) {
-    return $this->fx->insert('cm_co_group_members', array(
-      'co_group_id' => $groupId,
-      'co_person_id' => $coPersonId,
-      'member' => true,
-      'owner' => false,
-      'deleted' => false,
-      'co_group_member_id' => null
-    ));
   }
 
   private function client($name) {

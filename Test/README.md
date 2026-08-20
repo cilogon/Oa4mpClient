@@ -37,12 +37,20 @@ Test/run.sh
 ## Writing tests
 
 A test case extends `Oa4mpTestCase` (`Test/lib/Oa4mpTestCase.php`) and defines
-`test*` methods; put it under `Test/Case/` (one subdirectory deep is discovered).
-The runner shell `Console/Command/Oa4mpTestShell.php` finds and runs them.
-`Test/Case/HarnessSelfTest.php` is the reference example. Most core-logic tests
-assert the marshalled cfg and database state directly and need no server; the
-few that must simulate a server response use `Test/Stub/Oa4mpServerStub.php` with
-a captured response under `Test/fixtures/oa4mp-responses/`.
+`test*` methods; put it under `Test/Case/` at any depth. The runner shell
+`Console/Command/Oa4mpTestShell.php` finds and runs them, with one exception:
+`Test/Case/LiveServer/` is skipped, because that tier needs a real credential
+and must never run on the merge gate (see The live-server tier).
+
+The class name must match the filename -- a file whose class is named
+differently is reported as a failure, not skipped, so a whole test file cannot
+retire unnoticed. `Test/Case/HarnessSelfTest.php` is the reference example.
+
+Most core-logic tests assert the marshalled cfg and database state directly and
+need no server. `Test/Stub/Oa4mpServerStub.php` and the captured response under
+`Test/fixtures/oa4mp-responses/` exist for tests that must simulate a server
+reply; **no test consumes them yet**, so treat the stub as the pattern to follow
+when the first such test is written rather than as covered ground.
 
 ## Regression coverage status
 
@@ -57,8 +65,13 @@ Locked with passing tests (`Test/Case/Model/`):
   normalizes empty/null to `all` (ClaimMigrationTest).
 - **empty-type never serialized** (#3c) -- `oa4mpMarshallCfgQdl` drops a
   `{constraint_field: type, constraint_value: ''}` constraint (CfgMarshallingTest).
-- **comparator drift** (#7) -- `isClientDataSynchronized` reports in-sync for a
-  matching pair and out-of-sync for a real difference (SyncVerificationTest).
+- **comparator drift** (#7) -- a cfg unmarshalled through
+  `oa4mpUnMarshallContent` publishes its claims under the keys the comparator
+  reads, for both the QDLv3 and the legacy format-1 path, and
+  `isClientDataSynchronized` then reports in-sync against the equivalent
+  persisted claim rows (SyncVerificationTest). The defect lived in the
+  unmarshall translation, not in the comparator, so the test drives that path
+  rather than comparing two hand-built arrays.
 - **non-atomic save / orphan claims** (#3a) -- a failing `DefaultDynamoConfig`
   save no longer strands a claim without its `claim_id` back-pointer
   (ClaimMigrationPersistenceTest).
@@ -103,6 +116,14 @@ DB-backed tests seed the rows they need with `Test/lib/Oa4mpFixtures.php` and
 drop them in `tearDown()`; CakePHP 2.x's PHPUnit fixture machinery does not run
 on this stack. `Test/Case/Model/ClaimMigrationPersistenceTest.php` is the
 reference example.
+
+**Read-after-write trap.** CakePHP 2's `DboSource` caches every `SELECT` result
+in-process, keyed by the literal SQL text, and nothing in application code
+flushes it. Calling `Oa4mpFixtures::count()` or `scalar()` twice with an
+identical query in one test method returns the *first* result even if a write
+happened in between. Issue one such query per test, or vary the query, or assert
+through a different path -- do not read the same count twice and expect it to
+have moved.
 
 ## The compounding norm
 
@@ -177,5 +198,11 @@ On a fresh database, `./Console/cake database` currently emits a non-fatal
 failed to update database schema") while still returning success and leaving the
 plugin's tables queryable. This is a `cake database` reconciliation quirk in the
 plugin's schema (KTD2 territory, related to the raw-SQL foreign-key note in
-`Config/Schema/schema.xml`). It does not block the suite, but U3 should confirm
-the overlaid plugin's schema fully applies for a schema-changing checkout (AE2).
+`Config/Schema/schema.xml`).
+
+Because that exit code cannot be trusted, `Test/run.sh` no longer relies on it:
+it prints the step's output and then verifies the plugin's tables actually exist
+in the database, failing the run if fewer than the schema's 15 distinct
+`cm_oa4mp_client_*` tables are present. Without that post-condition a checkout
+whose schema silently failed to apply would run its tests against the image's
+baked-in released tables and still report success.

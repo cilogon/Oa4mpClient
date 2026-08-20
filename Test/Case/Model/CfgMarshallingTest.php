@@ -95,6 +95,18 @@ class CfgMarshallingTest extends Oa4mpTestCase {
       'a public client uses token_endpoint_auth_method none');
     $this->assertFalse(isset($content['cfg']),
       'a public client must not carry a cfg (OA4MP rejects it)');
+
+    // Positive control: the same claim data on a confidential client (only
+    // public_client flipped) must still produce a cfg. Without this, the
+    // assertion above would pass for the wrong reason if cfg stopped being
+    // emitted for everyone, not just public clients.
+    $confidentialData = $data;
+    $confidentialData['Oa4mpClientCoOidcClient']['public_client'] = false;
+
+    $confidential = $this->server()->oa4mpMarshallContent($this->adminClient(), $confidentialData);
+
+    $this->assertTrue(isset($confidential['cfg']),
+      'a confidential client with the same claim data must carry a cfg');
   }
 
   /**
