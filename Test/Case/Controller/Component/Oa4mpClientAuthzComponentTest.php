@@ -38,13 +38,8 @@ class Oa4mpClientAuthzComponentTest extends Oa4mpTestCase {
 
   public function setUp() {
     $this->fx = new Oa4mpFixtures();
-    $tag = 'oa4mpauthz-' . getmypid() . '-' . substr(uniqid(), -6);
-
-    $this->coId = $this->fx->insert('cm_cos', array(
-      'name' => 'CO ' . $tag,
-      'description' => 'hermetic authz test CO',
-      'status' => 'A'
-    ));
+    $tag = Oa4mpFixtures::tag('oa4mpauthz');
+    $this->coId = $this->fx->co($tag);
 
     $this->managerId = $this->person();
     $this->editorId = $this->person();
@@ -56,15 +51,8 @@ class Oa4mpClientAuthzComponentTest extends Oa4mpTestCase {
     $this->member($this->manageGroupId, $this->managerId);
     $this->member($this->editorGroupId, $this->editorId);
 
-    $this->adminId = $this->fx->insert('cm_oa4mp_client_co_admin_clients', array(
-      'co_id' => $this->coId,
-      'manage_co_group_id' => $this->manageGroupId,
-      'serverurl' => 'https://oa4mp.' . $tag . '.example.org/oauth2',
-      'name' => 'admin ' . $tag,
-      'issuer' => 'https://' . $tag . '.example.org',
-      'admin_identifier' => 'admin:' . $tag,
-      'secret' => 'not-a-real-secret'
-    ));
+    $this->adminId = $this->fx->adminClient($this->coId, $tag,
+      array('manage_co_group_id' => $this->manageGroupId));
 
     $this->openClientId = $this->client('open-' . $tag);
     $this->lockedClientId = $this->client('locked-' . $tag);
@@ -119,14 +107,7 @@ class Oa4mpClientAuthzComponentTest extends Oa4mpTestCase {
   }
 
   private function client($name) {
-    return $this->fx->insert('cm_oa4mp_client_co_oidc_clients', array(
-      'admin_id' => $this->adminId,
-      'oa4mp_identifier' => 'https://example.org/oidc/client/' . $name,
-      'name' => $name,
-      'home_url' => 'https://example.org/',
-      'proxy_limited' => false,
-      'public_client' => false
-    ));
+    return $this->fx->oidcClient($this->adminId, $name);
   }
 
   /**

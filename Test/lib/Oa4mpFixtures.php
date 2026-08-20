@@ -92,6 +92,50 @@ class Oa4mpFixtures {
     $this->rows[] = array('table' => $table, 'id' => (int)$id);
   }
 
+  /**
+   * Seed a CO. $tag makes the unique name and is echoed back by the callers'
+   * other rows so a leaked fixture is traceable to the test that made it.
+   */
+  public function co($tag) {
+    return $this->insert('cm_cos', array(
+      'name' => 'CO ' . $tag,
+      'description' => 'hermetic test CO',
+      'status' => 'A'
+    ));
+  }
+
+  /**
+   * Seed an OA4MP admin client in $coId. $overrides sets or adds columns, e.g.
+   * manage_co_group_id for the delegated management group.
+   */
+  public function adminClient($coId, $tag, $overrides = array()) {
+    return $this->insert('cm_oa4mp_client_co_admin_clients', $overrides + array(
+      'co_id' => $coId,
+      'serverurl' => 'https://oa4mp.' . $tag . '.example.org/oauth2',
+      'name' => 'admin ' . $tag,
+      'issuer' => 'https://' . $tag . '.example.org',
+      'admin_identifier' => 'admin:' . $tag,
+      'secret' => 'not-a-real-secret'
+    ));
+  }
+
+  /** Seed an OIDC client under $adminId. */
+  public function oidcClient($adminId, $name, $overrides = array()) {
+    return $this->insert('cm_oa4mp_client_co_oidc_clients', $overrides + array(
+      'admin_id' => $adminId,
+      'oa4mp_identifier' => 'https://example.org/oidc/client/' . $name,
+      'name' => $name,
+      'home_url' => 'https://example.org/',
+      'proxy_limited' => false,
+      'public_client' => false
+    ));
+  }
+
+  /** A unique, traceable tag for one test's fixture rows. */
+  public static function tag($prefix) {
+    return $prefix . '-' . getmypid() . '-' . substr(uniqid(), -6);
+  }
+
   /** Quote a value for interpolation into a hand-written WHERE clause. */
   public function value($val) {
     return $this->db->value($val);

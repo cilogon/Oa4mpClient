@@ -29,21 +29,10 @@ class AdminClientEditSaveTest extends Oa4mpTestCase {
 
   public function setUp() {
     $this->fx = new Oa4mpFixtures();
-    $tag = 'oa4mpadmin-' . getmypid() . '-' . substr(uniqid(), -6);
+    $tag = Oa4mpFixtures::tag('oa4mpadmin');
 
-    $this->coId = $this->fx->insert('cm_cos', array(
-      'name' => 'CO ' . $tag,
-      'description' => 'hermetic admin-client test CO',
-      'status' => 'A'
-    ));
-
-    $this->adminId = $this->fx->insert('cm_oa4mp_client_co_admin_clients', array(
-      'co_id' => $this->coId,
-      'serverurl' => 'https://oa4mp.example.org/oauth2',
-      'name' => 'admin ' . $tag,
-      'issuer' => 'https://example.org',
-      'admin_identifier' => 'admin:' . $tag,
-      'secret' => 'not-a-real-secret',
+    $this->coId = $this->fx->co($tag);
+    $this->adminId = $this->fx->adminClient($this->coId, $tag, array(
       'qdl_claim_source' => 'source.qdl',
       'qdl_claim_process' => 'process.qdl'
     ));

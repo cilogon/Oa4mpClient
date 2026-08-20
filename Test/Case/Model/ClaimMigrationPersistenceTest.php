@@ -32,32 +32,12 @@ class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
 
   public function setUp() {
     $this->fx = new Oa4mpFixtures();
-    $tag = 'oa4mptest-' . getmypid() . '-' . substr(uniqid(), -6);
+    $tag = Oa4mpFixtures::tag('oa4mptest');
     $this->serverUrl = 'ldaps://ldap.' . $tag . '.example.org';
 
-    $this->coId = $this->fx->insert('cm_cos', array(
-      'name' => 'CO ' . $tag,
-      'description' => 'hermetic test CO',
-      'status' => 'A'
-    ));
-
-    $this->adminId = $this->fx->insert('cm_oa4mp_client_co_admin_clients', array(
-      'co_id' => $this->coId,
-      'serverurl' => 'https://oa4mp.' . $tag . '.example.org/oauth2',
-      'name' => 'admin ' . $tag,
-      'issuer' => 'https://' . $tag . '.example.org',
-      'admin_identifier' => 'admin:' . $tag,
-      'secret' => 'not-a-real-secret'
-    ));
-
-    $this->clientId = $this->fx->insert('cm_oa4mp_client_co_oidc_clients', array(
-      'admin_id' => $this->adminId,
-      'oa4mp_identifier' => 'https://example.org/oidc/client/' . $tag,
-      'name' => 'client ' . $tag,
-      'home_url' => 'https://' . $tag . '.example.org/',
-      'proxy_limited' => false,
-      'public_client' => false
-    ));
+    $this->coId = $this->fx->co($tag);
+    $this->adminId = $this->fx->adminClient($this->coId, $tag);
+    $this->clientId = $this->fx->oidcClient($this->adminId, 'client ' . $tag);
 
     $this->ldapId = $this->fx->insert('cm_oa4mp_client_co_ldap_configs', array(
       'client_id' => $this->clientId,
