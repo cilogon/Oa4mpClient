@@ -42,9 +42,13 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   elements.
 - `webroot`: plugin front-end assets, including `css/oa4mpclient.css` and
   `js/clipboard.min.js` (used for the Copy buttons in the views).
-- `Test` and `Console`: present only as empty placeholder directories; the
-  plugin ships no automated test suite and no console shells (see Testing &
-  Verification).
+- `Test`: the plugin's automated test suite -- a thin CakePHP-shell runner,
+  since CakePHP 2.x's PHPUnit-based `cake test` does not run on PHP 8.x. Run it
+  with `Test/run.sh` (Docker required); see Testing & Verification and
+  `Test/README.md`.
+- `Console/Command`: console shells, including `Oa4mpTestShell.php` (the
+  thin-runner that discovers and runs the tests under `Test/Case`) and
+  `Oa4mpSmokeShell.php` (a bootstrap smoke check).
 - `cfg_format.md`, `cfg_schema.json`, `cfg_example.json`: documentation, a JSON
   schema, and an example of the OA4MP server `cfg` object the plugin marshals
   for a client.
@@ -94,8 +98,15 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   controllers or views.
 
 ## Testing & Verification
-- There is no automated test harness: the `Test/` tree is empty placeholder
-  directories only. Do not assume a runnable test suite exists.
+- A hermetic automated test suite exists and gates every pull request via
+  `.github/workflows/hermetic-tests.yml`. Run it locally with `Test/run.sh`
+  (Docker required) before treating a change as complete.
+- A separate, non-gating live-server tier (`Test/run-live.sh`) exercises a real
+  OA4MP server with a dedicated test admin credential; it needs a real
+  credential and must not be run casually.
+- Every bug fix carries a regression test in the same pull request, linked to
+  its `docs/solutions/` learning; this is enforced by the pull request template
+  checklist. See `Test/README.md` for the detailed reference.
 - Lint changed PHP with `php -l <file>` to catch syntax errors before treating a
   change as complete.
 - Behavior that creates, edits, or synchronizes OIDC clients, or that talks to

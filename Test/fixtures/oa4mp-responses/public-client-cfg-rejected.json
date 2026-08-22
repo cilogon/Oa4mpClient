@@ -1,0 +1,9 @@
+{
+  "_scenario": "OA4MP rejects a custom cfg on a public client (captured HTTP 400).",
+  "_source": "docs/solutions/integration-issues/oa4mp-public-client-cfg-rejected-2026-08-03.md",
+  "http_status": 400,
+  "body": {
+    "error": "invalid_request_object",
+    "error_description": "custom configurations not permitted in public clients."
+  }
+}

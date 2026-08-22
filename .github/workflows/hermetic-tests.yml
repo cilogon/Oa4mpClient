@@ -1,0 +1,72 @@
+# Hermetic test suite: the merge gate for every pull request.
+#
+# Runs the same Test/run.sh a developer runs locally, against the digest-pinned
+# COmanage Registry image plus a companion database, with all OA4MP server
+# interactions stubbed. It needs no repository secrets and never contacts
+# dev.cilogon.org, so it runs on pull requests from forks, where GitHub
+# withholds secrets.
+#
+# See docs/plans/2026-08-19-0342-test-plugin-test-suite-plan.md U7 (R1, R5, R6, R7).
+
+name: Hermetic tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# No secrets are used by this workflow. Keep it that way: the live-server tier
+# owns the dev.cilogon.org credential and runs from its own workflow on main
+# only (see .github/workflows/live-server-tests.yml).
+permissions:
+  contents: read
+
+concurrency:
+  group: hermetic-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hermetic-suite:
+    name: Hermetic suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the plugin under test
+        uses: actions/checkout@v4
+
+      - name: Run the hermetic suite
+        # run.sh brings up Registry + the database with this checkout overlaid
+        # over the image's bundled release, applies the checkout's schema, runs
+        # the suite, and tears the environment down. It exits non-zero if any
+        # test fails, which fails this job and blocks the merge.
+        run: Test/run.sh
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the full history
+        uses: actions/checkout@v4
+        with:
+          # gitleaks scans history, so a shallow clone would hide an earlier
+          # commit that leaked a credential.
+          fetch-depth: 0
+
+      - name: Scan for committed credentials
+        # A backstop to the gitignored env file: an accidentally committed
+        # dev.cilogon.org secret red-lights the gate rather than reaching main.
+        #
+        # The config is named explicitly rather than left to discovery under the
+        # bind mount, so a scan that cannot read it fails loudly instead of
+        # silently falling back to the default ruleset. See .gitleaks.toml for
+        # what it allowlists and why.
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            zricethezav/gitleaks:v8.18.4 \
+            detect --source=/repo --config=/repo/.gitleaks.toml \
+            --redact --verbose --no-banner

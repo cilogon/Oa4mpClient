@@ -1,0 +1,46 @@
+# Hermetic test environment for the Oa4mpClient plugin.
+#
+# Stands up a real COmanage Registry (from the CILogon public image) plus a
+# companion Postgres database, and overlays the plugin-under-test (this checkout)
+# over the image's bundled released copy at app/Plugin/Oa4mpClient. Registry's
+# own `Console/cake database` applies the overlaid plugin's schema.xml, so tests
+# run against the pull request's code and table shape.
+#
+# See docs/plans/2026-08-19-0342-test-plugin-test-suite-plan.md (U1, U2).
+
+services:
+  comanage-registry-database:
+    # Digest-pinned so a pass or fail is attributable to the pull request's code
+    # rather than image drift. Override only deliberately, e.g. when checking a
+    # newer image before bumping the pin here.
+    image: ${OA4MP_TEST_DATABASE_IMAGE:-postgres@sha256:2fdfb9b432d4a73bd3eea3d989752c1e669b68d502347e0bfd2cc6d709f3d6b4}
+    environment:
+      POSTGRES_USER: registry_user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: registry
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry_user -d registry"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  comanage-registry:
+    # Digest-pinned for the gating tier (KTD4, R7). Bumping this pin is an
+    # explicit, reviewable change; set OA4MP_TEST_REGISTRY_IMAGE to try another
+    # image without editing the file.
+    image: ${OA4MP_TEST_REGISTRY_IMAGE:-public.ecr.aws/cilogon/comanage-registry@sha256:e41c82a9148757bd310351ffdac8f3bdd10a6a37c8865f9c98ceb7bc319279d9}
+    depends_on:
+      comanage-registry-database:
+        condition: service_healthy
+    environment:
+      COMANAGE_REGISTRY_DATASOURCE: Database/Postgres
+      COMANAGE_REGISTRY_DATABASE_HOST: comanage-registry-database
+      COMANAGE_REGISTRY_DATABASE: registry
+      COMANAGE_REGISTRY_DATABASE_USER: registry_user
+      COMANAGE_REGISTRY_DATABASE_USER_PASSWORD: password
+    volumes:
+      # Overlay the plugin-under-test over the image's bundled released copy.
+      - ../../:/srv/comanage-registry/app/Plugin/Oa4mpClient
+    # Tests do not need the Apache web server; keep the container idle and drive
+    # schema setup and the thin test runner via `docker compose exec`.
+    entrypoint: ["sleep", "infinity"]
