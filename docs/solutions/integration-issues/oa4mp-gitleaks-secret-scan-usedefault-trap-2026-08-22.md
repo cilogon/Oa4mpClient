@@ -65,7 +65,7 @@ This does silence the finding, and it is the wrong shape. gitleaks ORs the globa
 
 ## Solution
 
-The fix is on branch `test/plugin-test-suite` in commit `2707dd2` and is open in pull request #3; it is not yet merged to `main`.
+The fix is commit `2707dd2`, merged to `main` on 2026-08-22 as part of cilogon/Oa4mpClient#5 (merge commit `6288cb8`). That pull request was a merge, not a squash, so every commit SHA cited in this document survives on `main`.
 
 ### Step 1 -- Add `.gitleaks.toml` with the narrow allowlist
 
@@ -191,7 +191,7 @@ All three live in `Test/Case/CiWorkflowTest.php` and run inside the hermetic gat
 
 This is the third instance of the same shape on this branch, and the pattern is now unmistakable enough to name. In each case a gate reported success while guarding nothing, and in each case normal output was indistinguishable from a healthy run.
 
-- **The runner exiting 0 on zero discovery** (commit `07f448f`, "close silent-pass holes in the gate"; like everything else on this branch, unmerged at the time of writing). `Oa4mpTestShell` walked the `Test/Case` tree, found no files, and reported success. A typo in a path or a bad `App::uses` would have turned the entire suite into a no-op that CI reported green. Fixed with explicit floors at both ends of the run -- `Console/Command/Oa4mpTestShell.php:48-53` for discovery and `:99-104` for execution:
+- **The runner exiting 0 on zero discovery** (commit `07f448f`, "close silent-pass holes in the gate"). `Oa4mpTestShell` walked the `Test/Case` tree, found no files, and reported success. A typo in a path or a bad `App::uses` would have turned the entire suite into a no-op that CI reported green. Fixed with explicit floors at both ends of the run -- `Console/Command/Oa4mpTestShell.php:48-53` for discovery and `:99-104` for execution:
 
   ```php
   if (empty($files)) {
@@ -229,7 +229,8 @@ The three tests assert the *shape* of `.gitleaks.toml` and of the workflow YAML.
 
 ## Related Issues
 
-- Pull request #3 (`skoranda/Oa4mpClient`) -- the test-suite branch this fix lands on. Failing run 32372738600; green run 32590002495.
+- cilogon/Oa4mpClient#5 -- the pull request that landed the test-suite branch, and this fix with it, on `main`.
+- skoranda/Oa4mpClient#3 -- the fork pull request the failing and green CI runs belong to (failing run 32372738600, green run 32590002495). It was closed unmerged; the branch landed upstream instead.
 - `docs/plans/2026-08-19-0342-test-plugin-test-suite-plan.md` -- U7 and U8 define the CI tiers; the `Secret scan` job is the backstop to the gitignored `Test/.env` that carries the dev.cilogon.org credential.
 - `docs/solutions/logic-errors/oa4mp-unmarshall-claim-comparator-drift-2026-05-05.md` -- the comparator whose regression lock was the second silent-pass instance cited in Prevention rule 2.
 - The masked placeholder itself is untouched. It entered `main` on 2026-01-13 in `c8d29ad` ("Use DynamoDB to resolve claims"), alongside `"secret_access_key": "dummy/KC1ewZ43JijREjsUoQ5btqzzzzzz"` and `"table_name": "multitenant_mess_dev"`, which reads as a scrubbed example rather than a live credential. Nothing in the repository states outright whether `AKIA6MESHHJ73ZOD****` was ever a real key prefix, and the allowlist does not settle it. Rotation is a separate decision from making CI green.
