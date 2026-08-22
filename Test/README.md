@@ -148,6 +148,27 @@ and on pushes to `main`. It uses no repository secrets and never contacts
 withholds secrets. A second job runs gitleaks over the full history as a
 backstop against a committed credential.
 
+That backstop is config-dependent, which is easy to miss because a disarmed
+scanner and a clean repository produce identical output. `.gitleaks.toml` at
+the repository root supplies the configuration, and the workflow names it with
+`--config` rather than relying on discovery under the bind mount. Three
+properties of that file are load-bearing:
+
+- `[extend] useDefault = true` keeps the built-in ruleset armed. A gitleaks
+  config with no `[extend]` block *replaces* the built-in rules instead of
+  adding to them, so the scanner loads nothing, reports `no leaks found`, and
+  exits 0 while detecting nothing at all.
+- The allowlist exempts one masked AWS key id that has been in
+  `cfg_example.json` since January 2026, matched as a literal value. Exempting
+  it by `paths` would clear every rule across that whole file, because gitleaks
+  ORs the allowlist conditions together.
+- The workflow passes `--config`, so a config the container cannot read fails
+  loudly instead of silently falling back to the default ruleset.
+
+`Test/Case/CiWorkflowTest.php` locks all three from inside the gate, so
+breaking any of them red-lights the merge. The full account is in
+`docs/solutions/integration-issues/`.
+
 The Registry and database images are pinned by digest in
 `Test/docker/docker-compose.yml`, so a pass or fail is attributable to the pull
 request's code rather than image drift; bumping a pin is an explicit, reviewable
