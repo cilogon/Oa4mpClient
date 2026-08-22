@@ -63,7 +63,12 @@ Correcting three sentences then cost its own branch, its own fork pull request
 
 The pattern is consistent, not a one-off. Every fork pull request in this
 repository's history has been closed unmerged, with a matching upstream pull
-request under a different number:
+request under a different number. The table below is a snapshot taken as of
+`cilogon/Oa4mpClient#6`; `main` has since taken `cilogon#7`
+(`docs/fork-pr-landing-record-convention`) and `cilogon#8`
+(`docs/claude-md-drop-override-note`), each with its own closed-unmerged fork
+counterpart. Re-derive the upstream side at any time with
+`git log --merges main`; the fork numbers are only visible on GitHub.
 
 | fork PR (state) | upstream PR (merged) | branch |
 | --- | --- | --- |
@@ -73,6 +78,10 @@ request under a different number:
 | `skoranda#4` CLOSED | `cilogon#6` 2026-08-22 | `docs/refresh-gitleaks-learning-merge-state` |
 
 All four fork pull requests report `"mergedAt": null`.
+
+This document itself landed as `cilogon/Oa4mpClient#7` (merge commit `336c098`),
+from branch `docs/fork-pr-landing-record-convention`, together with the
+`AGENTS.md` subsection that now states the rule.
 
 Two earlier traces show this was already causing quiet confusion before it
 produced a wrong document (session history). On 2026-08-18 the fork pull
@@ -123,7 +132,9 @@ pull request on either remote shifts it again. The number is recoverable from th
 no network at all, because the merge commits carry it:
 
 ```
-$ git log --merges --oneline -2 main
+$ git log --merges --oneline -4 main
+c7a1ba9 Merge pull request #8 from skoranda/docs/claude-md-drop-override-note
+336c098 Merge pull request #7 from skoranda/docs/fork-pr-landing-record-convention
 6ca9107 Merge pull request #6 from skoranda/docs/refresh-gitleaks-learning-merge-state
 6288cb8 Merge pull request #5 from skoranda/test/plugin-test-suite
 ```
@@ -247,14 +258,15 @@ that did not need one is still a maintenance liability.
 
 ## Related
 
-- `AGENTS.md:123-158` ("Git, Remotes, and Pushing") is the only place the direction
-  of pull requests is written down. `CLAUDE.md:9-10` states the two-remote topology
-  too, but the single clause implying the real pull request lives upstream -- "The
-  developer opens pull requests from the fork to upstream themselves"
-  (`AGENTS.md:140-141`) -- is unique to AGENTS.md and sits inside a *push*
-  prohibition. A writer recording where a
-  finished fix landed has no reason to be reading it. `CLAUDE.md` omits that clause
-  entirely.
+- `AGENTS.md:150-158` ("Recording where work landed") now states this rule
+  outright and links this document. It was added by `0f3c2eb`, the commit that
+  created this learning, precisely because the rule had previously existed only
+  as an aside inside a *push* prohibition -- "The developer opens pull requests
+  from the fork to upstream themselves" (`AGENTS.md:140-141`) -- which a writer
+  recording where a finished fix landed had no reason to be reading.
+  `CLAUDE.md:9-10` states the two-remote topology but still omits the direction
+  of pull requests entirely, so AGENTS.md remains the only place it is written
+  down.
 - `docs/plans/2026-08-19-0342-test-plugin-test-suite-plan.md:95` states that this
   repository's pull requests are "branch-to-`main` within the developer's fork
   today (so secrets are available)" and treats the canonical home moving to

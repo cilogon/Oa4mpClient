@@ -54,7 +54,7 @@ These were the most plausible wrong directions, none of which would have found t
 
 Two surgical changes in `Model/Oa4mpClientOa4mpServer.php`:
 
-1. Guard the unconditional array-access at line 1639 against the missing optional key:
+1. Guard the unconditional array-access (line 1639 pre-fix; `Model/Oa4mpClientOa4mpServer.php:1715` today) against the missing optional key:
 
    ```php
    // Before
@@ -68,7 +68,7 @@ Two surgical changes in `Model/Oa4mpClientOa4mpServer.php`:
    $listAttributes = $qdl_args['list_attributes'] ?? array();
    ```
 
-2. Extend both `catch (Exception $e)` and `catch (TypeError $e)` blocks (lines 1677 / 1679 in the original) to log the swallowed exception's identity so the next operator who sees the message can diagnose it directly:
+2. Extend both `catch (Exception $e)` and `catch (TypeError $e)` blocks (lines 1676 / 1679 in the original; `Model/Oa4mpClientOa4mpServer.php:1752` / `:1757` today) to log the swallowed exception's identity so the next operator who sees the message can diagnose it directly:
 
    ```php
    // Before
@@ -88,7 +88,7 @@ Two surgical changes in `Model/Oa4mpClientOa4mpServer.php`:
 
    (The same shape applies to the adjacent `catch (Exception $e)` block.)
 
-Landed on branch `fix/cfg-unmarshall-old` in the Oa4mpClient repo. Diff: 11 insertions, 3 deletions in `Model/Oa4mpClientOa4mpServer.php`.
+Landed as commit `ca7d349` ("fix(oa4mp-server): handle QDLv2 cfg without list_attributes"), developed on branch `fix/cfg-unmarshall-old` and now on `main`. Diff: 11 insertions, 3 deletions in `Model/Oa4mpClientOa4mpServer.php`.
 
 ## Why This Works
 
@@ -103,7 +103,7 @@ The full causal chain that the swallowed log was hiding:
 
 The fix's two parts address two distinct things:
 
-- **The guard at line 1639** restores the intended semantics: absent `list_attributes` means no attributes are multi-valued lists; every search attribute defaults to `return_as_list = false`. With the guard in place, the foreach completes, QDLv2 produces a populated `$ldapConfig`, and `oa4mpUnMarshallContent` continues into `buildClaimFromLdapMapping` to build `Oa4mpClientClaim` rows.
+- **The `list_attributes` guard** restores the intended semantics: absent `list_attributes` means no attributes are multi-valued lists; every search attribute defaults to `return_as_list = false`. With the guard in place, the foreach completes, QDLv2 produces a populated `$ldapConfig`, and `oa4mpUnMarshallContent` continues into `buildClaimFromLdapMapping` to build `Oa4mpClientClaim` rows.
 - **The catch-block diagnostic** makes the failure mode self-describing if a similar disguised-error case ever happens again. A future operator sees not just "is not a defined format" but the actual exception class, file, line, and message — turning a wild-goose-chase debug session into a one-glance fix.
 
 ## Prevention
@@ -127,7 +127,7 @@ Generalizable rules that compound beyond this one fix:
 
 5. **When a log message names a hypothesis ("perhaps X"), it must also name what evidence led to that hypothesis.** "Perhaps a NamedConfiguration" with no supporting evidence sends operators to the wrong investigation. Either name the evidence (e.g., "qdl key was missing, and named_config_id is set") or drop the hypothesis from the message.
 
-6. **The plugin has no PHPUnit harness for `Model/Oa4mpClientOa4mpServer.php`.** Pre-existing gap (also called out in the prior workstream's solution doc). Until a harness exists, regressions in cfg-format detection rely on manual operator-side discovery; the diagnostic improvement in rule 1 makes that discovery faster, but it's not a substitute for tests. Standing up the harness is its own work item.
+6. **Closed 2026-08-19: this bug is now locked by a regression test.** When this doc was written the plugin had no test harness for `Model/Oa4mpClientOa4mpServer.php` (the gap was raised in `docs/brainstorms/2026-05-05-oa4mp-unmarshall-claim-output-brainstorm.md`), so cfg-format regressions relied on manual operator-side discovery. A hermetic suite now exists under `Test/` (`Test/run.sh`, gated on pull requests since commit `e4e2df8`). This bug is covered by `Test/Case/Model/CfgMarshallingTest.php::testUnmarshallQdlv2WithoutListAttributesDoesNotSwallowMappings()`, which feeds `oa4mpUnMarshallCfgQdlv2()` a valid QDLv2 cfg with `list_attributes` deliberately absent and asserts the mappings are not swallowed (commit `1600944`). Coverage status lives in `Test/README.md` under "Regression coverage status". The standing rule that survives: **a defensive catch that hides a parse failure needs a test that feeds the parser the shape which triggered it** — the diagnostic logging in rule 1 speeds diagnosis but is not a substitute.
 
 ## Related Issues
 

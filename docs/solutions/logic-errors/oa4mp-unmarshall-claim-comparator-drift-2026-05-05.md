@@ -115,7 +115,7 @@ The single call site in `oa4mpVerifyClient()` was updated to pass `$adminClient`
 
 ### Step 4 — Add buildClaimFromLdapMapping helper (U3, e27123a)
 
-A read-only translation helper was added that mirrors the switch table in `Oa4mpClientCoSearchAttribute::toClaim()` without the DB-write side effects. The full switch covers 14 cases; the structural pattern is:
+A read-only translation helper was added that mirrors the switch table in `Oa4mpClientCoSearchAttribute::toClaim()` without the DB-write side effects. The full switch covers 13 cases plus a `default`; the structural pattern is:
 
 ```php
 /**
@@ -195,9 +195,17 @@ function buildClaimFromLdapMapping($mapping, $serverUrl, $adminClient, &$lookupC
     }
     if(empty($matchedAttribute)) { return null; }
 
+    // As of 2026-05-18/19 the constraint value is computed by a shared
+    // helper rather than copied from $matchedAttribute['type'] directly:
+    //   $constraintValue = $searchAttributeModel
+    //     ->computeVoPersonApplicationUidConstraint($coId, $matchedAttribute['type'],
+    //                                               $useCoServiceFilter, $lookupCache);
+    // (Oa4mpClientOa4mpServer.php:1574; writer twin at
+    //  Oa4mpClientCoSearchAttribute.php:471.) A null return for
+    //  voPersonApplicationUID with attr_opts on means "expect no claim".
     $claimConstraints[] = array(
       'constraint_field' => 'type',
-      'constraint_value' => $matchedAttribute['type']
+      'constraint_value' => $constraintValue
     );
   }
 
@@ -311,6 +319,8 @@ The `$lookupCache` pass-by-reference pattern works because it is initialized fre
 
 The deliberate duplication of `toClaim()`'s switch table into `buildClaimFromLdapMapping()` is correct because `toClaim()` has DB-write side effects (`saveAssociated`, `saveField`) that must not be triggered during a read-only verify pass. The two functions are cross-referenced in their docblocks to enforce lockstep maintenance.
 
+**Update 2026-05-19:** the duplication is now partial. The switch tables remain deliberate twins, but the `'type'` constraint value is computed by a single shared helper, `Oa4mpClientCoSearchAttribute::computeVoPersonApplicationUidConstraint()`, called by both sides with the same arguments so they produce byte-identical output. See `oa4mp-ldap-provisioner-empty-type-claim-constraint-2026-05-18.md`.
+
 ## Prevention
 
 **1. Add per-side diagnostic logging on every out-of-sync branch at design time.**
@@ -415,7 +425,7 @@ PHP does not produce a compile error when a call site omits a newly required par
 grep -rn 'oa4mpUnMarshallContent(' .
 ```
 
-If the function has only one call site now, it may grow more later. Documenting the required parameter clearly in the docblock reduces the chance of a future call site being added without the new argument.
+The function had one call site when this was written; it now has five (the production call in `oa4mpVerifyClient` plus four in `Test/Case/Model/SyncVerificationTest.php`). Call sites do grow. Documenting the required parameter clearly in the docblock reduces the chance of a future call site being added without the new argument.
 
 **7. Avoid variable shadowing in inner match loops.**
 
@@ -446,6 +456,7 @@ This pattern was backported to `toClaim()` in commit `c503465` (see `oa4mp-claim
 
 - Origin requirements doc: `docs/brainstorms/2026-05-05-oa4mp-unmarshall-claim-output-brainstorm.md` — full problem frame, requirements R1–R9, acceptance examples, and the open/deferred questions including the duplication-drift and provisioner-state-drift risks.
 - Implementation plan: `docs/plans/2026-05-05-001-fix-oa4mp-unmarshall-claim-output-plan.md` — the six implementation units (U1–U6) with exact line-number call sites, key technical decisions (memoization strategy, helper location, discovery approach, implementation order), risks table, and the manual U6 verification gate.
-- Future migration cross-reference: `docs/plans/2026-02-04-feat-cakephp5-migration-plan.md` — when the CakePHP 5.x migration proceeds, the long-form key naming convention (`Oa4mpClientClaim` / `Oa4mpClientClaimConstraint`) established by this fix is the canonical name to preserve. Old short names (`Oa4mpClaim`, `ClaimConstraint`) must not be reintroduced as part of any class-renaming sweep.
+- Future migration cross-reference: `docs/plans/2026-02-04-feat-cakephp5-migration-plan.md` (present only on the unmerged `feat/cakephp5-migration` branch, not on `main`) — when the CakePHP 5.x migration proceeds, the long-form key naming convention (`Oa4mpClientClaim` / `Oa4mpClientClaimConstraint`) established by this fix is the canonical name to preserve. Old short names (`Oa4mpClaim`, `ClaimConstraint`) must not be reintroduced as part of any class-renaming sweep.
 - Resolved 2026-05-18: the `claim_id` non-persistence was root-caused as a non-atomic save sequence in `toClaim()` — `Oa4mpClientDynamoConfig::save()` between `saveAssociated()` and `saveField('claim_id', ...)` could fail validation and abort the function before the back-pointer was written. Fixed by reordering the saves so claim row + back-pointer land atomically; the `$alreadyMigrated` gate has been removed and partial-migration recovery is restored (commit `1659690`). See `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`.
 - Resolved 2026-05-18: the variable-shadowing bug in `Oa4mpClientCoSearchAttribute::toClaim()` (Prevention rule 7) has been fixed by mirroring the read-only twin's accumulator pattern (commit `c503465`).
+- Regression coverage (added 2026-08-19, commit `8210f15`): `Test/Case/Model/SyncVerificationTest.php` locks both defects by driving a real cfg through `oa4mpUnMarshallContent()` — `testUnmarshalledQdlv3ClaimsReportInSync` / `testUnmarshalledQdlv3ConstraintDifferenceReportsOutOfSync` for Bug 2, and `testUnmarshalledLegacyCfgClaimsReportInSync` / `testUnmarshalledLegacyCfgMissingMappingReportsOutOfSync` for Bug 1. Bug 3's duplicate-row path is locked by `Test/Case/Model/ClaimMigrationPersistenceTest.php::testDynamoConfigFailureLeavesNoOrphanClaim` and `testOrphanClaimIsRewiredInsteadOfDuplicated`. Status is tracked in `Test/README.md` under "Regression coverage status".

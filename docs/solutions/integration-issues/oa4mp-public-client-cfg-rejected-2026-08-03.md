@@ -81,6 +81,12 @@ The causal chain:
 
 The guard makes the plugin honor OA4MP's contract: public clients (no client secret, `openid` scope only) never carry a `cfg`.
 
+**The contract is now enforced at three layers.** The marshaller guard above is the backstop; commit `fc2c9e9` ("feat(claims): reject claim write paths for public clients") added the two in front of it, so a public client cannot accumulate the claim data that produced the offending `cfg` in the first place:
+
+- View — `View/Oa4mpClientClaims/index.ctp` hides the add/edit/delete controls for a public client and prints `pl.oa4mp_client_co_oidc_client.claims.public_client.description` instead.
+- Controller — `Oa4mpClientClaimsController::_blockIfPublicClient()` guards `add()`, `edit()` (GET render and POST) and `delete()`, flashing `pl.oa4mp_client_claim.er.public_client` and redirecting; `index()` is deliberately left unguarded so the CLAIMS tab still renders the explanatory message.
+- Marshaller — the `$isPublicClient` guard in `oa4mpMarshallContent`, which still covers clients whose claim data predates the UI guard.
+
 **Verified the fix does not trade one bug for another.** The sync comparator `isClientDataSynchronized` only compares the cfg-derived config (DynamoDB, access token, authorization) when *both* the plugin side and the server side have it — the DynamoDB block is guarded by `!empty($curDynamo) && !empty($oa4mpServerData['Oa4mpClientDynamoConfig'])`. So a public client with plugin-side config but no server `cfg` still verifies as synchronized; omitting the cfg does not create a perpetual "out of sync" state on the next edit. (This is also why `oa4mpVerifyClient` passed before the failing PUT in the original report.)
 
 ## Prevention
@@ -89,10 +95,10 @@ The guard makes the plugin honor OA4MP's contract: public clients (no client sec
 - **When a marshalling change adds or removes a field, re-check the sync/verify comparator that reads it back.** In this plugin, `oa4mpMarshallContent` (what we send) and `isClientDataSynchronized` (what we compare on the next edit) are a matched pair; changing one without checking the other can turn a fixed edit into a permanent "out of sync" block. The comparator's both-sides-present guards are what make omitting the cfg safe here.
 - **Read the server's own error string first.** OA4MP's `error_description` ("custom configurations not permitted in public clients") named the exact cause; the fix followed directly from it. The later `No cfg object found` line was a downstream symptom, not the cause.
 - **Secret hygiene (follow-up):** `oa4mpEditClient` logs the full request body — including the AWS `secret_access_key` inside the cfg — at error level (and the full response). This model already has a `redactSecrets()` helper used by the sync comparator; routing the logged request/response bodies through it would stop leaking live credentials into the Registry log. When this bug fired, real AWS credentials for the DynamoDB table were written to the log and had to be rotated.
-- **Test gap:** this plugin has no runnable suite (`Test/` is empty scaffolding). If a harness is added, assert that `oa4mpMarshallContent` for a `public_client` produces content with no `cfg` key even when the client resolves a DynamoDB/claim config, and that a confidential client still includes it.
+- **Regression coverage:** locked by `Test/Case/Model/CfgMarshallingTest.php::testMarshalledContentHasNoCfgForPublicClient`, which asserts `oa4mpMarshallContent` emits no `cfg` key for a `public_client` that resolves claim data and — flipping only `public_client` on the same fixture — that a confidential client still carries one. The server-acceptance half is `Test/Case/LiveServer/LiveClientLifecycleTest.php::testPublicClientIsAcceptedWithoutCustomConfiguration`. The captured OA4MP 400 lives at `Test/fixtures/oa4mp-responses/public-client-cfg-rejected.json`. Run with `Test/run.sh` (hermetic) or `Test/run-live.sh` (live server). Still uncovered: the `_blockIfPublicClient` controller guard below has no test.
 
 ## Related Issues
 
 - [oa4mp-dynamo-config-hasone-phantom-null-array-2026-06-30](../logic-errors/oa4mp-dynamo-config-hasone-phantom-null-array-2026-06-30.md) and [oa4mp-admin-client-hasone-duplicate-insert-2026-06-30](../logic-errors/oa4mp-admin-client-hasone-duplicate-insert-2026-06-30.md) — same DynamoDB `cfg` marshalling/sync domain. The `cfg` this bug wrongly sent is built from the same DefaultDynamoConfig those docs concern, and the `isClientDataSynchronized` / `resolveDynamoConfig` comparator that makes this fix safe is the one hardened in those learnings.
 - The broader OA4MP plugin corpus under [docs/solutions/logic-errors/](../logic-errors/).
-- Commit `6cd9065` on branch `fix/public-client-cfg-rejected`.
+- Commit `6cd9065` ("fix(oa4mp): omit cfg for public clients on server marshalling"), on `main`. The follow-on that blocks claim writes for public clients is `fc2c9e9`, planned in `docs/plans/2026-08-03-001-feat-prevent-public-client-claims-plan.md`.

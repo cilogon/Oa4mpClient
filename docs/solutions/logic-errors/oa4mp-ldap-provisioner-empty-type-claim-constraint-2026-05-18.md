@@ -50,7 +50,7 @@ Two earlier hypotheses (carried in from a paused prior session) were wrong:
 
 1. **Omitting the `'type'` constraint entirely when the provisioner type was empty.** Semantically this matches "no type filter", but it would have caused drift on the sync-comparator path: the plugin side would emit a claim with one fewer constraint than the OA4MP side. It also contradicts the convention already established in the same files, which always emits an explicit `'type'` constraint and uses the sentinel `'all'` for the catch-all case (6 hardcoded occurrences across `Model/Oa4mpClientCoSearchAttribute.php` and `Model/Oa4mpClientOa4mpServer.php` for `gecos`, `givenName`, `sn`).
 
-2. **Treating the cfg-writer empty-guard at `Model/Oa4mpClientOa4mpServer.php:836-838` as the primary fix site.** That block used `||` instead of `&&` in its guard — `if(!empty($constraintMapping['constraint_field']) || !empty($constraintMapping['constraint_value']))` — which *would* emit a degenerate `{type: ""}` to the OA4MP server if a row ever reached it. But it was a red herring for this bug: nothing reached it, because the `notBlank` validation on `constraint_value` blocked the writer at site 1 before any row was ever persisted, let alone serialized to cfg. (The `||`-vs-`&&` guard audit has since been completed: the operator was aligned to `&&` to match the comment's stated AND-intent, and the guard documented as defense-in-depth, in commit `7684cbb`. See `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`. The change was invisible against today's data — the guard is unreachable on current code paths — but the operator now matches the comment's stated intent.)
+2. **Treating the cfg-writer empty-guard at `Model/Oa4mpClientOa4mpServer.php:836-838` (today `:876-878`) as the primary fix site.** That block used `||` instead of `&&` in its guard — `if(!empty($constraintMapping['constraint_field']) || !empty($constraintMapping['constraint_value']))` — which *would* emit a degenerate `{type: ""}` to the OA4MP server if a row ever reached it. But it was a red herring for this bug: nothing reached it, because the `notBlank` validation on `constraint_value` blocked the writer at site 1 before any row was ever persisted, let alone serialized to cfg. (The `||`-vs-`&&` guard audit has since been completed: the operator was aligned to `&&` to match the comment's stated AND-intent, and the guard documented as defense-in-depth, in commit `7684cbb`. See `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`. The change was invisible against today's data — the guard is unreachable on current code paths — but the operator now matches the comment's stated intent.)
 
 A secondary observation also surfaced after the fix landed: the controller migration block at `Controller/Oa4mpClientCoOidcClientsController.php:455` used a coarse `$alreadyMigrated = !empty($client['Oa4mpClientClaim'])` gate that prevented re-running migration on partially-migrated clients. To confirm today's fix end-to-end we had to reset the DB with SQL to re-trigger migration. That coarse-gate issue has since been resolved: the underlying non-atomicity in `toClaim()` was root-caused (a `DynamoConfig::save()` between the claim insert and the back-pointer save could fail and strand the back-pointer), the saves were reordered to land atomically, and the coarse gate was removed (commit `1659690`). Partial-migration recovery now works without DB reset. See `oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`.
 
@@ -60,7 +60,7 @@ Normalize empty-string `type` to the sentinel `'all'` at **both** the writer and
 
 ### Site 1 — Writer/migration path
 
-`Model/Oa4mpClientCoSearchAttribute.php`, `toClaim()` at ~line 320.
+`Model/Oa4mpClientCoSearchAttribute.php`. Originally applied inline in `toClaim()`; since the `attr_opts` work landed, the normalization lives in the shared helper `computeVoPersonApplicationUidConstraint()` (`Model/Oa4mpClientCoSearchAttribute.php:119`), which `toClaim()` (now at `:235`) calls at `:471`. The "After" block below is the shape as originally applied; the helper's current bare-literal branch is quoted under "Later extension".
 
 Before:
 
@@ -90,7 +90,23 @@ $claimConstraints[] = array(
 
 ### Site 2 — Sync comparator path
 
-`Model/Oa4mpClientOa4mpServer.php`, `buildClaimFromLdapMapping()` at ~line 1516. Same shape of change, with a parallel comment that mirrors `toClaim()`'s normalization. Both sites must apply the same normalization so the structures compared by `isClientDataSynchronized` line up exactly.
+`Model/Oa4mpClientOa4mpServer.php`, `buildClaimFromLdapMapping()` (function at `:1351`). Originally a mirrored copy of the writer's normalization; it now calls the *same* helper at `:1574`, so writer and comparator cannot drift by construction. Both sites must produce identical structures so the comparison in `isClientDataSynchronized` lines up exactly.
+
+### Later extension — CoService-derived effective filter
+
+For `voPersonApplicationUID` on a `CoLdapProvisionerTarget` with `attr_opts` enabled, the helper returns a uniform anchored regex over the CO's `CoService.identifier_type` set (`^X$` / `^(A|B)$`), or `null` meaning "suppress the claim entirely". The empty → `'all'` rule documented here is the bare-literal branch (`attr_opts` off, or any search attribute other than `voPersonApplicationUID`):
+
+```php
+// Model/Oa4mpClientCoSearchAttribute.php:126-131
+if(!$useCoServiceFilter) {
+  if($ldapProvisionerAttributeType === '' || $ldapProvisionerAttributeType === null) {
+    return 'all';
+  }
+  return $ldapProvisionerAttributeType;
+}
+```
+
+See `docs/plans/2026-05-19-001-fix-oa4mp-attr-opts-claim-constraint-plan.md`.
 
 ### Validation rule that exposed the bug
 
@@ -105,6 +121,8 @@ $claimConstraints[] = array(
 ```
 
 This rule is correct and stays as-is — it is what made the silent-drift bug *loud* on the write path. Without it, the empty-string constraint would have been silently persisted and only surfaced later as a count drift against the OA4MP server.
+
+Regression coverage: `Test/Case/Model/ClaimMigrationTest.php::testEmptyTypeNormalizesToAll` and `::testRealTypeIsPreserved` lock this normalization (commit `1600944`).
 
 ### Reproduction-reset SQL
 
@@ -148,7 +166,7 @@ The plugin's own `notBlank` validation on `constraint_value` was load-bearing he
 
 5. **Validation that rejects malformed sentinels is a feature, not friction.** The `notBlank` rule on `constraint_value` is what made this bug loud on the write path. Keep that kind of guard in place even when you "know" callers handle the sentinel correctly — it's the trip-wire that turns silent drift into a stack trace.
 
-6. **When investigating a multi-site bug, walk the call chain in order of execution.** The cfg-writer guard at `Oa4mpClientOa4mpServer.php:836-838` looked suspicious but was downstream of the actual failure. Validation blocked at site 1 (the writer) before site 2 (cfg serialization) could ever run. Always confirm which guard fires first before optimizing the wrong one.
+6. **When investigating a multi-site bug, walk the call chain in order of execution.** The cfg-writer guard at `Oa4mpClientOa4mpServer.php:836-838` (today `:876-878`) looked suspicious but was downstream of the actual failure. Validation blocked at site 1 (the writer) before site 2 (cfg serialization) could ever run. Always confirm which guard fires first before optimizing the wrong one.
 
 ## Related Issues
 
