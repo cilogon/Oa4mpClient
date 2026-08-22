@@ -60,7 +60,7 @@ if(isset($oa4mp_client_co_admin_clients) && $e) {
 }
 ```
 
-Pre-existing duplicates were then removed with a one-time, transaction-wrapped, keep-lowest-id dedup (all rows confirmed identical first; `DefaultDynamoConfig` is looked up by `admin_id`, and no row stores a reference to a specific config id, so deleting by id is referentially safe).
+Pre-existing duplicates were then removed by the developer with a one-time, transaction-wrapped, keep-lowest-id dedup (all rows confirmed identical first; `DefaultDynamoConfig` is looked up by `admin_id`, and no row stores a reference to a specific config id, so deleting by id is referentially safe).
 
 ## Why This Works
 
@@ -71,12 +71,13 @@ A CakePHP form only submits fields it actually renders. The visible `DefaultDyna
 ## Prevention
 
 - **For any CakePHP 2.x `hasOne`/`belongsTo` child you want an associated save to UPDATE, render a hidden field for the child's primary key** (`Model.id`, or `Model.N.id` for `hasMany`) in the edit form. A missing id silently becomes an INSERT — no error, no validation failure, just a duplicate row. When adding a new associated model to an existing edit form, check the hidden-id block, not just the visible inputs.
+- **Rendering the hidden id is necessary but not sufficient — the value it binds to must be a real, non-empty id.** FormHelper does not omit a hidden field whose bound value is missing; it submits `DefaultDynamoConfig.id=""`. CakePHP's `Model::getID()` treats an empty id as no id (`empty('')` is true), so `exists()` is false and the associated save INSERTs a duplicate anyway. A phantom-null `hasOne` read (see the related read-side doc) is one way the bound value goes empty while the markup still looks correct. Locked by `AdminClientEditSaveTest::testSaveWithEmptyStringDynamoConfigIdInsertsDuplicate`.
 - **Read the hidden id from the same data the rest of that association binds to.** Mirror an existing working sibling (here `DefaultLdapConfig.id`) rather than inventing a new source variable.
 - **Confirm deploy before judging a fix.** A persistent symptom after a fix may mean the changed file isn't the one running, not that the diagnosis is wrong.
-- **Test gap:** this repo has no runnable suite (`Test/` is empty scaffolding). When a harness exists, assert that two consecutive `edit` POSTs to an admin client leave exactly one `client_id IS NULL` row in `cm_oa4mp_client_dynamo_configs` for that `admin_id` (UPDATE, not INSERT). No existing test could have caught this — it is a view/form-binding concern with no coverage.
+- **Regression coverage:** locked by `Test/Case/Controller/AdminClientEditSaveTest.php` in the hermetic suite (`Test/run.sh`, gated by `.github/workflows/hermetic-tests.yml`). `testSaveWithDynamoConfigIdUpdatesInPlace` saves twice with the id present and asserts exactly one `cm_oa4mp_client_dynamo_configs` row for the `admin_id` remains, updated in place; `testSaveWithoutDynamoConfigIdInsertsDuplicate` characterizes the pre-fix behaviour; `testEditFormRendersHiddenDynamoConfigId` is the lock proper — it asserts the `if(isset($oa4mp_client_co_admin_clients) && $e)` guard in `fields.inc` still contains `Form->hidden('DefaultDynamoConfig.id'`. `Test/README.md` tracks this as bug #1.
 
 ## Related Issues
 
 - [oa4mp-dynamo-config-hasone-phantom-null-array-2026-06-30](./oa4mp-dynamo-config-hasone-phantom-null-array-2026-06-30.md) — Sibling CakePHP 2.x `hasOne` DynamoConfig pitfall. That doc is the **read-side** bug (Containable returns a phantom all-null association array, fooling a bare `!empty()` guard); this is the **write-side** bug (missing hidden `id` → duplicate INSERT). That doc noticed the duplicate `DefaultDynamoConfig` rows for admin 4; this doc fixes their cause.
 - [oa4mp-claim-migration-three-latent-bugs-2026-05-18](./oa4mp-claim-migration-three-latent-bugs-2026-05-18.md) — Same `DefaultDynamoConfig` persistence domain (its "Bug 1" concerns a DynamoConfig save), though the mechanism there is a non-atomic model save, not a view field omission.
-- Commit `f48a68e` on branch `fix/admin-client-dynamo-config-duplicate-insert`.
+- Commit `f48a68e` (branch `fix/admin-client-dynamo-config-duplicate-insert`), now on `main` and on `upstream/main`. It predates this repository's pull-request workflow, so there is no pull request to cite.

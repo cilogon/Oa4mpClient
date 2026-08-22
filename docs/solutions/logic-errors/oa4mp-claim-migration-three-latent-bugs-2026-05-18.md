@@ -113,9 +113,11 @@ Verified end-to-end on client 126:
 - **Test 1 (idempotence)** — reload the edit page on a fully-migrated client; no migration runs, no drift error, `claim_id` values unchanged.
 - **Test 2 (partial-migration recovery)** — manually delete one claim and null its search attr's `claim_id`, reload the edit page; exactly one `toClaim()` call runs for that attr, a new claim row is created with the back-pointer set atomically, the other attrs are untouched, no drift error.
 
+Regression coverage (added 2026-08-20, commits `f156db5` / `a0926c7`): Bug 1 is locked by `Test/Case/Model/ClaimMigrationPersistenceTest.php::testDynamoConfigFailureLeavesNoOrphanClaim`, Bug 2 by `testNoMatchingProvisionerAttributeProducesNoClaim` (and its matching-case twin `testMatchingProvisionerAttributeSuppliesConstraintValue`), Bug 3 by `Test/Case/Model/CfgMarshallingTest.php::testEmptyConstraintValueIsNotSerialized`.
+
 ### Fix 2 — Accumulator pattern for CoLdapProvisionerAttribute lookup (commit `c503465`)
 
-`Model/Oa4mpClientCoSearchAttribute.php::toClaim()` — replace the foreach-binds-result pattern with a separate accumulator, mirroring the (correct) pattern at `Model/Oa4mpClientOa4mpServer.php:1499-1507`.
+`Model/Oa4mpClientCoSearchAttribute.php::toClaim()` — replace the foreach-binds-result pattern with a separate accumulator, mirroring the (correct) pattern at `Model/Oa4mpClientOa4mpServer.php:1546-1554`.
 
 Before:
 
@@ -202,8 +204,8 @@ Six generalizable lessons, ordered roughly by how often a reviewer will need the
 
 ## Related Issues
 
-- `docs/solutions/logic-errors/oa4mp-ldap-provisioner-empty-type-claim-constraint-2026-05-18.md` — the 2026-05-18 empty-`type` investigation that prompted the read-through of `toClaim()` and `oa4mpMarshallCfgQdl()` and surfaced all three latent bugs documented here. That doc covers the primary defect; this doc covers the latent adjacent bugs uncovered during the same session, and the generalizable lessons. Two specific spots in that sibling are now stale and are candidates for a targeted refresh: the "What Didn't Work" bullet calling the `||` guard "still suspect" (resolved by Fix 3), and the "secondary observation" treating the coarse `$alreadyMigrated` gate as an open follow-up (resolved by Fix 1).
-- `docs/solutions/logic-errors/oa4mp-unmarshall-claim-comparator-drift-2026-05-05.md` — multi-bug fix that introduced both the read-only comparator twin (`buildClaimFromLdapMapping`, the correct accumulator pattern Fix 2 mirrors) and the coarse `$alreadyMigrated` gate (commit `d6ffbe1`) that Fix 1 removes. Two prevention rules in that doc are partially stale: rule 4 ("Prefer coarse, set-level idempotency guards over per-row guards") is contradicted by Fix 1 — the correct lesson is "make the inner save atomic; coarse gates are last resort, not first choice"; and the "Outstanding follow-up" item naming the variable-shadowing bug in `toClaim()` is now closed by Fix 2.
+- `docs/solutions/logic-errors/oa4mp-ldap-provisioner-empty-type-claim-constraint-2026-05-18.md` — the 2026-05-18 empty-`type` investigation that prompted the read-through of `toClaim()` and `oa4mpMarshallCfgQdl()` and surfaced all three latent bugs documented here. That doc covers the primary defect; this doc covers the latent adjacent bugs uncovered during the same session, and the generalizable lessons. Both of the spots that these fixes invalidated in that sibling — the "What Didn't Work" bullet calling the `||` guard "still suspect" (resolved by Fix 3) and the "secondary observation" treating the coarse `$alreadyMigrated` gate as an open follow-up (resolved by Fix 1) — were refreshed in commit `a150bb1`.
+- `docs/solutions/logic-errors/oa4mp-unmarshall-claim-comparator-drift-2026-05-05.md` — multi-bug fix that introduced both the read-only comparator twin (`buildClaimFromLdapMapping`, the correct accumulator pattern Fix 2 mirrors) and the coarse `$alreadyMigrated` gate (commit `d6ffbe1`) that Fix 1 removes. Both stale spots in that doc (prevention rule 4 on coarse gates, and the outstanding variable-shadowing follow-up) were refreshed in commit `a150bb1`; rule 4 now reads "Make per-row migration markers atomic with their primary entity; coarse set-level gates are a last resort."
 - `docs/solutions/logic-errors/oa4mp-cfg-unmarshall-swallowed-typeerror-2026-05-12.md` — same model file (`Oa4mpClientOa4mpServer.php`), different function and angle. Distant sibling; cited only for navigation.
 - Commit `1659690` — Fix 1 (atomic claim+back-pointer save; remove coarse gate; correct misleading log).
 - Commit `c503465` — Fix 2 (accumulator pattern for CoLdapProvisionerAttribute lookup).

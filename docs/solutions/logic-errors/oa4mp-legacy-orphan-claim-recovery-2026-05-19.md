@@ -41,7 +41,7 @@ Commit `d6ffbe1` ("fix(oidc-client): skip deprecated-cfg claim migration once an
 
 **Residue.** `1659690` fixed the forward path but did not detect orphans already in the database. On the next edit-page GET to an affected client, the migration loop (now allowed to run because the coarse gate is gone) re-entered for the still-NULL `claim_id` search attribute and created a **new** claim row plus a fresh back-pointer — atomically this time. The old orphan rows remained. The search attribute now points at the new (correct) claim; the orphan still sits in `cm_oa4mp_client_claims` with `pointed_by_count = 0`.
 
-The server-side OA4MP config dedupes via the `ldap_to_claim_mappings` JSON-object whose keys are claim names — two plugin claim rows with the same `(client_id, claim_name)` collapse to one mapping on the server. The plugin-side `isClientDataSynchronized` comparator (in `Model/Oa4mpClientOa4mpServer.php` line 79) counts every plugin claim row, so it sees `plugin=4` while the OA4MP server reports `oa4mp=2`. The mismatch fires the "Number of claims is out of sync" flash and redirects the operator away from the edit page.
+The server-side OA4MP config dedupes via the `ldap_to_claim_mappings` JSON-object whose keys are claim names — two plugin claim rows with the same `(client_id, claim_name)` collapse to one mapping on the server. The plugin-side `isClientDataSynchronized` comparator (`Model/Oa4mpClientOa4mpServer.php:109`; the count comparison that emits the flash is at `:450-458`) counts every plugin claim row, so it sees `plugin=4` while the OA4MP server reports `oa4mp=2`. The mismatch fires the "Number of claims is out of sync" flash and redirects the operator away from the edit page.
 
 Commit `1788f32` adds an orphan-recovery path to `toClaim()` that handles **State X** below on first re-entry. This runbook handles **State Y** and any **State X** orphans whose shape no longer matches what `toClaim()` would create today (so the orphan-recovery code intentionally falls through).
 
@@ -74,7 +74,9 @@ Before the runbook DELETEs anything, identify which state each affected client i
 
 ## Inventory and classification SQL
 
-Replace `cm_` with the actual table prefix if the deployment uses a different one (check `Config/database.php`).
+Replace `cm_` with the actual table prefix if the deployment uses a different one (the datasource config lives in COmanage Registry core's `Config/database.php`, not in this plugin checkout).
+
+**Dialect.** The SQL below is MySQL/MariaDB (`GROUP_CONCAT`, `CREATE TEMPORARY TABLE`, `SELECT ROW_COUNT()`, `UPDATE ... JOIN`). On a Postgres deployment — which is what this plugin's own hermetic test harness uses — translate: `string_agg`, `CREATE TEMP TABLE`, `GET DIAGNOSTICS` or `DELETE ... RETURNING` for the row count, and `UPDATE ... FROM`.
 
 ### Step 1 — fleet-wide orphan inventory
 
@@ -327,7 +329,7 @@ Every row returned is a **candidate** for the wired-but-stale failure mode. It i
 
 Those facts live in CakePHP records and runtime state, not in the three tables this query reads. Treat the result set as the **upper bound** of the affected fleet — a candidate that does not satisfy the runtime conditions will not flash a drift error, because the comparator will produce the same `type='all'` shape and the row will compare equal.
 
-If the helper produces an *empty* effective filter (no matching CoService), the comparator suppresses the claim entirely (see `Oa4mpClientOa4mpServer::buildClaimFromLdapMapping` around line 1540). That's a separate drift signal — the plugin reports one more claim than OA4MP — and is not surfaced by this query.
+If the helper produces an *empty* effective filter (no matching CoService), the comparator suppresses the claim entirely (see `Oa4mpClientOa4mpServer::buildClaimFromLdapMapping`, `Model/Oa4mpClientOa4mpServer.php:1581-1584`). That's a separate drift signal — the plugin reports one more claim than OA4MP — and is not surfaced by this query.
 
 ### Inventory query — broader lens
 
@@ -454,6 +456,8 @@ The one-shot `UPDATE` above is justified by **this specific footprint**: one row
 - If the cohort exceeds a handful of rows, or if the same `(client, claim)` pair drifts repeatedly after each CoService edit, escalate to a **code-side refresh path** in `toClaim()` (or a sibling on edit-page GET) that detects byte-level divergence from `buildClaimFromLdapMapping()` and rewrites the constraint row through the normal save discipline. A one-row in-place UPDATE is operationally cheap; a recurring one is a maintenance burden masquerading as cheap.
 
 ## Related Issues
+
+- `Test/Case/Model/ClaimMigrationPersistenceTest.php::testOrphanClaimIsRewiredInsteadOfDuplicated` — regression test locking the `1788f32` forward path this runbook pairs with (commit `f156db5`, 2026-08-20).
 
 - `docs/solutions/logic-errors/oa4mp-claim-migration-three-latent-bugs-2026-05-18.md` — documents Bug 1 (the non-atomic save that originally created these orphans) plus the misleading log-line, the foreach loop-variable leak, and the `||`-vs-AND constraint-emit defect.
 - `docs/plans/2026-05-19-001-fix-oa4mp-attr-opts-claim-constraint-plan.md` — the plan for the `voPersonApplicationUID` + `attr_opts` claim constraint computation that produces the new uniform-anchored-regex shape (which is exactly why pre-existing `voPersonApplicationUID` orphans intentionally fall through to new-claim creation rather than being rewired in place).

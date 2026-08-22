@@ -12,7 +12,7 @@ related_components:
   - "cfg_example.json"
 severity: medium
 symptoms:
-  - "GitHub Actions Secret scan job exited 1 on pull request #3 while the sibling Hermetic suite job passed in 51s"
+  - "GitHub Actions Secret scan job exited 1 on skoranda/Oa4mpClient#3 while the sibling Hermetic suite job passed in 51s"
   - "gitleaks reported RuleID aws-access-token at cfg_example.json line 119, in a file the branch never touched"
   - "The flagged value is a masked documentation placeholder whose paired secret_access_key is a literal dummy/... string"
   - "No working-tree edit cleared the finding, because gitleaks detect scans git history rather than the checkout"
@@ -27,7 +27,7 @@ tags: [gitleaks, secret-scanning, github-actions, ci, allowlist, silent-pass, fa
 
 ## Problem
 
-The `Secret scan` job added alongside the hermetic test suite red-lighted pull request #3 on a masked AWS key id that has sat in `cfg_example.json` since January 2026. The obvious remedy -- a `.gitleaks.toml` allowlist -- carries a trap: a config file with no `[extend]` block *replaces* the built-in ruleset instead of adding to it, so the scanner loads zero rules, prints `no leaks found`, and exits 0 while detecting nothing at all.
+The `Secret scan` job added alongside the hermetic test suite red-lighted the fork pull request skoranda/Oa4mpClient#3 on a masked AWS key id that has sat in `cfg_example.json` since January 2026. The obvious remedy -- a `.gitleaks.toml` allowlist -- carries a trap: a config file with no `[extend]` block *replaces* the built-in ruleset instead of adding to it, so the scanner loads zero rules, prints `no leaks found`, and exits 0 while detecting nothing at all.
 
 ## Symptoms
 
@@ -233,4 +233,5 @@ The three tests assert the *shape* of `.gitleaks.toml` and of the workflow YAML.
 - skoranda/Oa4mpClient#3 -- the fork pull request the failing and green CI runs belong to (failing run 32372738600, green run 32590002495). It was closed unmerged; the branch landed upstream instead.
 - `docs/plans/2026-08-19-0342-test-plugin-test-suite-plan.md` -- U7 and U8 define the CI tiers; the `Secret scan` job is the backstop to the gitignored `Test/.env` that carries the dev.cilogon.org credential.
 - `docs/solutions/logic-errors/oa4mp-unmarshall-claim-comparator-drift-2026-05-05.md` -- the comparator whose regression lock was the second silent-pass instance cited in Prevention rule 2.
+- `docs/solutions/conventions/oa4mp-fork-pr-is-never-the-landing-record-2026-08-22.md` -- the citation convention extracted from this document's own post-merge correction; it is why the fork and upstream pull requests above are named separately and repository-qualified.
 - The masked placeholder itself is untouched. It entered `main` on 2026-01-13 in `c8d29ad` ("Use DynamoDB to resolve claims"), alongside `"secret_access_key": "dummy/KC1ewZ43JijREjsUoQ5btqzzzzzz"` and `"table_name": "multitenant_mess_dev"`, which reads as a scrubbed example rather than a live credential. Nothing in the repository states outright whether `AKIA6MESHHJ73ZOD****` was ever a real key prefix, and the allowlist does not settle it. Rotation is a separate decision from making CI green.
