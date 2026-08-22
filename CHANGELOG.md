@@ -1,10 +1,87 @@
 # Changelog
 
-## 7.0.0 (2026-01-13)
+## 7.0.0-rc5 (2026-08-10)
+
+- Do not send a custom configuration to the OA4MP server for a public
+  client, which the server rejects.
+- Hide the claim add, edit, and delete actions for a public client and
+  explain on the claims view why claims are unavailable.
+- Fix view titles double-encoding the OIDC client name, which displayed
+  an apostrophe in a client name as the literal `&#39;`.
+- Include the client ID in the claim name link.
+
+## 7.0.0-rc4 (2026-07-02)
+
+- Use the admin client default DynamoDB configuration when a client has
+  no per-client configuration of its own, both when sending the client
+  to the OA4MP server and when verifying the two representations are
+  synchronized.
+- Fix editing an admin client inserting a duplicate default DynamoDB
+  configuration row on every save instead of updating the existing row.
+
+## 7.0.0-rc3 (2026-05-26)
+
+- Produce claims when reading a legacy cfg (QDLv2 and the deprecated
+  format 1) back from the OA4MP server, so clients using those formats
+  no longer report as out of sync on every edit.
+- Fix duplicate claim rows accumulating on each edit of a client with a
+  deprecated cfg.
+- Recognize a QDLv2 cfg that omits the optional `list_attributes` key
+  instead of reporting it as an undefined cfg format.
+- Map the LDAP provisioner "All Types" choice, stored as an empty
+  string, to the literal `all` the OA4MP server expects, and apply the
+  same mapping when comparing against the server.
+- Save a claim and the back-pointer from its search attribute together,
+  so a later failure cannot leave the claim stranded and unreferenced.
+- Recover from a partial claim migration by rewiring a search attribute
+  to a matching orphan claim rather than creating a duplicate.
+- Restrict the voPersonApplicationUID claim constraint to the identifier
+  types the CO actually offers, and omit the claim when that set is
+  empty.
+- Do not send a claim constraint that is missing either its field or its
+  value.
+- Fix the wrong LDAP provisioner attribute type being used for a claim
+  constraint when no attribute matched.
+- Report per-side detail in the log when synchronization verification
+  finds a difference.
+- Remove duplicate entries from the OIDC client index view.
+
+## 7.0.0-rc2 (2026-02-02)
+
+- Add support for the deprecated OOB flow.
+- Better label the admin client delegate view.
+- Better ordering of tables in schema.
+
+## 7.0.0-rc1 (2026-01-13)
 
 - Use DynamoDB and Registry model references for claim resolution.
 - Use tab UI.
 - Add access control, access token, authorization management.
+
+## 6.1.1 (2026-05-05)
+
+- Better ordering of tables in schema.
+
+## 6.1.0 (2025-04-09)
+
+- Display the OIDC client ID, issuer, and OIDC well-known configuration
+  URL.
+- Improve the view of the OIDC client ID and secret.
+- Default the LDAP search attribute to voPersonExternalID instead of uid
+  when adding or editing a client.
+- Append a link to the client index view to the comment sent to the
+  OA4MP server, and accept any comment that begins with the plugin
+  signature rather than requiring an exact match.
+- Record a link to the Named Configuration in the cfg metadata sent to
+  the OA4MP server.
+- Warn when editing a Named Configuration that no client using it is
+  updated automatically, and that each such client must be edited and
+  re-saved.
+- Increase the number of custom scopes for a Named Configuration from
+  10 to 50.
+- Better labels and wording for Named Configuration scopes.
+- Hide the edu.uiuc.ncsa.myproxy.getcert scope except when editing a
+  client that already has it.
 
 ## 6.0.0 (2023-06-21)
 
