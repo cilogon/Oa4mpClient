@@ -143,4 +143,71 @@ class CiWorkflowTest extends Oa4mpTestCase {
     $this->assertTrue((bool)preg_match('/^OA4MP_LIVE_ADMIN_SECRET=\s*$/m', $contents),
       'the example must leave the secret empty');
   }
+
+  /**
+   * The secret-scan job is a third-party scanner, so the repository's gitleaks
+   * config is part of the gate's wiring. Read it the same way the workflows are
+   * read: comments stripped, so a directive that survives only inside a TOML
+   * comment is not a match.
+   */
+  private function gitleaksConfig() {
+    $path = App::pluginPath('Oa4mpClient') . '.gitleaks.toml';
+    $this->assertTrue(is_readable($path), "the gitleaks config exists at $path");
+    return $this->directives(file_get_contents($path));
+  }
+
+  /**
+   * A gitleaks config with no [extend] block replaces the built-in ruleset
+   * rather than adding to it, so the scanner keeps exiting zero while detecting
+   * nothing at all. That is the same failure mode as a suite that discovers no
+   * tests: a green gate guarding nothing. Losing this one line is silent, which
+   * is exactly why it is asserted here.
+   */
+  public function testSecretScanConfigExtendsTheDefaultRules() {
+    $toml = $this->gitleaksConfig();
+
+    $this->assertContains('[extend]', $toml,
+      'the config must extend the built-in ruleset, not replace it');
+    $this->assertTrue((bool)preg_match('/^\s*useDefault\s*=\s*true\s*$/m', $toml),
+      'useDefault = true keeps every built-in rule armed alongside the allowlist');
+  }
+
+  /**
+   * The allowlist exists for one documented placeholder: the masked AWS key id
+   * in cfg_example.json, which predates this suite and sits in history where no
+   * edit can remove it.
+   *
+   * gitleaks 8.x ORs the global allowlist conditions together, so a `paths`
+   * entry would exempt every rule across the whole file and a `commits` entry
+   * would exempt every rule in those commits -- a genuine credential added to
+   * cfg_example.json later would then scan clean. Matching the literal value
+   * instead exempts that one string and leaves every other rule live on the
+   * same file.
+   */
+  public function testSecretScanAllowlistIsScopedToALiteralNotAPath() {
+    $toml = $this->gitleaksConfig();
+
+    $this->assertContains('[allowlist]', $toml, 'the config declares an allowlist');
+    $this->assertTrue((bool)preg_match('/^\s*regexes\s*=/m', $toml),
+      'the allowlist exempts literal values, which is the narrowest condition');
+
+    foreach (array('paths', 'commits', 'stopwords') as $blanket) {
+      $this->assertTrue(!preg_match('/^\s*' . $blanket . '\s*=/m', $toml),
+        "the allowlist must not exempt by $blanket; that would hide a real "
+        . 'credential added to the same file or commit');
+    }
+  }
+
+  /**
+   * gitleaks discovers .gitleaks.toml relative to the source directory, which
+   * is a bind mount here. Naming the config explicitly means a scan that cannot
+   * find it fails loudly instead of falling back to the default ruleset and
+   * red-lighting the gate on the known placeholder again.
+   */
+  public function testSecretScanStepPassesTheRepoConfig() {
+    $yaml = $this->directives($this->workflow('hermetic-tests.yml'));
+
+    $this->assertContains('--config=/repo/.gitleaks.toml', $yaml,
+      'the scan step points gitleaks at the repository config explicitly');
+  }
 }

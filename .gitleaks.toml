@@ -1,0 +1,29 @@
+# gitleaks configuration for the secret-scan job in
+# .github/workflows/hermetic-tests.yml.
+#
+# The scan runs over the full history, so a value that was ever committed keeps
+# being found no matter how the working tree changes today. cfg_example.json has
+# carried a masked AWS key id since the DynamoDB claims work in January 2026
+# (c8d29ad and its ancestors); it is documentation, its paired secret_access_key
+# is a literal "dummy/..." string, and it cannot be edited out of history.
+#
+# Locked by Test/Case/CiWorkflowTest.php, which runs inside the hermetic gate.
+
+# Add to the built-in ruleset rather than replacing it. Without this block the
+# scanner keeps exiting zero while detecting nothing: a green gate guarding
+# nothing at all.
+[extend]
+useDefault = true
+
+# Exempt the one documented placeholder by its literal value.
+#
+# gitleaks ORs the global allowlist conditions together, so a `paths` entry
+# would exempt every rule across the whole of cfg_example.json and a `commits`
+# entry would exempt every rule in those commits -- a genuine credential added
+# to that file later would then scan clean. Matching the literal exempts that
+# one string and leaves every other rule live on the same file.
+[allowlist]
+description = "Masked AWS key id documented in cfg_example.json (not a credential)"
+regexes = [
+  '''AKIA6MESHHJ73ZODZZZZ''',
+]

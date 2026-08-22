@@ -59,8 +59,14 @@ jobs:
       - name: Scan for committed credentials
         # A backstop to the gitignored env file: an accidentally committed
         # dev.cilogon.org secret red-lights the gate rather than reaching main.
+        #
+        # The config is named explicitly rather than left to discovery under the
+        # bind mount, so a scan that cannot read it fails loudly instead of
+        # silently falling back to the default ruleset. See .gitleaks.toml for
+        # what it allowlists and why.
         run: |
           docker run --rm \
             -v "$PWD:/repo" \
             zricethezav/gitleaks:v8.18.4 \
-            detect --source=/repo --redact --verbose --no-banner
+            detect --source=/repo --config=/repo/.gitleaks.toml \
+            --redact --verbose --no-banner
