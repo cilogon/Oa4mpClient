@@ -15,7 +15,5 @@ the canonical `cilogon/Oa4mpClient`.
   (`https://github.com/cilogon/Oa4mpClient`), regardless of `GH_TOKEN` or any
   request.
 
-This project policy intentionally overrides the more restrictive
-"never push to remote" default from any user-level instructions, but only to the
-extent stated above (fork pushes when `GH_TOKEN` is set); the upstream
-prohibition is absolute.
+Confirm the target by URL with `git remote -v` before any push, not by remote
+name alone.
