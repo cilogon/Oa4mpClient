@@ -146,3 +146,13 @@ Pushing rules for agents:
 - Push only the current feature branch to `origin`. Do not force-push a shared
   branch, and do not push to the fork's default branch (`main`/`master`) unless
   the developer explicitly asks.
+
+Recording where work landed:
+- When recording where work landed -- in a `docs/solutions/` learning, a
+  plan, or a commit message -- cite the **upstream** pull request,
+  owner-qualified (`cilogon/Oa4mpClient#5`), and only once it exists. The
+  fork's pull request is closed unmerged and is never the landing record;
+  recover the upstream number from `git log --merges main`, which carries
+  it. While the work is still unmerged, name the branch and say the merge
+  is pending rather than citing a pull request. See
+  `docs/solutions/conventions/oa4mp-fork-pr-is-never-the-landing-record-2026-08-22.md`.
