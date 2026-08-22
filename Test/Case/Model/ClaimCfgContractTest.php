@@ -24,9 +24,13 @@
  * Rows build their data with Test/lib/Oa4mpClaimRows.php, which also declares
  * the row set machine-readably for the enumeration drift check.
  *
+ * The configuration-shape rows near the end of the file are the exception to
+ * both of those: they pin which cfg a client resolves to, not what the QDL
+ * shape contains, so they carry no stored expected claim mapping and no round
+ * trip. Two of them run at oa4mpMarshallContent(), because that is where the
+ * public-client suppression lives.
+ *
  * Already locked elsewhere; deliberately not re-asserted here:
- *  - A public client emits no cfg at all --
- *    CfgMarshallingTest::testMarshalledContentHasNoCfgForPublicClient.
  *  - A confidential client with no claim sources emits no cfg --
  *    CfgMarshallingTest::testMarshalledContentUsesSecretAuthForConfidentialClient.
  *  - A constraint with a populated field and an empty value is dropped --
@@ -42,7 +46,7 @@
  *    testUnmarshalledLegacyCfgMissingMappingReportsOutOfSync.
  *
  * See docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md U1
- * (R1, R2, R3, R4, R5, R13, R19).
+ * (R1, R2, R3, R4, R5, R13, R19) and U2 (R2, R4).
  */
 
 class ClaimCfgContractTest extends Oa4mpTestCase {
@@ -1252,5 +1256,154 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
         ),
       ),
     ), $cfg, 'row ' . $row . ': the whole emitted cfg must match the stored expected value');
+  }
+
+  // ---------------------------------------------------------------------
+  // Configuration shape. Every row above assumes the client resolves to the
+  // QDL shape; these three pin that resolution itself. A client carrying
+  // claims lands in one of three places -- no cfg at all, the stored named
+  // configuration, or the QDL shape -- and which one is decided before any
+  // claim is read.
+  //
+  // None of the three carries a stored expected claim mapping, and all three
+  // are exempt from the round-trip assertion (see
+  // Oa4mpClaimRows::declaredExemptions).
+  // ---------------------------------------------------------------------
+
+  /**
+   * A public client carrying claims is sent no cfg at all.
+   *
+   * The behavior itself is already locked by
+   * CfgMarshallingTest::testMarshalledContentHasNoCfgForPublicClient, which
+   * covers the bug it came from (OA4MP rejects a cfg on a public client) and
+   * carries its own confidential positive control. This row extends that into
+   * the matrix rather than duplicating it: it runs on the matrix's own client
+   * and claim fixture, so a claim shape that the matrix adds later is carried
+   * through the public-client branch too, and it reads as the first cell of
+   * the configuration-shape dimension rather than as an isolated bug test.
+   *
+   * Asserted at oa4mpMarshallContent() because that is where the suppression
+   * lives; oa4mpMarshallCfgQdl() does not know whether the client is public.
+   */
+  public function testPublicClientResolvesToNoCfg() {
+    $row = 'cfg_shape/public_client';
+    $claim = Oa4mpClaimRows::claim();
+
+    $data = Oa4mpClaimRows::data($claim, array('public_client' => true));
+
+    $content = $this->server()->oa4mpMarshallContent(
+      Oa4mpClaimRows::adminClientContext(), $data);
+
+    $this->assertEqual('none', $content['token_endpoint_auth_method'],
+      'row ' . $row . ': a public client uses token_endpoint_auth_method none');
+
+    $this->assertFalse(isset($content['cfg']),
+      'row ' . $row . ': a public client must carry no cfg, claims or not --'
+      . ' OA4MP rejects a custom configuration on a public client');
+  }
+
+  /**
+   * A client that uses a named configuration is sent that configuration's
+   * stored content, and no claim mappings at all.
+   *
+   * DEFERRED DEFECT -- this row characterizes current behavior and does not
+   * endorse it. The claims tab is ungated for named-configuration clients, so
+   * a user can create claims that are silently inert: the named-configuration
+   * branch of oa4mpMarshallCfgQdl() returns before the claim loop runs, so
+   * those claims are never sent to the server. Clearing the named
+   * configuration later activates every previously inert claim at once,
+   * releasing identity attributes to a relying party with no review at the
+   * moment they go live.
+   *
+   * This is recorded as open question Q1 in
+   * docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md. The
+   * row locks current behavior so it cannot drift unnoticed; it is expected to
+   * CHANGE when Q1 is resolved, not to block that resolution.
+   *
+   * The metadata key is excluded from the comparison: the named-configuration
+   * branch builds it with Router::url(..., true), so it is environment-
+   * dependent even here at the QDL marshaller, which is the same reason the
+   * matrix captures its golden values at oa4mpMarshallCfgQdl() rather than at
+   * oa4mpMarshallContent(). Its presence is asserted; its value is not.
+   */
+  public function testNamedConfigClientResolvesToNamedConfigAndDropsClaims() {
+    $row = 'cfg_shape/named_config';
+    $claim = Oa4mpClaimRows::claim();
+
+    $cfg = $this->server()->oa4mpMarshallCfgQdl(Oa4mpClaimRows::namedConfigData($claim));
+
+    // The environment-dependent key, asserted present and then removed so the
+    // rest of the cfg can be compared exactly.
+    $this->assertNotEmpty($cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'],
+      'row ' . $row . ': the branch must stamp the named configuration URL into'
+      . ' the metadata block');
+    unset($cfg['metadata']);
+
+    // The structural fact the deferred defect turns on: the client carries a
+    // claim, and the emitted cfg has nowhere for it. Asserted on its own so a
+    // failure names the defect rather than only reporting a shape mismatch.
+    $this->assertFalse(isset($cfg['tokens']['identity']['qdl']['args']['claim_mappings']),
+      'row ' . $row . ': the named-configuration branch must emit no claim'
+      . ' mappings -- the client carries a claim and it is silently dropped'
+      . ' (deferred defect, Q1)');
+
+    // Everything else is the stored named configuration, merged verbatim.
+    $this->assertEqual(Oa4mpClaimRows::namedConfigContent(), $cfg,
+      'row ' . $row . ': apart from the metadata URL, the emitted cfg must be'
+      . " the named configuration's stored content, merged unchanged");
+  }
+
+  /**
+   * The positive control for the two rows above: a confidential client with no
+   * named configuration resolves to the QDL shape, and its claim reaches the
+   * claim mappings.
+   *
+   * Asserted at oa4mpMarshallContent(), the same entry point as the public
+   * row, so the two differ only in the public_client flag. Without this, the
+   * public row would pass for the wrong reason if the cfg stopped being
+   * attached for everyone, and the named-configuration row would pass for the
+   * wrong reason if the claim loop stopped emitting mappings on every path.
+   *
+   * Only the QDL-shape markers are asserted here, not a stored expected value:
+   * the full golden cfg is testCfgEnvelopeForBaselineRow, captured at
+   * oa4mpMarshallCfgQdl() where no absolute URL is embedded.
+   */
+  public function testConfidentialClientWithNoNamedConfigResolvesToQdlShape() {
+    $row = 'cfg_shape/confidential_no_named_config';
+    $claim = Oa4mpClaimRows::claim();
+
+    $content = $this->server()->oa4mpMarshallContent(
+      Oa4mpClaimRows::adminClientContext(), Oa4mpClaimRows::data($claim));
+
+    $this->assertEqual('client_secret_basic', $content['token_endpoint_auth_method'],
+      'row ' . $row . ': a confidential client uses token_endpoint_auth_method'
+      . ' client_secret_basic');
+
+    $this->assertTrue(isset($content['cfg']),
+      'row ' . $row . ': a confidential client carrying claims must carry a cfg');
+
+    $this->assertFalse(isset($content['cfg']['metadata']),
+      'row ' . $row . ': a client with no named configuration must carry no'
+      . ' named-configuration metadata');
+
+    $this->assertEqual('COmanageRegistry/test/dynamodb_claims.qdl',
+      $content['cfg']['tokens']['identity']['qdl']['load'],
+      'row ' . $row . ": the QDL shape must load the admin client's claims script");
+
+    $this->assertEqual(array(
+      array(
+        'claim_name' => 'is_member_of',
+        'source_model' => 'CoGroupMember',
+        'source_model_claim_value_field' => 'member',
+        'claim_value_selection' => 'all',
+        'claim_value_json_format' => 'string',
+        'claim_multiple_value_serialization' => 'delimited_string',
+        'claim_value_string_serialization_delimiter' => ';',
+        'claim_constraints' => array(
+          array('constraint_field' => 'owner', 'constraint_value' => 'false'),
+        ),
+      ),
+    ), $content['cfg']['tokens']['identity']['qdl']['args']['claim_mappings'],
+      'row ' . $row . ': the claim must reach the claim mappings');
   }
 }

@@ -26,7 +26,7 @@
  * working tree.
  *
  * See docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md U1
- * (R1, R2, R3, R4, R5, R13, R19).
+ * (R1, R2, R3, R4, R5, R13, R19) and U2 (R2, R4).
  */
 
 class Oa4mpClaimRows {
@@ -46,6 +46,9 @@ class Oa4mpClaimRows {
   const CALLBACK_URL = 'https://example.org/callback';
 
   const TIMESTAMP = '2026-01-02 03:04:05';
+
+  /** The named configuration the configuration-shape rows resolve to. */
+  const NAMED_CONFIG_ID = 3;
 
   /** The admin client's default Dynamo configuration, used by every row. */
   public static function dynamoConfig() {
@@ -131,6 +134,69 @@ class Oa4mpClaimRows {
       'Oa4mpClientCoAdminClient' => self::adminClient(),
       'Oa4mpClientClaim' => array($claim),
     );
+  }
+
+  /**
+   * The stored content of the named configuration, decoded.
+   *
+   * Deliberately not the shape the claim loop builds: the load path, the
+   * execution phases and the args block all differ from the QDL shape, so a
+   * configuration-shape row can tell the two apart by their content and not
+   * merely by the presence of a key.
+   *
+   * @return array
+   */
+  public static function namedConfigContent() {
+    return array(
+      'tokens' => array(
+        'identity' => array(
+          'type' => 'identity',
+          'qdl' => array(
+            'load' => 'COmanageRegistry/test/named_config.qdl',
+            'xmd' => array(
+              'exec_phase' => array('post_auth'),
+            ),
+            'args' => array(
+              'named_config_marker' => 'from-named-config',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * A confidential client that uses a named configuration and also carries the
+   * given claim, in the shape oa4mpMarshallCfgQdl() takes.
+   *
+   * The claim is present on purpose. The named-configuration branch returns
+   * before the claim loop runs, so the claim never reaches the server; that is
+   * the deferred defect the named-configuration row characterizes (Q1 in
+   * docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md).
+   *
+   * @param array $claim The claim row, from claim().
+   * @return array
+   */
+  public static function namedConfigData($claim) {
+    $data = self::data($claim, array('named_config_id' => self::NAMED_CONFIG_ID));
+
+    // The marshaller looks the named configuration up in the admin client's
+    // list, by id, and json_decode()s its config column.
+    $data['Oa4mpClientCoAdminClient']['Oa4mpClientCoNamedConfig'] = array(
+      array(
+        'id' => self::NAMED_CONFIG_ID,
+        'admin_id' => 1,
+        'config_name' => 'matrix named configuration',
+        'config' => json_encode(self::namedConfigContent()),
+      ),
+    );
+
+    // The metadata URL the branch appends is built from this top-level key,
+    // not from the list above. Controller-supplied in production; supplied
+    // here so the row does not marshal through an undefined-key warning.
+    $data['Oa4mpClientCoNamedConfig'] = array('id' => self::NAMED_CONFIG_ID);
+
+    return $data;
   }
 
   /**
@@ -322,6 +388,27 @@ class Oa4mpClaimRows {
       'values' => array('claim_multiple_value_serialization' => 'json_array'),
     );
 
+    // Configuration shape: which cfg a client resolves to, ahead of any
+    // question of what the QDL shape contains.
+    $rows[] = array(
+      'row' => 'cfg_shape/public_client',
+      'source_model' => 'CoGroupMember',
+      'dimension' => 'cfg_shape',
+      'values' => array(),
+    );
+    $rows[] = array(
+      'row' => 'cfg_shape/named_config',
+      'source_model' => 'CoGroupMember',
+      'dimension' => 'cfg_shape',
+      'values' => array(),
+    );
+    $rows[] = array(
+      'row' => 'cfg_shape/confidential_no_named_config',
+      'source_model' => 'CoGroupMember',
+      'dimension' => 'cfg_shape',
+      'values' => array(),
+    );
+
     // Round trip and cfg envelope.
     $rows[] = array(
       'row' => 'round_trip/EmailAddress/two_constraints',
@@ -374,6 +461,31 @@ class Oa4mpClaimRows {
         'row' => 'source_model/string_zero',
         'exempt_from' => 'round_trip',
         'reason' => 'Same as source_model/empty.',
+      ),
+      array(
+        'row' => 'cfg_shape/public_client',
+        'exempt_from' => 'round_trip',
+        'reason' => 'A public client is sent no cfg at all, so there is no'
+          . ' emitted cfg to unmarshall and compare. The row asserts the'
+          . ' absence instead.',
+      ),
+      array(
+        'row' => 'cfg_shape/named_config',
+        'exempt_from' => 'round_trip',
+        'reason' => 'The named-configuration branch returns the stored named'
+          . ' configuration and never emits claim mappings, so a round trip'
+          . ' would compare the claim against nothing. The comparator exempts'
+          . ' named-configuration clients from the claim comparison outright;'
+          . ' that exemption is characterized in its own test, not here. The'
+          . ' row asserts the merged shape instead.',
+      ),
+      array(
+        'row' => 'cfg_shape/confidential_no_named_config',
+        'exempt_from' => 'round_trip',
+        'reason' => 'The positive control for the two rows above, asserted at'
+          . ' the outer marshaller so it controls the public row directly. Its'
+          . ' claim round trip is already covered by every QDL-shape row, which'
+          . ' runs on exactly this client shape.',
       ),
     );
   }
