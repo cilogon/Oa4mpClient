@@ -47,22 +47,75 @@ class Oa4mpClientOa4mpServer extends AppModel {
    */
 
   private function redactSecrets($row) {
-    // Known secret-bearing fields. When adding a new secret-bearing field
-    // anywhere in the OIDC client data model that may be passed to this
-    // helper, add its name here so any log output that dumps a row
-    // containing it automatically masks the value.
-    $secretFields = array(
-      'aws_access_key_id',
-      'aws_secret_access_key',
-    );
-
-    foreach($secretFields as $field) {
+    foreach($this->secretFieldNames() as $field) {
       if(isset($row[$field])) {
         $row[$field] = '[REDACTED]';
       }
     }
 
     return $row;
+  }
+
+  /**
+   * Names whose values are credentials and must never reach a log.
+   *
+   * The single enforcement point for both redaction helpers: redactSecrets()
+   * matches these as array keys, redactSecretsInLogText() matches them as JSON
+   * keys. Adding a secret-bearing field to either shape only requires adding
+   * its name here.
+   *
+   * @return array Field and JSON key names treated as secret.
+   */
+
+  private function secretFieldNames() {
+    return array(
+      // Oa4mpClientDynamoConfig column names, as the plugin persists them.
+      'aws_access_key_id',
+      'aws_secret_access_key',
+      // The same two credentials as they are named inside a marshalled cfg's
+      // DynamoDB module; see oa4mpMarshallCfgQdl(), which copies them across.
+      // A cfg travels in the request body of a create and an edit, so the
+      // plugin's own field names are not enough to cover a logged request.
+      'access_key_id',
+      'secret_access_key',
+      // Credentials the OA4MP server issues and returns in a response body:
+      // the client's own secret, and the token that authorizes managing the
+      // client at the registration endpoint.
+      'client_secret',
+      'registration_access_token',
+    );
+  }
+
+  /**
+   * Return $text with the value of every secret-bearing JSON key masked.
+   *
+   * The request bodies and HttpSocketResponse dumps this model logs carry
+   * credentials in JSON: a create response carries the new client's
+   * client_secret, and any client with a DynamoDB configuration carries AWS
+   * keys in the cfg it sends and reads back. Those logs are not private -- the
+   * live-server tier writes them to a GitHub Actions log on a public
+   * repository, where masking of the workflow's own secrets does not apply
+   * because these values come from the server rather than from `secrets.*`.
+   *
+   * Redacting the rendered text rather than the structure is deliberate: an
+   * HttpSocketResponse dump repeats the body inside its [raw] HTTP exchange,
+   * so masking the parsed body alone would leave the same secret in the same
+   * log line.
+   *
+   * @param string $text Text about to be logged.
+   * @return string The text with secret values replaced by '[REDACTED]'.
+   */
+
+  private function redactSecretsInLogText($text) {
+    foreach($this->secretFieldNames() as $field) {
+      // Match "field": "value" and replace only the value, leaving the
+      // surrounding JSON intact. The value pattern tolerates escaped
+      // characters so a backslash inside a secret cannot end the match early.
+      $pattern = '/("' . preg_quote($field, '/') . '"\s*:\s*")(?:[^"\\\\]|\\\\.)*(")/';
+      $text = preg_replace($pattern, '${1}[REDACTED]${2}', $text);
+    }
+
+    return $text;
   }
 
   /**
@@ -601,7 +654,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $response = $http->request($request);
 
-    $this->log("Response is " . print_r($response, true));
+    $this->log("Response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
     if($response->code == 204) {
       $ret = true;
@@ -650,11 +703,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $this->log("Request URI is " . print_r($request['uri'], true));
     $this->log("Request method is " . print_r($request['method'], true));
-    $this->log("Request body is " . print_r($request['body'], true));
+    $this->log("Request body is " . $this->redactSecretsInLogText(print_r($request['body'], true)));
 
     $response = $http->request($request);
 
-    $this->log("Response is " . print_r($response, true));
+    $this->log("Response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
     if($response->code == 200) {
       $ret = 1;
@@ -1093,11 +1146,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $this->log("Request URI is " . print_r($request['uri'], true));
     $this->log("Request method is " . print_r($request['method'], true));
-    $this->log("Request body is " . print_r($request['body'], true));
+    $this->log("Request body is " . $this->redactSecretsInLogText(print_r($request['body'], true)));
 
     $response = $http->request($request);
 
-    $this->log("Response is " . print_r($response, true));
+    $this->log("Response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
     # During OA4MP server evolution accept both 200 and 201 as
     # return code when creating a new client.
@@ -1936,7 +1989,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $response = $http->request($request);
 
-    $this->log("OA4MP Server response is " . print_r($response, true));
+    $this->log("OA4MP Server response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
     $contentType = $response->getHeader('Content-Type');
 
