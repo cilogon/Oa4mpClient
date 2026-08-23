@@ -289,15 +289,23 @@ provisioned solely for testing, scoped to the minimum privileges it needs and
 distinct from any staff or production credential.
 
 In CI the tier runs from `.github/workflows/live-server-tests.yml` on a schedule
-(07:00 UTC daily) or on demand, on `main` only. The credential belongs in the
-`live-server` GitHub Environment, as four environment secrets
+(07:00 UTC daily) or on demand, on `main` only. The credential lives in the
+`live-server` GitHub Environment as three environment secrets
 (`OA4MP_LIVE_SERVER_URL`, `OA4MP_LIVE_ADMIN_IDENTIFIER`,
-`OA4MP_LIVE_ADMIN_SECRET`, `OA4MP_LIVE_CO_ID`), with the environment's
-deployment-branch policy restricted to `main`; the job additionally guards on
-`github.ref` and on `github.repository`, and the workflow has no
-`pull_request`, `pull_request_target`, or `workflow_run` trigger.
+`OA4MP_LIVE_ADMIN_SECRET`), with the environment's deployment-branch policy
+restricted to `main`; the job additionally guards on `github.ref` and on
+`github.repository`, and the workflow has no `pull_request`,
+`pull_request_target`, or `workflow_run` trigger.
 `Test/Case/CiWorkflowTest.php` runs in the hermetic gate and fails if any of
 that wiring changes.
+
+`OA4MP_LIVE_CO_ID` is an environment **variable**, not a secret. It is not a
+credential -- it names the CO the admin client belongs to and only feeds the
+comment URL -- and as a secret it was actively harmful: Actions masks every
+occurrence of a secret's value anywhere in the log, and a single-digit value
+rewrote every matching digit in the first CI run's output (HTTP `200` printed
+as `***00`, across 621 lines), corrupting the log a failure would be diagnosed
+from.
 
 The `github.repository` guard is what keeps the tier off forks. A fork's
 schedule fires from the fork's own default branch, and a fork must never hold
@@ -306,20 +314,26 @@ from the day this workflow reached `main`. The job is skipped on a fork
 instead. Run the tier on a fork with `Test/run-live.sh` and your own test admin
 client, which is where iterating on it belongs anyway.
 
-**Not configured in CI yet.** The environment exists in name only -- GitHub
-created it empty the first time the scheduled job referenced it -- so it holds
-no secrets and carries no branch policy. Until both are set, the scheduled run
-fails at `Test/run-live.sh`'s first credential check, and the `github.ref` guard
-is the only thing keeping the (absent) credential off other refs, not the two
-independent gates described above. A test asserting the workflow's YAML cannot
-see any of that; it is repository configuration, not code.
+**Configured since 2026-08-23**, when the environment got its secrets, its
+`main`-only deployment-branch policy, and its first successful CI run. Before
+that it existed in name only -- GitHub created it empty the first time the
+scheduled job referenced it -- and the nightly run failed at
+`Test/run-live.sh`'s first credential check while the `github.ref` guard stood
+alone in place of the two independent gates described above.
+
+Worth knowing if the tier ever goes quiet or red for reasons the log does not
+explain: none of that state is visible to a test. `Test/Case/CiWorkflowTest.php`
+can assert what the workflow YAML says, not whether the environment still holds
+its secrets or its branch policy. Both are repository configuration, and an
+admin can change either without touching this repository.
 
 The hermetic runner skips `Test/Case/LiveServer` entirely; the live tier runs
 only via `./Console/cake Oa4mpClient.Oa4mp_test live`.
 
 **First verified run: 2026-08-23**, against `dev.cilogon.org` from a developer
-workstation with a dedicated test admin client -- all three tests passed, and
-every client created was deleted. It confirmed the two things only a real server
+workstation with a dedicated test admin client, and from CI the same day once
+the environment was configured -- all three tests passed both times, and every
+client created was deleted. It confirmed the two things only a real server
 can: that the server accepts a confidential client and issues it a secret, and
 that it accepts a public client (`token_endpoint_auth_method: none`, scope
 `openid`) without issuing one, which is the server-acceptance half of the
