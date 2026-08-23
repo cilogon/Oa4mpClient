@@ -47,22 +47,75 @@ class Oa4mpClientOa4mpServer extends AppModel {
    */
 
   private function redactSecrets($row) {
-    // Known secret-bearing fields. When adding a new secret-bearing field
-    // anywhere in the OIDC client data model that may be passed to this
-    // helper, add its name here so any log output that dumps a row
-    // containing it automatically masks the value.
-    $secretFields = array(
-      'aws_access_key_id',
-      'aws_secret_access_key',
-    );
-
-    foreach($secretFields as $field) {
+    foreach($this->secretFieldNames() as $field) {
       if(isset($row[$field])) {
         $row[$field] = '[REDACTED]';
       }
     }
 
     return $row;
+  }
+
+  /**
+   * Names whose values are credentials and must never reach a log.
+   *
+   * The single enforcement point for both redaction helpers: redactSecrets()
+   * matches these as array keys, redactSecretsInLogText() matches them as JSON
+   * keys. Adding a secret-bearing field to either shape only requires adding
+   * its name here.
+   *
+   * @return array Field and JSON key names treated as secret.
+   */
+
+  private function secretFieldNames() {
+    return array(
+      // Oa4mpClientDynamoConfig column names, as the plugin persists them.
+      'aws_access_key_id',
+      'aws_secret_access_key',
+      // The same two credentials as they are named inside a marshalled cfg's
+      // DynamoDB module; see oa4mpMarshallCfgQdl(), which copies them across.
+      // A cfg travels in the request body of a create and an edit, so the
+      // plugin's own field names are not enough to cover a logged request.
+      'access_key_id',
+      'secret_access_key',
+      // Credentials the OA4MP server issues and returns in a response body:
+      // the client's own secret, and the token that authorizes managing the
+      // client at the registration endpoint.
+      'client_secret',
+      'registration_access_token',
+    );
+  }
+
+  /**
+   * Return $text with the value of every secret-bearing JSON key masked.
+   *
+   * The request bodies and HttpSocketResponse dumps this model logs carry
+   * credentials in JSON: a create response carries the new client's
+   * client_secret, and any client with a DynamoDB configuration carries AWS
+   * keys in the cfg it sends and reads back. Those logs are not private -- the
+   * live-server tier writes them to a GitHub Actions log on a public
+   * repository, where masking of the workflow's own secrets does not apply
+   * because these values come from the server rather than from `secrets.*`.
+   *
+   * Redacting the rendered text rather than the structure is deliberate: an
+   * HttpSocketResponse dump repeats the body inside its [raw] HTTP exchange,
+   * so masking the parsed body alone would leave the same secret in the same
+   * log line.
+   *
+   * @param string $text Text about to be logged.
+   * @return string The text with secret values replaced by '[REDACTED]'.
+   */
+
+  private function redactSecretsInLogText($text) {
+    foreach($this->secretFieldNames() as $field) {
+      // Match "field": "value" and replace only the value, leaving the
+      // surrounding JSON intact. The value pattern tolerates escaped
+      // characters so a backslash inside a secret cannot end the match early.
+      $pattern = '/("' . preg_quote($field, '/') . '"\s*:\s*")(?:[^"\\\\]|\\\\.)*(")/';
+      $text = preg_replace($pattern, '${1}[REDACTED]${2}', $text);
+    }
+
+    return $text;
   }
 
   /**
@@ -227,14 +280,23 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // zero and our representation does not have a value is considered to be
     // synchronized.
 
-    $curRefreshToken = $curData['Oa4mpClientRefreshToken'];
-    $oa4mpRefreshToken = $oa4mpServerData['Oa4mpClientRefreshToken'];
+    // Both sides are optional. A caller may omit the section entirely (the
+    // live-server tier does), and the unmarshaller only sets token_lifetime
+    // when the server returned rt_lifetime. Reading through the missing key
+    // raised "Undefined array key" and "array offset on null" warnings on
+    // every live-tier comparison; resolving to null first keeps the
+    // null-vs-zero rule below reading exactly as it did.
+    $curRefreshToken = $curData['Oa4mpClientRefreshToken'] ?? array();
+    $oa4mpRefreshToken = $oa4mpServerData['Oa4mpClientRefreshToken'] ?? array();
 
-    if($curRefreshToken['token_lifetime'] != $oa4mpRefreshToken['token_lifetime']) {
-      if(!(is_null($curRefreshToken['token_lifetime']) && ($oa4mpRefreshToken['token_lifetime'] === 0))) {
+    $curTokenLifetime = $curRefreshToken['token_lifetime'] ?? null;
+    $oa4mpTokenLifetime = $oa4mpRefreshToken['token_lifetime'] ?? null;
+
+    if($curTokenLifetime != $oa4mpTokenLifetime) {
+      if(!(is_null($curTokenLifetime) && ($oa4mpTokenLifetime === 0))) {
         $this->log("Oa4mpClientRefreshToken token_lifetime is out of sync"
-                   . " (plugin=" . var_export($curRefreshToken['token_lifetime'], true)
-                   . ", oa4mp=" . var_export($oa4mpRefreshToken['token_lifetime'], true) . ")");
+                   . " (plugin=" . var_export($curTokenLifetime, true)
+                   . ", oa4mp=" . var_export($oa4mpTokenLifetime, true) . ")");
         return false;
       }
     }
@@ -356,24 +418,30 @@ class Oa4mpClientOa4mpServer extends AppModel {
       return true;
     }
 
-    // Compare access token configuration.
-    if($curData['Oa4mpClientAccessToken'] && $curData['Oa4mpClientAccessToken']['is_jwt'] && !$oa4mpServerData['Oa4mpClientAccessToken']) {
+    // Compare access token configuration. Optional on both sides for the same
+    // reason as the refresh token above: an omitted section is "no access
+    // token configuration", which is what the three tests below already
+    // treat an empty array as.
+    $curAccessToken = $curData['Oa4mpClientAccessToken'] ?? array();
+    $oa4mpAccessToken = $oa4mpServerData['Oa4mpClientAccessToken'] ?? array();
+
+    if($curAccessToken && ($curAccessToken['is_jwt'] ?? null) && !$oa4mpAccessToken) {
       $this->log("Oa4mpClientAccessToken plugin has access token configuration but Oa4mp server does not");
-      $this->log("curAccessToken: " . print_r($curData['Oa4mpClientAccessToken'], true));
+      $this->log("curAccessToken: " . print_r($curAccessToken, true));
       return false;
     }
 
-    if(!$curData['Oa4mpClientAccessToken'] && $oa4mpServerData['Oa4mpClientAccessToken']) {
+    if(!$curAccessToken && $oa4mpAccessToken) {
       $this->log("Oa4mpClientAccessToken Oa4mp server has access token configuration but plugin does not");
-      $this->log("oa4mpAccessToken: " . print_r($oa4mpServerData['Oa4mpClientAccessToken'], true));
+      $this->log("oa4mpAccessToken: " . print_r($oa4mpAccessToken, true));
       return false;
     }
 
-    if($curData['Oa4mpClientAccessToken'] && $oa4mpServerData['Oa4mpClientAccessToken']) {
-      if($curData['Oa4mpClientAccessToken']['is_jwt'] != $oa4mpServerData['Oa4mpClientAccessToken']['is_jwt']) {
+    if($curAccessToken && $oa4mpAccessToken) {
+      if(($curAccessToken['is_jwt'] ?? null) != ($oa4mpAccessToken['is_jwt'] ?? null)) {
         $this->log("Oa4mpClientAccessToken is_jwt is out of sync"
-                   . " (plugin=" . var_export($curData['Oa4mpClientAccessToken']['is_jwt'], true)
-                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientAccessToken']['is_jwt'], true) . ")");
+                   . " (plugin=" . var_export($curAccessToken['is_jwt'] ?? null, true)
+                   . ", oa4mp=" . var_export($oa4mpAccessToken['is_jwt'] ?? null, true) . ")");
         return false;
       }
     }
@@ -601,7 +669,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $response = $http->request($request);
 
-    $this->log("Response is " . print_r($response, true));
+    $this->log("Response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
     if($response->code == 204) {
       $ret = true;
@@ -650,11 +718,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $this->log("Request URI is " . print_r($request['uri'], true));
     $this->log("Request method is " . print_r($request['method'], true));
-    $this->log("Request body is " . print_r($request['body'], true));
+    $this->log("Request body is " . $this->redactSecretsInLogText(print_r($request['body'], true)));
 
     $response = $http->request($request);
 
-    $this->log("Response is " . print_r($response, true));
+    $this->log("Response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
     if($response->code == 200) {
       $ret = 1;
@@ -1093,11 +1161,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $this->log("Request URI is " . print_r($request['uri'], true));
     $this->log("Request method is " . print_r($request['method'], true));
-    $this->log("Request body is " . print_r($request['body'], true));
+    $this->log("Request body is " . $this->redactSecretsInLogText(print_r($request['body'], true)));
 
     $response = $http->request($request);
 
-    $this->log("Response is " . print_r($response, true));
+    $this->log("Response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
     # During OA4MP server evolution accept both 200 and 201 as
     # return code when creating a new client.
@@ -1160,6 +1228,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
       'registration_access_token',
       'client_secret_expires_at',
       'client_id_issued_at',
+      // The server builds this from its own endpoint and the client_id. It
+      // was reaching the extras blob and being echoed back on every edit;
+      // dev.cilogon.org tolerates that, but the plugin has no business
+      // asserting a URL the server owns.
+      'registration_client_uri',
     );
 
     try {
@@ -1936,7 +2009,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $response = $http->request($request);
 
-    $this->log("OA4MP Server response is " . print_r($response, true));
+    $this->log("OA4MP Server response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
     $contentType = $response->getHeader('Content-Type');
 

@@ -25,6 +25,19 @@ class Oa4mpTestShell extends AppShell {
       CakePlugin::load('Oa4mpClient');
     }
 
+    // Merge the plugin's Lib/lang.php texts into the translation table.
+    //
+    // Registry does this from AppController::beforeFilter(), so it happens on
+    // every web request but never in a console context -- core's own shells
+    // (JobShell, UpgradeVersionShell) each call it for themselves. Without it
+    // _txt() returns the key it was given, so the plugin sends OA4MP a client
+    // comment reading "pl.oa4mp_client_co_oidc_client.signature: ..." instead
+    // of its signature. The sync comparison calls the same _txt(), so both
+    // sides agree on the broken value and the comment assertion passes while
+    // proving nothing; the live-server tier created three real clients with
+    // that comment on 2026-08-23 before this was found.
+    _bootstrap_plugin_txt();
+
     $testDir = App::pluginPath('Oa4mpClient') . 'Test';
     // The test-case base first, then every other shared lib (fixture helpers,
     // stubs) so a test case can rely on them without its own requires.
