@@ -1,0 +1,85 @@
+{
+  "contract_version": 1,
+  "title": "COmanage Registry Oa4mpClient Plugin cfg Capability Contract",
+  "description": "Everything this plugin may emit into an OA4MP client cfg, declared once and read by every enforcement site that needs it: the marshaller's allowlist, the unmarshaller and sync comparator field lists, the cfg-side half of the log-redaction name list, and the QDL conformance check. This is a plain JSON declaration, not a JSON Schema: nothing validates it with a library, and this repository has no composer.json and no vendor tree. For the shape of a cfg -- what nests inside what -- see cfg_schema.json; this file says only which names may appear.",
+  "version_policy": {
+    "identifier": "contract_version is a monotonically increasing integer. It advances whenever the declared capability set changes, on a removal as much as on an addition, so the version at which a capability stopped being emitted is a real value that can be named and compared.",
+    "snapshot": "Each version remains addressable as a complete capability snapshot. A retired entry stays in this file marked retired rather than being deleted, so a cfg stamped with an older version stays interpretable after the capability it used stops being emitted.",
+    "retirement": "An entry is retired -- given a retired_in version -- only once no cfg stored on any OA4MP server still declares it. A plugin deployment moving past the version that stopped emitting a capability does not by itself clear that floor, because upgrading a deployment does not rewrite cfgs already stored. Nothing is frozen permanently; retirement waits on the floor, it is not forbidden by it.",
+    "on_raising": "A change that raises contract_version must record the QDL conformance check result for the target tier and name the QDL change that satisfies it. The QDL that reads these capabilities is deployed once per tier and serves every plugin version at once, so a tier must carry a capability before any plugin deployment emits it."
+  },
+  "entry_fields": {
+    "name": "The literal name as it appears in a cfg, or the literal value in the case of an enumerated-value group.",
+    "introduced_in": "The contract_version at which this entry was first declared. Every entry seeded at version 1 predates the contract itself.",
+    "retired_in": "The contract_version at which the plugin stopped emitting this entry, or null while it is still emitted. Always present: a missing retired_in is a malformed entry, never an implied null.",
+    "secret_bearing": "Whether the entry's VALUE is a credential. Always present; a missing flag is a malformed entry and must not default to false. The cfg-side names the plugin redacts from its logs are derived from this flag, so a credential-carrying capability cannot be declared without being redacted."
+  },
+  "capabilities": {
+    "qdl_args": {
+      "description": "Keys the plugin may set under tokens.identity.qdl.args.",
+      "entries": [
+        { "name": "require_active_status", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "authorization_group_id", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "authorization_group_redirect_url", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "require_active_redirect_url", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "dynamo_module_config", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "partition_key_template", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "partition_key_claim_name", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "claim_mappings", "introduced_in": 1, "retired_in": null, "secret_bearing": false }
+      ]
+    },
+    "dynamo_module_config_keys": {
+      "description": "Keys the plugin may set inside the dynamo_module_config arg. The two AWS credential keys are the only secret-bearing capabilities a cfg carries.",
+      "entries": [
+        { "name": "region", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "access_key_id", "introduced_in": 1, "retired_in": null, "secret_bearing": true },
+        { "name": "secret_access_key", "introduced_in": 1, "retired_in": null, "secret_bearing": true },
+        { "name": "table_name", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "partition_key", "introduced_in": 1, "retired_in": null, "secret_bearing": false }
+      ]
+    },
+    "claim_mapping_fields": {
+      "description": "Field names the plugin may set on a single entry of the claim_mappings arg. Order is load-bearing and is the order a marshalled mapping carries: the seven data columns of oa4mp_client_claims in Config/Schema/schema.xml column order, then claim_constraints last. A field marked column_backed false has no column on that table; claim_constraints is synthesised by the marshaller from the claim's Oa4mpClientClaimConstraint rows and appended after the columns, which is why it sits last and is exempt from the column correspondence. A mapping omits any field whose value is empty, so a declared field need not appear in every mapping; the contract fixes which fields may appear and in what order, not that they all do.",
+      "entries": [
+        { "name": "claim_name", "introduced_in": 1, "retired_in": null, "secret_bearing": false, "column_backed": true },
+        { "name": "source_model", "introduced_in": 1, "retired_in": null, "secret_bearing": false, "column_backed": true },
+        { "name": "source_model_claim_value_field", "introduced_in": 1, "retired_in": null, "secret_bearing": false, "column_backed": true },
+        { "name": "claim_value_selection", "introduced_in": 1, "retired_in": null, "secret_bearing": false, "column_backed": true },
+        { "name": "claim_value_json_format", "introduced_in": 1, "retired_in": null, "secret_bearing": false, "column_backed": true },
+        { "name": "claim_multiple_value_serialization", "introduced_in": 1, "retired_in": null, "secret_bearing": false, "column_backed": true },
+        { "name": "claim_value_string_serialization_delimiter", "introduced_in": 1, "retired_in": null, "secret_bearing": false, "column_backed": true },
+        { "name": "claim_constraints", "introduced_in": 1, "retired_in": null, "secret_bearing": false, "column_backed": false }
+      ]
+    },
+    "claim_constraint_fields": {
+      "description": "Field names the plugin may set on a single entry of a mapping's claim_constraints list. A constraint is emitted only when both fields are populated.",
+      "entries": [
+        { "name": "constraint_field", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "constraint_value", "introduced_in": 1, "retired_in": null, "secret_bearing": false }
+      ]
+    },
+    "source_model_values": {
+      "description": "Values the plugin may emit for a mapping's source_model. These are the claim sources the claims tab offers in View/Oa4mpClientClaims/fields.inc; the QDL must handle each one.",
+      "entries": [
+        { "name": "EmailAddress", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "CoGroupMember", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "Identifier", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "Name", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "CoPersonRole", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "SshKey", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "CoTAndCAgreement", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "UnixClusterAccount", "introduced_in": 1, "retired_in": null, "secret_bearing": false }
+      ]
+    },
+    "constraint_field_values": {
+      "description": "Values the plugin may emit for a constraint's constraint_field. These are the constraint fields the claims tab assigns per claim source.",
+      "entries": [
+        { "name": "type", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "verified", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "owner", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "primary", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "status", "introduced_in": 1, "retired_in": null, "secret_bearing": false }
+      ]
+    }
+  }
+}

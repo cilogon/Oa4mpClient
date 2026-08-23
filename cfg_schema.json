@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cilogon.org/schemas/COmanage/Registry/plugin/Oa4mpClient/cfg/v3/flex.schema.json",
   "title": "COmanage Registry Oa4mpClient Plugin OA4MP Client Configuration cfg (Flexible)",
+  "description": "The shape of a cfg: what nests inside what, and what a consumer must tolerate. It is deliberately permissive, because a cfg may also carry operator-authored content this plugin never writes. For the vocabulary the plugin itself may emit -- the QDL arg keys, the claim-mapping and constraint field names, and the source_model and constraint_field values, each with the contract version it was introduced at and whether it is secret-bearing -- cfg_contract.json is the authority, and this schema does not restate it.",
   "type": "object",
 
   "required": ["tokens"],

@@ -8,6 +8,17 @@ This is the format for the cfg entry written to the OA4MP server.
 
 See this [JSON Schema schema file](./cfg_schema.json).
 
+### Emittable vocabulary
+
+The schema describes the shape of a cfg and is deliberately permissive, since a
+cfg may also carry operator-authored content this plugin never writes. The
+authority on what the plugin itself may emit is the capability contract,
+[cfg_contract.json](./cfg_contract.json): it declares every QDL arg key, every
+claim-mapping and constraint field name, and every `source_model` and
+`constraint_field` value, each with the contract version it was introduced at,
+the version it was retired at if any, and whether it is secret-bearing. The
+contract carries a version of its own that advances whenever that set changes.
+
 ### Example
 
 See this [example cfg JSON object](./cfg_example.json).
