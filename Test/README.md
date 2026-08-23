@@ -294,9 +294,17 @@ In CI the tier runs from `.github/workflows/live-server-tests.yml` on a schedule
 (`OA4MP_LIVE_SERVER_URL`, `OA4MP_LIVE_ADMIN_IDENTIFIER`,
 `OA4MP_LIVE_ADMIN_SECRET`, `OA4MP_LIVE_CO_ID`), with the environment's
 deployment-branch policy restricted to `main`; the job additionally guards on
-`github.ref`, and the workflow has no `pull_request`, `pull_request_target`, or
-`workflow_run` trigger. `Test/Case/CiWorkflowTest.php` runs in the hermetic gate
-and fails if any of that wiring changes.
+`github.ref` and on `github.repository`, and the workflow has no
+`pull_request`, `pull_request_target`, or `workflow_run` trigger.
+`Test/Case/CiWorkflowTest.php` runs in the hermetic gate and fails if any of
+that wiring changes.
+
+The `github.repository` guard is what keeps the tier off forks. A fork's
+schedule fires from the fork's own default branch, and a fork must never hold
+the credential, so a scheduled run there can only fail -- one did, nightly,
+from the day this workflow reached `main`. The job is skipped on a fork
+instead. Run the tier on a fork with `Test/run-live.sh` and your own test admin
+client, which is where iterating on it belongs anyway.
 
 **Not configured in CI yet.** The environment exists in name only -- GitHub
 created it empty the first time the scheduled job referenced it -- so it holds

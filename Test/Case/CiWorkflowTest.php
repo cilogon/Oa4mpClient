@@ -86,6 +86,26 @@ class CiWorkflowTest extends Oa4mpTestCase {
   }
 
   /**
+   * The live tier must not run on a fork.
+   *
+   * A fork's schedule fires from the fork's own default branch, and a fork
+   * must never hold the dev.cilogon.org credential, so a scheduled run there
+   * can only fail -- one did, nightly, from the day this workflow reached
+   * main. The guard is in the workflow rather than in one fork's Actions
+   * settings because settings are per-fork and the next fork does not inherit
+   * them.
+   *
+   * Asserted on the canonical repository's full name: a fork's
+   * github.repository differs from it whatever the fork is called.
+   */
+  public function testLiveTierDoesNotRunOnAFork() {
+    $yaml = $this->directives($this->workflow('live-server-tests.yml'));
+
+    $this->assertContains("github.repository == 'cilogon/Oa4mpClient'", $yaml,
+      'the live tier must refuse to run outside the canonical repository');
+  }
+
+  /**
    * The two tests above lock the two workflows by name. This one locks the
    * directory, so a third workflow added later cannot quietly reintroduce the
    * combination they exist to forbid: a trigger that runs a pull request's code
