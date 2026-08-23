@@ -96,6 +96,88 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * Reduce one claim row to the normalized shape isClientDataSynchronized()
+   * compares.
+   *
+   * Both sides of that comparison -- the plugin's claim rows and the OA4MP
+   * server's -- are normalized by this one function. That is the point of it:
+   * the rules below only mean anything if both sides apply exactly the same
+   * ones, and two hand-maintained copies of them were free to drift apart.
+   *
+   * The rules are the marshaller's, because the marshaller is what actually
+   * went over the wire:
+   *
+   *  - An empty value is no value. oa4mpMarshallCfgQdl() strips any empty
+   *    value from the emitted mapping, and empty('0') is true, so a
+   *    string-zero value field is never sent to the server. Reading such a
+   *    field here with ?? kept the '0' on the plugin side and compared it
+   *    against the server's absent value; '0' does not equal null even
+   *    loosely, so the client reported out of sync on every verify pass and
+   *    could not be repaired by re-sending the same data.
+   *
+   *  - A constraint counts only when BOTH of its fields are populated, which
+   *    is the rule oa4mpMarshallCfgQdl() applies when it emits them. Keeping a
+   *    half-populated constraint here compared one constraint against the
+   *    nothing that was actually sent, so the client reported out of sync
+   *    permanently.
+   *
+   * @param array  $claim            One claim row, optionally carrying its
+   *                                 Oa4mpClientClaimConstraint rows.
+   * @param mixed  $clientIdentifier oa4mp_identifier of the client being
+   *                                 compared, named in the dropped-constraint
+   *                                 log below.
+   * @param string $side             Which representation this claim came from,
+   *                                 'plugin' or 'oa4mp', also for that log.
+   * @return array The normalized claim.
+   * @since COmanage Registry 4.4.2
+   */
+
+  private function normalizeClaimForComparison($claim, $clientIdentifier, $side) {
+    $normalized = array();
+    $normalized['claim_name'] = $claim['claim_name'];
+    $normalized['source_model'] = $claim['source_model'];
+    $normalized['source_model_claim_value_field'] = !empty($claim['source_model_claim_value_field']) ? $claim['source_model_claim_value_field'] : null;
+    $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
+    $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
+    $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
+    $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
+
+    $constraints = array();
+    if(!empty($claim['Oa4mpClientClaimConstraint'])) {
+      foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
+        if(!empty($constraint['constraint_field']) && !empty($constraint['constraint_value'])) {
+          $constraints[] = array(
+            'constraint_field' => $constraint['constraint_field'] ?? null,
+            'constraint_value' => $constraint['constraint_value'] ?? null
+          );
+        } elseif(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
+          // Dropping the constraint takes it out of the comparison, so this is
+          // the only place that state stays visible. Log the client and the
+          // constraint's field name only -- never the constraint value and
+          // never a row-shaped payload, which in this model can carry the
+          // DynamoDB credentials.
+          $this->log("Oa4mpClientClaim: dropping half-populated constraint from"
+                     . " the " . $side . "-side comparison"
+                     . " (client=" . var_export($clientIdentifier, true)
+                     . ", constraint_field=" . var_export($constraint['constraint_field'] ?? null, true) . ")");
+        }
+      }
+    }
+
+    // Sort constraints for consistent comparison.
+    usort($constraints, function($a, $b) {
+      $fieldCmp = strcmp($a['constraint_field'] ?? '', $b['constraint_field'] ?? '');
+      if($fieldCmp !== 0) {
+        return $fieldCmp;
+      }
+      return strcmp($a['constraint_value'] ?? '', $b['constraint_value'] ?? '');
+    });
+    $normalized['constraints'] = $constraints;
+
+    return $normalized;
+  }
+
+  /**
    * Determine if our representation of the client and the Oa4mp server
    * representation of the client is synchronized, in order to detect
    * if the client has been changed outside of this plugin.
@@ -464,108 +546,16 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // Build a normalized array of claims from curData for comparison.
       $curClaimsNormalized = array();
       foreach($curClaims as $claim) {
-        $normalized = array();
-        $normalized['claim_name'] = $claim['claim_name'];
-        $normalized['source_model'] = $claim['source_model'];
-        // Use the same emptiness test the marshaller uses, not a null coalesce.
-        // oa4mpMarshallCfgQdl() strips any empty value from the emitted mapping,
-        // and empty('0') is true, so a string-zero value field is never sent to
-        // the server. Reading it here with ?? kept the '0' on the plugin side and
-        // compared it against the server's absent value; '0' does not equal null
-        // even loosely, so the client reported out of sync on every verify pass
-        // and could not be repaired by re-sending the same data.
-        $normalized['source_model_claim_value_field'] = !empty($claim['source_model_claim_value_field']) ? $claim['source_model_claim_value_field'] : null;
-        $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
-        $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
-        $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
-        $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
-
-        // Normalize constraints. Keep a constraint only when BOTH fields are
-        // populated, which is the rule oa4mpMarshallCfgQdl() applies when it
-        // emits them. Keeping a half-populated constraint here compared one
-        // constraint against the nothing that was actually sent, so the client
-        // reported out of sync permanently.
-        $constraints = array();
-        if(!empty($claim['Oa4mpClientClaimConstraint'])) {
-          foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
-            if(!empty($constraint['constraint_field']) && !empty($constraint['constraint_value'])) {
-              $constraints[] = array(
-                'constraint_field' => $constraint['constraint_field'] ?? null,
-                'constraint_value' => $constraint['constraint_value'] ?? null
-              );
-            } elseif(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
-              // Dropping the constraint takes it out of the comparison, so this
-              // is the only place that state stays visible. Log the client and
-              // the constraint's field name only -- never the constraint value
-              // and never a row-shaped payload, which in this model can carry
-              // the DynamoDB credentials.
-              $this->log("Oa4mpClientClaim: dropping half-populated constraint from"
-                         . " the plugin-side comparison"
-                         . " (client=" . var_export($clientIdentifier, true)
-                         . ", constraint_field=" . var_export($constraint['constraint_field'] ?? null, true) . ")");
-            }
-          }
-        }
-        // Sort constraints for consistent comparison.
-        usort($constraints, function($a, $b) {
-          $fieldCmp = strcmp($a['constraint_field'] ?? '', $b['constraint_field'] ?? '');
-          if($fieldCmp !== 0) {
-            return $fieldCmp;
-          }
-          return strcmp($a['constraint_value'] ?? '', $b['constraint_value'] ?? '');
-        });
-        $normalized['constraints'] = $constraints;
-
-        $curClaimsNormalized[] = $normalized;
+        $curClaimsNormalized[] = $this->normalizeClaimForComparison($claim, $clientIdentifier, 'plugin');
       }
 
       // Build a normalized array of claims from oa4mpServerData for comparison.
+      // The same helper as above, deliberately: the two sides have to apply the
+      // marshaller's rules identically or the comparison is between different
+      // questions.
       $oa4mpClaimsNormalized = array();
       foreach($oa4mpClaims as $claim) {
-        $normalized = array();
-        $normalized['claim_name'] = $claim['claim_name'];
-        $normalized['source_model'] = $claim['source_model'];
-        // Same emptiness test as the plugin-side normalization above, for the
-        // same reason: the two sides have to apply the marshaller's rule
-        // identically or the comparison is between different questions.
-        $normalized['source_model_claim_value_field'] = !empty($claim['source_model_claim_value_field']) ? $claim['source_model_claim_value_field'] : null;
-        $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
-        $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
-        $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
-        $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
-
-        // Normalize constraints, applying the marshaller's both-fields rule the
-        // same way the plugin-side normalization above does.
-        $constraints = array();
-        if(!empty($claim['Oa4mpClientClaimConstraint'])) {
-          foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
-            if(!empty($constraint['constraint_field']) && !empty($constraint['constraint_value'])) {
-              $constraints[] = array(
-                'constraint_field' => $constraint['constraint_field'] ?? null,
-                'constraint_value' => $constraint['constraint_value'] ?? null
-              );
-            } elseif(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
-              // A half-populated constraint on the OA4MP server's own copy is
-              // the case the plugin can no longer report, so it matters more
-              // here than on the plugin side. Client and field name only.
-              $this->log("Oa4mpClientClaim: dropping half-populated constraint from"
-                         . " the oa4mp-side comparison"
-                         . " (client=" . var_export($clientIdentifier, true)
-                         . ", constraint_field=" . var_export($constraint['constraint_field'] ?? null, true) . ")");
-            }
-          }
-        }
-        // Sort constraints for consistent comparison.
-        usort($constraints, function($a, $b) {
-          $fieldCmp = strcmp($a['constraint_field'] ?? '', $b['constraint_field'] ?? '');
-          if($fieldCmp !== 0) {
-            return $fieldCmp;
-          }
-          return strcmp($a['constraint_value'] ?? '', $b['constraint_value'] ?? '');
-        });
-        $normalized['constraints'] = $constraints;
-
-        $oa4mpClaimsNormalized[] = $normalized;
+        $oa4mpClaimsNormalized[] = $this->normalizeClaimForComparison($claim, $clientIdentifier, 'oa4mp');
       }
 
       // Sort both arrays by claim_name for consistent comparison.
