@@ -110,11 +110,23 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # of its own is `$total === 0`.
 #
 # The floor sits a few tests below the suite's current size: the hermetic tier
-# runs 204 tests today, so 201 leaves three tests of headroom. That way
+# runs 211 tests today, so 208 leaves three tests of headroom. That way
 # consolidating a case or two never forces an edit here, while any loss of four
 # or more goes red -- that is every test file in the tree except the two
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
+#
+# The 211 is 204 plus the seven methods in
+# Test/Case/Lib/QdlConformanceTest.php, which cover the QDL conformance check
+# bin/qdl-conformance.php performs against a named tier: the two directions
+# (a contract capability the QDL does not implement fails and is named; a
+# capability the QDL implements beyond the contract does not, since a tier is
+# deployed ahead of the plugin), the fail-closed cross-check against the QDL's
+# declaration block (an undeclared literal in the code, and a read form the
+# extractor does not recognize), and the three outcomes that must stay
+# distinct in a report pasted into a PUBLIC pull request -- a pass, a tier
+# with no QDL at that path, and a QDL with no declaration block -- plus one
+# that no content read from the private QDL reaches that report at all.
 #
 # The 204 is 203 plus the one method added to ClaimCfgDriftTest's Half B, which
 # walks a column added to the claim table through the path such a column takes
@@ -150,7 +162,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=201
+min_tests_run=208
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
