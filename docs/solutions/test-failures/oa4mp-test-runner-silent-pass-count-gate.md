@@ -121,7 +121,7 @@ not one, but both are zero-floors, so the argument stands unchanged.)
 the log*, as an unanchored substring. That became forgeable the moment the suite grew a test
 that reads `Test/run.sh` and asserts on its text --
 `ClaimsControllerHarnessTest::testRunShRequiresTheAllTestsPassedSentinel`
-(`Test/Case/Controller/ClaimsControllerHarnessTest.php:307-332`) does exactly that,
+(`Test/Case/Controller/ClaimsControllerHarnessTest.php:325-356`) does exactly that,
 asserting the script contains `ALL_TESTS_PASSED` and `grep -q`. The literal now lives in the
 suite's own test data, so a failing assertion that dumped its haystack -- or any test that
 echoed the file -- would put the sentinel in the log without the runner ever reaching it.
@@ -181,7 +181,7 @@ has finished, so nothing a test emits can land after it. And the block is anchor
 ### The count gate
 
 ```bash
-min_tests_run=155
+min_tests_run=157
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
@@ -197,7 +197,7 @@ if [ "$tests_run" -lt "$min_tests_run" ]; then
 fi
 ```
 
-(`Test/run.sh:118-131`; the success line at `:133` now reports the number it checked:
+(`Test/run.sh:125-138`; the success line at `:140` now reports the number it checked:
 `==> Suite passed (ALL_TESTS_PASSED, $tests_run tests).`)
 
 Note the empty case is failed explicitly rather than left to arithmetic. A missing summary
@@ -208,20 +208,27 @@ the suite's current size, so consolidating a case or two never forces an edit he
 losing four or more goes red. Raise it deliberately as the suite grows; lower it only
 together with a deliberate removal, never to make a red run green.
 
-**The worked example under that rule is already stale, and that is itself the lesson.** The
-comment at `Test/run.sh:112-117` still reads "the hermetic tier runs 146 tests today, so 143
-leaves three tests of headroom" -- the numbers `0dd72aa` shipped. The constant on the very
-next line is `min_tests_run=155`, raised in `34e5503` later in the same pull request as the
-suite grew. The tree today has **159** hermetic `test*` methods across 17 files, matching the
-`159 tests run, 0 failed.` the post-merge CI log printed on `main`, so the real headroom is
-**four**, not three. The derivation *rule* is unchanged and still correct; only its worked
-example drifted, within a single pull request, because the number and the prose justifying
-it were maintained by hand and separately. The comment should be refreshed to 159/155/4.
+**The worked example under that rule went stale, and that is itself the lesson.** As shipped,
+the comment read "the hermetic tier runs 146 tests today, so 143 leaves three tests of
+headroom" -- the numbers `0dd72aa` introduced. The constant on the very next line was then
+raised from 143 to `min_tests_run=155` by `34e5503`, later in the same pull request, as the
+suite grew; the prose was not touched. The derivation *rule* was unchanged and still correct.
+Only its worked example drifted, within a single pull request, because the number and the
+prose justifying it were maintained by hand and separately -- the constant stayed true because
+the suite's red/green outcome depends on it, and the prose did not because nothing depends on
+prose.
 
-The comment's "every test file except the two smallest" claim happens to still hold at
-159/155 -- the files with fewer than four tests are `ClaimMigrationTest` (2) and
-`NamedConfigClaimSyncTest` (3) -- but that is a coincidence of the new numbers, not something
-the comment tracked.
+The drift also quietly weakened the gate. At 155 against 159 the headroom was four, not the
+three the rule intends, so a whole test file could go missing without reddening anything: a
+loss of N tests only trips the gate when `159 - N < 155`, that is when N is five or more, and
+four files sat at or under four tests. The comment's own "every test file except the two
+smallest" claim was therefore false at 155, not merely out of date.
+
+Both are corrected on branch `fix/test-lock-the-count-gate` (merge pending): the floor moves
+to **157** against the current **160** hermetic `test*` methods across 17 files, restoring
+three tests of headroom, and the comment is rewritten to those numbers. At 160/157 the "two
+smallest" claim is true again -- a loss trips the gate when N is four or more, and the only
+files under that are `ClaimMigrationTest` (2) and `NamedConfigClaimSyncTest` (3).
 
 ### The precedent it extends
 
@@ -268,7 +275,7 @@ fine" output and the "I checked nothing" output are the same bytes. Whenever a g
 is a *verdict* rather than a *measurement*, ask what it prints when it is doing nothing --
 and if the answer is "the same thing", add a measurement with a floor. This repo now has
 three instances of that same move: `min_plugin_tables` (`Test/run.sh:46`), `min_tests_run`
-(`Test/run.sh:118`), and gitleaks' `[extend] useDefault = true`, locked by
+(`Test/run.sh:125`), and gitleaks' `[extend] useDefault = true`, locked by
 `CiWorkflowTest::testSecretScanConfigExtendsTheDefaultRules`.
 
 **Guard the partial case, not just the empty one.** `07f448f` had already closed
@@ -290,25 +297,37 @@ suite's red/green outcome depends on it; the prose did not, because nothing depe
 Prefer deriving a floor from something the suite already computes over restating it, and
 where a literal is unavoidable, expect its justification to rot faster than the literal.
 
-**Test the gate, not just through the gate.** Two concrete gaps remain here, and closing them
-is the checkable follow-up:
+**Test the gate, not just through the gate.** Three gaps were open when this was first
+written, and writing it down is what surfaced them. All three are closed on branch
+`fix/test-lock-the-count-gate` (merge pending):
 
-- One test asserts gate 2 exists in the script
-  (`ClaimsControllerHarnessTest::testRunShRequiresTheAllTestsPassedSentinel`,
-  `Test/Case/Controller/ClaimsControllerHarnessTest.php:307-332`); **nothing asserts gate 3
-  exists.** Deleting `min_tests_run` from `Test/run.sh` today reddens nothing. That test is
-  worth extending to assert the floor line and the `^ALL_TESTS_PASSED$` anchoring, the way
-  `CiWorkflowTest` locks the CI wiring from inside the gate.
-- `Test/README.md` documents gate 1, gate 2 (`:136-138`) and the table floor (`:275-279`),
-  but never mentions the count gate. A gate nobody has read about is a gate somebody will
-  delete during a cleanup.
-- `Test/run-live.sh` runs the same runner but ends at the `docker compose exec` with no
-  sentinel check and no count check; it has the table floor and gate 1 only. It is a
-  non-gating, single-file tier, so a count floor is a poor fit -- but the mid-run `exit(0)`
-  hole gate 2 exists to close applies there unchanged.
+- One test asserted gate 2 existed
+  (`ClaimsControllerHarnessTest::testRunShRequiresTheAllTestsPassedSentinel`); **nothing
+  asserted gate 3 existed**, so deleting `min_tests_run` from `Test/run.sh` reddened nothing.
+  `testRunShRequiresAPlausibleTestCount` now locks it. It derives the expected count by
+  scanning the source for public `test*` declarations rather than by calling
+  `get_class_methods()` -- deliberately, because that is the mechanism whose silent
+  subtraction the gate exists to catch, so counting with it would agree with the runner by
+  construction and prove nothing. Counting the source is an independent derivation that
+  *disagrees* when discovery shrinks. It also bounds how far the floor may sit below the
+  tree, so the drift described above is caught next time even if the comment goes stale
+  again.
+- The gate-2 test asserted that `run.sh` greps for the literal, not that it matches it
+  **anchored** inside the verdict block -- and that same test file contains the sentinel
+  literal, which is exactly why the anchoring exists. The assertion now covers the anchoring,
+  which is the property doing the work.
+- `Test/README.md` documented gates 1 and 2 and the table floor but never the count gate. A
+  gate nobody has read about is a gate somebody will delete during a cleanup. It now has a
+  "The three gates" section.
+- `Test/run-live.sh` ran the same runner but ended at the `docker compose exec` with no
+  sentinel check and no count check. It now applies gate 2, which matters more there than in
+  the hermetic tier: that tier creates real clients, so a run that stops early can strand one
+  on the server and would have reported success. The count floor is deliberately not mirrored
+  -- it discovers one directory, where a floor would need editing on nearly every change and
+  would stop meaning anything.
 
 **Verified red, applied to the gate itself.** The repo already requires every regression test
-to be proven red by restoring the pre-fix path (`Test/README.md:189-192`). A gate is subject
+to be proven red by restoring the pre-fix path (`Test/README.md:234-237`). A gate is subject
 to the same rule, and the two directions differ: prove it goes red when the thing it watches
 is broken, *and* prove the old gate would have stayed green on the same input. Without the
 second half you have not shown the new gate adds anything.
@@ -338,7 +357,7 @@ line, and inside an `echo`) but no `N tests run` summary, `grep -q 'ALL_TESTS_PA
 returns 0 -- green -- while the verdict-block extraction yields an empty block and
 `grep -q '^ALL_TESTS_PASSED$'` returns non-zero -- red. On a truncated-but-clean log
 (`12 tests run, 0 failed.` then `ALL_TESTS_PASSED` then a trailing shutdown warning), gate 2
-passes, the extracted `tests_run` is `12`, and `[ 12 -lt 155 ]` fails the run. Separately,
+passes, the extracted `tests_run` is `12`, and `[ 12 -lt 157 ]` fails the run. Separately,
 the visibility premise was confirmed on PHP 8.4.24: called from an unrelated class,
 `get_class_methods()` on a case with public `testA`/`testD`, private `testB` and protected
 `testC` returns exactly `[testA, testD]`, silently.

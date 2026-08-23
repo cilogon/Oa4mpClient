@@ -34,6 +34,51 @@ suite, and tears everything down (exiting non-zero if any test fails):
 Test/run.sh
 ```
 
+## The three gates
+
+`Test/run.sh` reports success only when all three of these hold. None is
+sufficient alone, and each covers a failure the others cannot see:
+
+1. **The exec exit status**, which catches a failing assertion. It is not a
+   backstop on its own: a test that reaches `exit(0)` -- its own, or one inside
+   the code under test such as `Controller::redirect()`'s `_stop()` -- ends the
+   process mid-run with a success status, and a run that stopped after three of
+   a hundred tests looks exactly like a completed one.
+2. **The runner's `ALL_TESTS_PASSED` sentinel**, which it prints only after
+   every discovered test has run and passed, so a mid-run `exit(0)` cannot
+   reach it. It is matched as a line of its own inside the runner's verdict
+   block -- everything from the `N tests run, M failed.` summary onward -- and
+   not as a substring of the whole log. Test cases now read `run.sh` and assert
+   on its text, so the literal lives in the suite's own test data; an
+   unanchored search would be satisfiable by a test that echoed the file. The
+   verdict block is the one region no test can write into, because the runner
+   prints it only after the last test has run.
+3. **A floor on how many tests actually ran** (`min_tests_run` in `run.sh`),
+   because gate 2 says nothing about how many tests discovery found in the
+   first place. `ALL_TESTS_PASSED` means "everything I was given passed"; it
+   cannot speak to what it was not given. A `test*` method that acquires a
+   `private` keyword drops out of `get_class_methods()`, and a file renamed off
+   the `*Test.php` glob drops out of the scan -- either one retires a
+   regression test while gates 1 and 2 stay green. The runner's own floors are
+   both zero cases, so only a floor above zero catches a partial loss.
+
+The floor sits a few tests below the suite's current size, so consolidating a
+case or two never forces an edit while losing four or more goes red. **Raise it
+deliberately as the suite grows; lower it only alongside a deliberate removal,
+never to make a red run green.**
+`ClaimsControllerHarnessTest::testRunShRequiresAPlausibleTestCount` counts the
+tree independently of the runner and reddens if the floor falls materially
+behind, because the floor is a hand-maintained number and has drifted before.
+
+Background and the full failure analysis:
+`docs/solutions/test-failures/oa4mp-test-runner-silent-pass-count-gate.md`.
+
+The live tier (`Test/run-live.sh`) applies gates 1 and 2, but not 3: it
+discovers only `Test/Case/LiveServer`, where the count is small enough that a
+floor would need editing on nearly every change. Gate 2 matters more there than
+in the hermetic tier, because a run that stops early can strand a real client
+on the server.
+
 ## Writing tests
 
 A test case extends `Oa4mpTestCase` (`Test/lib/Oa4mpTestCase.php`) and defines
@@ -135,7 +180,7 @@ fake, and overrides `redirect()` to record its target and then throw, because a
 redirect that returned would let the public-client guard fall through into the
 server call. It never calls `constructClasses()`. `Test/run.sh` additionally
 requires the runner's `ALL_TESTS_PASSED` sentinel, so a mid-run `exit(0)`
-reddens the gate instead of reporting green.
+reddens the gate instead of reporting green (see **The three gates** below).
 
 The two test cases that drive it -- `ClaimsControllerHarnessTest` and
 `ClaimsWritePathTest` -- extend `Test/lib/Oa4mpClaimsControllerTestCase.php`,
