@@ -138,10 +138,23 @@ class Oa4mpClientClaimsController extends StandardController {
           return !empty($c['constraint_field']) && !empty($c['constraint_value']);
         });
 
-        $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
-
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_claim.add.flash.success'), array('key' => 'success'));
+        // The OA4MP server has already accepted the new claim, so this save is
+        // the second half of a pair that must both land. Discarding its result
+        // reports success while the plugin and the server disagree, and the
+        // synchronization guard then blocks every later edit of this client.
+        if(!$this->Oa4mpClientClaim->saveAssociated($this->request->data)) {
+          // Set flash and redirect below. This branch must not fall through to
+          // the GET logic the way the branches above do: that tail re-verifies
+          // against the OA4MP server, finds the drift this failure just
+          // created, and flashes the generic out-of-sync message under the
+          // same error key -- overwriting this one before the user reads it.
+          // The tail also clears the posted data, so falling through would not
+          // return the form either.
+          $this->Flash->set(_txt('pl.oa4mp_client_claim.er.add.save'), array('key' => 'error'));
+        } else {
+          // Set flash successful.
+          $this->Flash->set(_txt('pl.oa4mp_client_claim.add.flash.success'), array('key' => 'success'));
+        }
 
         // Redirect to the index view.
         $args = array();
@@ -261,10 +274,21 @@ class Oa4mpClientClaimsController extends StandardController {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
     } else {
       // Update successful so delete the claim.
-      $ret = $this->Oa4mpClientClaim->delete($id);
-
-      // Set flash successful.
-      $this->Flash->set(_txt('pl.oa4mp_client_claim.delete.flash.success'), array('key' => 'success'));
+      //
+      // The OA4MP server has already dropped the claim, so this delete is the
+      // second half of a pair that must both land. Discarding its result
+      // reports success while the plugin and the server disagree, and the
+      // synchronization guard then blocks every later edit of this client.
+      if(!$this->Oa4mpClientClaim->delete($id)) {
+        // Set flash and redirect below. This branch must not fall through the
+        // way the error branches above do: there is no delete view to render,
+        // so falling through raises a missing view error instead of showing
+        // this message.
+        $this->Flash->set(_txt('pl.oa4mp_client_claim.er.delete.remove'), array('key' => 'error'));
+      } else {
+        // Set flash successful.
+        $this->Flash->set(_txt('pl.oa4mp_client_claim.delete.flash.success'), array('key' => 'success'));
+      }
 
       // Redirect to the index view.
       $args = array();
@@ -331,10 +355,24 @@ class Oa4mpClientClaimsController extends StandardController {
           return !empty($c['constraint_field']) && !empty($c['constraint_value']);
         });
 
-        $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
-
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_claim.edit.flash.success'), array('key' => 'success'));
+        // The OA4MP server has already accepted the edited claim, so this save
+        // is the second half of a pair that must both land. Discarding its
+        // result reports success while the plugin and the server disagree, and
+        // the synchronization guard then blocks every later edit of this
+        // client.
+        if(!$this->Oa4mpClientClaim->saveAssociated($this->request->data)) {
+          // Set flash and redirect below. This branch must not fall through to
+          // the GET logic the way the branches above do: that tail re-verifies
+          // against the OA4MP server, finds the drift this failure just
+          // created, and flashes the generic out-of-sync message under the
+          // same error key -- overwriting this one before the user reads it.
+          // The tail also clears the posted data, so falling through would not
+          // return the form either.
+          $this->Flash->set(_txt('pl.oa4mp_client_claim.er.edit.save'), array('key' => 'error'));
+        } else {
+          // Set flash successful.
+          $this->Flash->set(_txt('pl.oa4mp_client_claim.edit.flash.success'), array('key' => 'success'));
+        }
 
         // Redirect to the index view.
         $args = array();
