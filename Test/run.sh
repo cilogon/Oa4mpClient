@@ -13,7 +13,13 @@ set -euo pipefail
 TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$TEST_DIR/docker"
 
-cleanup() { docker compose down -v >/dev/null 2>&1 || true; }
+# Captured suite output, so the sentinel check below has something to grep.
+suite_log="$(mktemp)"
+
+cleanup() {
+  rm -f "$suite_log"
+  docker compose down -v >/dev/null 2>&1 || true
+}
 trap cleanup EXIT
 
 echo "==> Bringing up Registry + Postgres..."
@@ -50,6 +56,31 @@ if [ -z "$plugin_table_count" ] || [ "$plugin_table_count" -lt "$min_plugin_tabl
 fi
 
 echo "==> Running the thin-runner test suite..."
-# The exec exit status propagates via `set -e`, so a failing suite fails run.sh.
+# Two independent gates, because neither is sufficient alone:
+#
+#   1. The exec exit status, which catches a failing assertion.
+#   2. The runner's ALL_TESTS_PASSED sentinel, which it prints only after every
+#      discovered test has run and passed.
+#
+# The exit status alone is not a backstop: a test that reaches exit(0) -- its
+# own, or one inside the code under test, for example Controller::redirect()'s
+# _stop() -- ends the whole process mid-run with a success status, and a run
+# that stopped after three of a hundred tests is indistinguishable from a
+# completed one. Requiring the sentinel closes that hole mechanically.
+suite_status=0
 docker compose exec -T comanage-registry bash -c '
-  cd /srv/comanage-registry/app && ./Console/cake Oa4mpClient.Oa4mp_test'
+  cd /srv/comanage-registry/app && ./Console/cake Oa4mpClient.Oa4mp_test' 2>&1 \
+  | tee "$suite_log" || suite_status=$?
+
+if [ "$suite_status" -ne 0 ]; then
+  echo "==> ERROR: the test suite exited with status $suite_status." >&2
+  exit 1
+fi
+
+if ! grep -q 'ALL_TESTS_PASSED' "$suite_log"; then
+  echo "==> ERROR: the suite exited 0 but never printed the runner's" \
+    "ALL_TESTS_PASSED sentinel, so it ended early rather than passing." >&2
+  exit 1
+fi
+
+echo "==> Suite passed (ALL_TESTS_PASSED)."

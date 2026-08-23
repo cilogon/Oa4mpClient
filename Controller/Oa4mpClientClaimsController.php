@@ -46,6 +46,23 @@ class Oa4mpClientClaimsController extends StandardController {
   public $requires_co = true;
 
   /**
+   * Construct the OA4MP server object the claims actions talk to.
+   *
+   * The single construction point for Oa4mpClientOa4mpServer in this
+   * controller. It exists so a test subclass can substitute a fake server and
+   * drive an action without reaching the network; production behavior is
+   * unchanged. Nothing in configuration or the request selects the class --
+   * substitution is only possible by subclassing in PHP.
+   *
+   * @since  COmanage Registry v4.4.2
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
+  }
+
+  /**
    * Redirect to the claims index with an error when the client is a public
    * client. Public clients release only the standard sub claim, so claim
    * configuration (add, edit, delete) is not permitted for them. Guards the
@@ -82,7 +99,7 @@ class Oa4mpClientClaimsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
@@ -220,7 +237,7 @@ class Oa4mpClientClaimsController extends StandardController {
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     $newClient = $client;
 
@@ -272,7 +289,7 @@ class Oa4mpClientClaimsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
@@ -420,7 +437,7 @@ class Oa4mpClientClaimsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
