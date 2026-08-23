@@ -10,6 +10,8 @@
       learning that documents the bug.
 - [ ] Behaviour changes are covered by tests; removed behaviour has its tests
       removed or updated.
+- [ ] Every changed expected cfg value in `Test/Case/Model/` names the
+      behaviour change it reflects; a re-recorded value is not a fix.
 
 <!--
 Reviewer expectation: a bug-fix pull request without a regression test is asked

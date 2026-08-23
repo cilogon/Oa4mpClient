@@ -46,6 +46,23 @@ class Oa4mpClientClaimsController extends StandardController {
   public $requires_co = true;
 
   /**
+   * Construct the OA4MP server object the claims actions talk to.
+   *
+   * The single construction point for Oa4mpClientOa4mpServer in this
+   * controller. It exists so a test subclass can substitute a fake server and
+   * drive an action without reaching the network; production behavior is
+   * unchanged. Nothing in configuration or the request selects the class --
+   * substitution is only possible by subclassing in PHP.
+   *
+   * @since  COmanage Registry v4.4.2
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
+  }
+
+  /**
    * Redirect to the claims index with an error when the client is a public
    * client. Public clients release only the standard sub claim, so claim
    * configuration (add, edit, delete) is not permitted for them. Guards the
@@ -82,7 +99,7 @@ class Oa4mpClientClaimsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
@@ -121,10 +138,28 @@ class Oa4mpClientClaimsController extends StandardController {
           return !empty($c['constraint_field']) && !empty($c['constraint_value']);
         });
 
-        $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
-
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_claim.add.flash.success'), array('key' => 'success'));
+        // The OA4MP server has already accepted the new claim, so this save is
+        // the second half of a pair that must both land. Discarding its result
+        // reports success while the plugin and the server disagree, and the
+        // synchronization guard then blocks every later edit of this client.
+        if(!$this->Oa4mpClientClaim->saveAssociated($this->request->data)) {
+          // Set flash and redirect below. This branch must not fall through to
+          // the GET logic the way the branches above do:
+          //
+          //  - that tail clears $this->request->data, so there would be no
+          //    posted claim left for the add form to render;
+          //  - it re-verifies against the OA4MP server, finds the drift this
+          //    failure just created and redirects anyway -- to the OIDC client
+          //    list, which is further from this client than the claims index
+          //    below;
+          //  - and reaching that verification costs a third round trip to the
+          //    OA4MP server, on top of the two oa4mpEditClient() has already
+          //    made.
+          $this->Flash->set(_txt('pl.oa4mp_client_claim.er.add.save'), array('key' => 'error'));
+        } else {
+          // Set flash successful.
+          $this->Flash->set(_txt('pl.oa4mp_client_claim.add.flash.success'), array('key' => 'success'));
+        }
 
         // Redirect to the index view.
         $args = array();
@@ -144,7 +179,16 @@ class Oa4mpClientClaimsController extends StandardController {
     $verifyResult = $oa4mpServer->oa4mpVerifyClient($admin, $client, true);
     if(!$verifyResult['synchronized']) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+
+      // Name the plugin and the controller. Without them Router::url resolves
+      // the target relative to the current request, which lands back on this
+      // controller's index with no clientid named parameter -- an action that
+      // cannot run. The OIDC client list is the nearest page that can still
+      // show this client; the claims index cannot, because it re-verifies on
+      // every request and would bounce the user straight back here.
       $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_co_oidc_clients';
       $args['action'] = 'index';
       $args['co'] = $this->cur_co['Co']['id'];
       $this->redirect($args);
@@ -220,7 +264,7 @@ class Oa4mpClientClaimsController extends StandardController {
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     $newClient = $client;
 
@@ -237,17 +281,50 @@ class Oa4mpClientClaimsController extends StandardController {
     // and the Oa4mp server representation of the client are out of sync.
     $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
     if($ret == 0) {
-      // Set flash and fall through to render again.
+      // Set flash and redirect to the claims index. This branch cannot fall
+      // through the way its counterparts in add() and edit() do: those actions
+      // have a view to render and delete() has none, so falling off the end
+      // here raises a missing view error in place of the message.
       $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_claims';
+      $args['action'] = 'index';
+      $args['clientid'] = $clientId;
+
+      $this->redirect($args);
     } elseif($ret == 2) {
-      // Set flash and fall through to render again.
+      // Set flash and redirect. Same missing view problem as the branch above,
+      // but the claims index is not the place to send an out-of-sync client:
+      // it re-verifies and would bounce straight back out. Use the target
+      // add() and edit() use for this verdict.
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_co_oidc_clients';
+      $args['action'] = 'index';
+      $args['co'] = $this->cur_co['Co']['id'];
+
+      $this->redirect($args);
     } else {
       // Update successful so delete the claim.
-      $ret = $this->Oa4mpClientClaim->delete($id);
-
-      // Set flash successful.
-      $this->Flash->set(_txt('pl.oa4mp_client_claim.delete.flash.success'), array('key' => 'success'));
+      //
+      // The OA4MP server has already dropped the claim, so this delete is the
+      // second half of a pair that must both land. Discarding its result
+      // reports success while the plugin and the server disagree, and the
+      // synchronization guard then blocks every later edit of this client.
+      if(!$this->Oa4mpClientClaim->delete($id)) {
+        // Set flash and redirect below. Falling off the end of this action
+        // renders nothing: there is no delete view in this plugin and none in
+        // Registry core, so it raises a missing view error in place of this
+        // message. The error branches above redirect for the same reason.
+        $this->Flash->set(_txt('pl.oa4mp_client_claim.er.delete.remove'), array('key' => 'error'));
+      } else {
+        // Set flash successful.
+        $this->Flash->set(_txt('pl.oa4mp_client_claim.delete.flash.success'), array('key' => 'success'));
+      }
 
       // Redirect to the index view.
       $args = array();
@@ -272,7 +349,7 @@ class Oa4mpClientClaimsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
@@ -314,10 +391,30 @@ class Oa4mpClientClaimsController extends StandardController {
           return !empty($c['constraint_field']) && !empty($c['constraint_value']);
         });
 
-        $ret = $this->Oa4mpClientClaim->saveAssociated($this->request->data);
-
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_claim.edit.flash.success'), array('key' => 'success'));
+        // The OA4MP server has already accepted the edited claim, so this save
+        // is the second half of a pair that must both land. Discarding its
+        // result reports success while the plugin and the server disagree, and
+        // the synchronization guard then blocks every later edit of this
+        // client.
+        if(!$this->Oa4mpClientClaim->saveAssociated($this->request->data)) {
+          // Set flash and redirect below. This branch must not fall through to
+          // the GET logic the way the branches above do:
+          //
+          //  - that tail reloads the claim from the database into
+          //    $this->request->data, so the edit form would come back showing
+          //    the stored values rather than the rejected ones;
+          //  - it re-verifies against the OA4MP server, finds the drift this
+          //    failure just created and redirects anyway -- to the OIDC client
+          //    list, which is further from this client than the claims index
+          //    below;
+          //  - and reaching that verification costs a third round trip to the
+          //    OA4MP server, on top of the two oa4mpEditClient() has already
+          //    made.
+          $this->Flash->set(_txt('pl.oa4mp_client_claim.er.edit.save'), array('key' => 'error'));
+        } else {
+          // Set flash successful.
+          $this->Flash->set(_txt('pl.oa4mp_client_claim.edit.flash.success'), array('key' => 'success'));
+        }
 
         // Redirect to the index view.
         $args = array();
@@ -337,7 +434,16 @@ class Oa4mpClientClaimsController extends StandardController {
     $verifyResult = $oa4mpServer->oa4mpVerifyClient($admin, $client, true);
     if(!$verifyResult['synchronized']) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+
+      // Name the plugin and the controller. Without them Router::url resolves
+      // the target relative to the current request, which lands back on this
+      // controller's index with no clientid named parameter -- an action that
+      // cannot run. The OIDC client list is the nearest page that can still
+      // show this client; the claims index cannot, because it re-verifies on
+      // every request and would bounce the user straight back here.
       $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_co_oidc_clients';
       $args['action'] = 'index';
       $args['co'] = $this->cur_co['Co']['id'];
       $this->redirect($args);
@@ -420,7 +526,7 @@ class Oa4mpClientClaimsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
@@ -431,7 +537,14 @@ class Oa4mpClientClaimsController extends StandardController {
     $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
     if(!$synchronized) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+
+      // As in add() and edit(): name the plugin and the controller so the
+      // target does not resolve relative to this request. Here it also has to
+      // be a different controller, since redirecting this action to its own
+      // index would loop.
       $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_co_oidc_clients';
       $args['action'] = 'index';
       $args['co'] = $this->cur_co['Co']['id'];
       $this->redirect($args);
