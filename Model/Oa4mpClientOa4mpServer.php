@@ -31,6 +31,302 @@ class Oa4mpClientOa4mpServer extends AppModel {
   public $useTable = false;
 
   /**
+   * Decoded cfg capability contracts, keyed by the path each was read from.
+   *
+   * The document is small and every claim mapping consults it, so it is read
+   * once per path rather than once per claim. Keying on the path rather than
+   * on a bare flag keeps a subclass that points cfgContractPath() somewhere
+   * else from being handed the default document's cache entry.
+   *
+   * @var array
+   */
+  private $cfgContractCache = array();
+
+  /**
+   * The prefix every withheld-value signal line carries, so the line can be
+   * recognized without matching the whole sentence.
+   */
+  const CFG_WITHHELD_SIGNAL = 'Oa4mpClientClaim: cfg capability contract';
+
+  /**
+   * The one claim-mapping field the marshaller synthesises rather than reading
+   * off a claim column: the mapping's claim_constraints list, built from the
+   * claim's Oa4mpClientClaimConstraint rows. The contract declares it last and
+   * marks it column_backed false; see its claim_mapping_fields note.
+   */
+  const CFG_CONSTRAINTS_FIELD = 'claim_constraints';
+
+  /**
+   * Path to the cfg capability contract document.
+   *
+   * protected, not private, on purpose. The suite has no mocking framework, so
+   * a test that needs the reader pointed at a fixture -- an unreadable or a
+   * malformed contract -- subclasses this model and overrides this one method.
+   * Test/Case/Model/ClaimConstraintSymmetryTest.php overrides log() the same
+   * way and for the same reason.
+   *
+   * @return string Absolute path to cfg_contract.json.
+   * @since COmanage Registry 4.5.1
+   */
+
+  protected function cfgContractPath() {
+    return App::pluginPath('Oa4mpClient') . 'cfg_contract.json';
+  }
+
+  /**
+   * The decoded cfg capability contract.
+   *
+   * Every enforcement site that asks what this plugin may put in a cfg comes
+   * through here, so an unreadable or unparseable document raises rather than
+   * resolving to an empty array. An allowlist reads an empty contract as "emit
+   * nothing" and a redaction list reads it as "redact nothing"; both are
+   * silent, and either is worse than a stopped edit.
+   *
+   * @return array The decoded contract.
+   * @throws RuntimeException If the document cannot be read or is not a usable
+   *                          contract.
+   * @since COmanage Registry 4.5.1
+   */
+
+  protected function cfgContract() {
+    $path = $this->cfgContractPath();
+
+    if(array_key_exists($path, $this->cfgContractCache)) {
+      return $this->cfgContractCache[$path];
+    }
+
+    $text = is_readable($path) ? file_get_contents($path) : false;
+
+    if($text === false) {
+      throw new RuntimeException("Oa4mpClient cfg capability contract cannot be read at " . $path);
+    }
+
+    $contract = json_decode($text, true);
+
+    if(!is_array($contract)
+       || !isset($contract['contract_version'])
+       || empty($contract['capabilities'])) {
+      throw new RuntimeException("Oa4mpClient cfg capability contract at " . $path
+                                 . " is not a usable contract document: "
+                                 . json_last_error_msg());
+    }
+
+    $this->cfgContractCache[$path] = $contract;
+
+    return $contract;
+  }
+
+  /**
+   * The version of the capability contract a cfg marshalled now is built to.
+   *
+   * @return mixed The declared contract_version.
+   * @since COmanage Registry 4.5.1
+   */
+
+  public function cfgContractVersion() {
+    $contract = $this->cfgContract();
+
+    return $contract['contract_version'];
+  }
+
+  /**
+   * The names one capability group declares, in declaration order, excluding
+   * any entry that has been retired.
+   *
+   * Declaration order is load-bearing for claim_mapping_fields: it is the
+   * order a marshalled mapping carries, and the suite's assertEqual is key
+   * -order sensitive. Retired entries stay in the document so an older cfg
+   * remains interpretable, but they are not emitted, so they are not returned.
+   *
+   * @param string $group Capability group name, e.g. 'claim_mapping_fields'.
+   * @return array Declared names, in contract order.
+   * @throws RuntimeException If the group is absent or carries a malformed entry.
+   * @since COmanage Registry 4.5.1
+   */
+
+  public function cfgContractNames($group) {
+    $contract = $this->cfgContract();
+
+    if(!isset($contract['capabilities'][$group]['entries'])) {
+      throw new RuntimeException("Oa4mpClient cfg capability contract declares no "
+                                 . $group . " group, which the plugin looks up by name");
+    }
+
+    $names = array();
+
+    foreach($contract['capabilities'][$group]['entries'] as $entry) {
+      // A missing retired_in is a malformed entry and never an implied null;
+      // see the contract's own entry_fields note. Defaulting it here would
+      // emit a capability nothing declared was still live.
+      if(!isset($entry['name']) || !array_key_exists('retired_in', $entry)) {
+        throw new RuntimeException("Oa4mpClient cfg capability contract carries a malformed "
+                                   . $group . " entry: every entry names itself and states"
+                                   . " retired_in");
+      }
+
+      if($entry['retired_in'] !== null) {
+        continue;
+      }
+
+      $names[] = $entry['name'];
+    }
+
+    return $names;
+  }
+
+  /**
+   * The capability group enumerating the values $field may carry, or '' when
+   * the contract enumerates no values for it.
+   *
+   * Derived from the contract rather than from a map kept here: an enumerated
+   * -value group is named for the field it constrains, so source_model is
+   * constrained by source_model_values and constraint_field by
+   * constraint_field_values. A further such group added to the contract is
+   * therefore enforced the day it is declared, with no edit in this file.
+   *
+   * @param string $field A declared field name.
+   * @return string The value group's name, or ''.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function cfgContractValueGroup($field) {
+    $contract = $this->cfgContract();
+    $group = $field . '_values';
+
+    return isset($contract['capabilities'][$group]['entries']) ? $group : '';
+  }
+
+  /**
+   * Whether the contract permits $field to carry $value.
+   *
+   * Called from the marshaller and from normalizeClaimForComparison(), which
+   * is the whole point of it being one function: a value the marshaller
+   * withholds never reaches the server, so a comparator that kept it would
+   * compare the plugin's value against the nothing that was actually sent and
+   * report the client out of sync on every verify pass, with no edit able to
+   * repair it. That failure has shipped from this file three times.
+   *
+   * Free-text fields (a claim_name, a constraint_value) are permitted whatever
+   * they carry: the contract enumerates names for them, not values.
+   *
+   * @param string $field A declared field name.
+   * @param mixed $value The value the row carries.
+   * @return boolean
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function cfgContractPermitsValue($field, $value) {
+    $group = $this->cfgContractValueGroup($field);
+
+    if($group === '') {
+      return true;
+    }
+
+    return in_array($value, $this->cfgContractNames($group), true);
+  }
+
+  /**
+   * Keys a persisted claim or constraint row carries that are never candidates
+   * for a cfg: the surrogate keys, the foreign keys, the timestamps, and the
+   * contained constraint association.
+   *
+   * This is not the denylist the claim loop used to run on. That list decided
+   * what was emitted, so a column added to either table reached the OA4MP
+   * server the day it was added; the contract decides that now. This list only
+   * decides which withheld keys are worth a signal, and every name on it is
+   * structural -- present on every row, carrying nothing a cfg could express.
+   * A new column is on none of them, so it is withheld AND reported.
+   *
+   * @return array Key names that never carry a capability.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function cfgNonEmittedRowKeys() {
+    return array(
+      'id',
+      'client_id',
+      'claim_id',
+      'created',
+      'modified',
+      'Oa4mpClientClaimConstraint',
+    );
+  }
+
+  /**
+   * The values one claim or constraint row contributes to a cfg, in the order
+   * the contract declares them.
+   *
+   * Three rules, in this order, and all three are also the comparator's:
+   *
+   *  - A field the contract does not declare is never copied. That is the
+   *    allowlist: adding a column to cm_oa4mp_client_claims or to
+   *    cm_oa4mp_client_claim_constraints does not by itself put anything on
+   *    the wire.
+   *  - An empty value is no value, and is omitted. Unchanged from the whole
+   *    -row copy this replaced, and deliberately still empty() -- empty('0')
+   *    is true, so a string-zero value is omitted here exactly as it was
+   *    before, and normalizeClaimForComparison() asks the identical question.
+   *    A mapping therefore need not carry every declared field; the contract
+   *    fixes which fields may appear and in what order, not that they all do.
+   *  - An enumerated field may only carry a value the contract declares.
+   *
+   * A value withheld by the last rule, and any non-empty value under a key the
+   * contract does not declare, appends its FIELD NAME to $withheld. Never its
+   * value: this model's rows can carry DynamoDB credentials, and the signal
+   * built from $withheld is logged.
+   *
+   * @param array $row One claim or constraint row, as Containable reads it.
+   * @param array $declared The field names the contract declares, in order.
+   * @param array &$withheld Collects the name of every field whose value was
+   *                         withheld. Names only, never values.
+   * @param array $synthesised Values the marshaller supplies rather than
+   *                           reading off the row, keyed by declared field name.
+   * @return array The values to emit, in contract order.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function marshallDeclaredRow($row, $declared, &$withheld, $synthesised = array()) {
+    $marshalled = array();
+
+    foreach($declared as $field) {
+      if(array_key_exists($field, $synthesised)) {
+        $value = $synthesised[$field];
+      } elseif(array_key_exists($field, $row)) {
+        $value = $row[$field];
+      } else {
+        continue;
+      }
+
+      if(empty($value)) {
+        continue;
+      }
+
+      if(!$this->cfgContractPermitsValue($field, $value)) {
+        $withheld[] = $field;
+        continue;
+      }
+
+      $marshalled[$field] = $value;
+    }
+
+    // Whatever the row carries beyond the declaration. Tested with the same
+    // empty() the copy above uses, so the two sides of "would this have been
+    // emitted" ask one question: a key holding nothing was never going to
+    // reach the server, and reporting it withheld would make the signal noise.
+    foreach($row as $key => $value) {
+      if(in_array($key, $declared, true)
+         || in_array($key, $this->cfgNonEmittedRowKeys(), true)
+         || empty($value)) {
+        continue;
+      }
+
+      $withheld[] = $key;
+    }
+
+    return $marshalled;
+  }
+
+  /**
    * Return a copy of $row with known secret-bearing field values replaced
    * by a redaction sentinel.
    *
@@ -187,22 +483,56 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
   private function normalizeClaimForComparison($claim, $clientIdentifier, $side) {
     $normalized = array();
-    $normalized['claim_name'] = $claim['claim_name'];
-    $normalized['source_model'] = $claim['source_model'];
-    $normalized['source_model_claim_value_field'] = !empty($claim['source_model_claim_value_field']) ? $claim['source_model_claim_value_field'] : null;
-    $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
-    $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
-    $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
-    $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
+
+    // The fields the cfg capability contract declares a claim mapping may
+    // carry, minus the constraint list, which is normalized separately below.
+    // Reading the same declaration the marshaller writes from is the whole
+    // point: this file has shipped writer-versus-comparator drift three times,
+    // every one of them a hand-copied field list that quietly stopped matching
+    // what actually went over the wire.
+    foreach($this->cfgContractNames('claim_mapping_fields') as $field) {
+      if($field === self::CFG_CONSTRAINTS_FIELD) {
+        continue;
+      }
+
+      // empty(), never ??, and then the contract's own value rule -- both are
+      // marshallDeclaredRow()'s, in that order. empty('0') is true while
+      // '0' ?? null is not, and a string '0' diverging across this exact
+      // boundary is the most recent live incident in this code.
+      $value = !empty($claim[$field]) ? $claim[$field] : null;
+
+      $normalized[$field] = ($value !== null && $this->cfgContractPermitsValue($field, $value))
+                          ? $value
+                          : null;
+    }
 
     $constraints = array();
     if(!empty($claim['Oa4mpClientClaimConstraint'])) {
       foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
         if(!empty($constraint['constraint_field']) && !empty($constraint['constraint_value'])) {
-          $constraints[] = array(
-            'constraint_field' => $constraint['constraint_field'] ?? null,
-            'constraint_value' => $constraint['constraint_value'] ?? null
-          );
+          if(!$this->cfgContractPermitsValue('constraint_field', $constraint['constraint_field'])) {
+            // The marshaller withholds a constraint_field value the contract
+            // does not declare, which leaves that constraint half-populated
+            // and so unemitted. Both sides have to reach the same conclusion,
+            // or the client reports out of sync with nothing able to fix it.
+            // The field name only, as below: never the value.
+            $this->log("Oa4mpClientClaim: dropping constraint with an undeclared"
+                       . " constraint_field from the " . $side . "-side comparison"
+                       . " (client=" . var_export($clientIdentifier, true)
+                       . ", constraint_field=" . var_export($constraint['constraint_field'], true) . ")");
+            continue;
+          }
+
+          // Built from the contract for the same reason the mapping above is:
+          // a constraint field added to the declaration is emitted by the
+          // marshaller, so it has to be compared here or the round trip
+          // reports in sync whatever that field holds.
+          $normalizedConstraint = array();
+          foreach($this->cfgContractNames('claim_constraint_fields') as $field) {
+            $normalizedConstraint[$field] = !empty($constraint[$field]) ? $constraint[$field] : null;
+          }
+
+          $constraints[] = $normalizedConstraint;
         } elseif(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
           // Dropping the constraint takes it out of the comparison, so this is
           // the only place that state stays visible. Log the client and the
@@ -949,47 +1279,79 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $qdl['args']['partition_key_claim_name'] = $dynamoConfig['partition_key_claim_name'];
 
     // Add the claims configurations.
+    //
+    // Every key a claim mapping may carry, every key a constraint may carry,
+    // and every value an enumerated one of those may hold, is declared in
+    // cfg_contract.json. Nothing else reaches the OA4MP server. Building each
+    // mapping from that declaration is the point: this loop used to copy the
+    // claim row whole and unset the handful of keys it knew the names of, so a
+    // column added to cm_oa4mp_client_claims was on the wire the day it was
+    // added, with no QDL on any tier prepared to read it.
+    //
+    // The declaration also fixes the ORDER, which is the seven claim columns in
+    // Config/Schema/schema.xml order with the synthesised claim_constraints
+    // list last -- the order a mapping has always carried, now stated once
+    // rather than inherited from the order Containable happened to read.
+    $declaredClaimFields = $this->cfgContractNames('claim_mapping_fields');
+    $declaredConstraintFields = $this->cfgContractNames('claim_constraint_fields');
+
+    // Field names whose values this pass withheld. Names only, never values.
+    $withheldFields = array();
+
     $claimMappings = array();
     foreach($data['Oa4mpClientClaim'] as $claim) {
-      $mapping = $claim;
+      // Add the claim constraints. Built before the mapping so the mapping can
+      // carry them in the position the contract declares them in.
+      $claimConstraints = array();
 
-      // Add the claim constraints.
-      foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
-        $constraintMapping = $constraint;
+      // The same emptiness test normalizeClaimForComparison() applies to this
+      // association: both sides have to ask one question about whether a claim
+      // has constraints at all.
+      if(!empty($claim['Oa4mpClientClaimConstraint'])) {
+        foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
+          $constraintMapping = $this->marshallDeclaredRow($constraint,
+                                                          $declaredConstraintFields,
+                                                          $withheldFields);
 
-        // Clear the fields that are not needed in the mapping sent to the server.
-        unset($constraintMapping['id']);
-        unset($constraintMapping['claim_id']);
-        unset($constraintMapping['created']);
-        unset($constraintMapping['modified']);
-
-        // Only emit a constraint when BOTH fields are populated. A constraint with
-        // only a field or only a value is meaningless to the OA4MP server's QDL.
-        // Defense-in-depth: Oa4mpClientClaimConstraint validates both fields as
-        // notBlank, so persisted rows shouldn't reach here half-populated, but the
-        // guard keeps malformed constraints from being serialized to the server
-        // even if validation is ever bypassed (raw SQL inserts, future code).
-        if(!empty($constraintMapping['constraint_field']) && !empty($constraintMapping['constraint_value'])) {
-          $mapping['claim_constraints'][] = $constraintMapping;
+          // Only emit a constraint when BOTH fields are populated. A constraint
+          // with only a field or only a value is meaningless to the OA4MP
+          // server's QDL. Defense-in-depth: Oa4mpClientClaimConstraint validates
+          // both fields as notBlank, so persisted rows shouldn't reach here
+          // half-populated, but the guard keeps malformed constraints from being
+          // serialized to the server even if validation is ever bypassed (raw
+          // SQL inserts, future code). A constraint whose constraint_field value
+          // the contract does not declare arrives here already missing that
+          // field, so this same guard drops it.
+          if(!empty($constraintMapping['constraint_field'])
+             && !empty($constraintMapping['constraint_value'])) {
+            $claimConstraints[] = $constraintMapping;
+          }
         }
       }
 
-      // Clear the fields that are not needed in the mapping sent to the server.
-      unset($mapping['id']);
-      unset($mapping['client_id']);
-      unset($mapping['created']);
-      unset($mapping['modified']);
-      unset($mapping['Oa4mpClientClaimConstraint']);
-
-      // Unset any fields that are empty.
-      foreach($mapping as $key => $value) {
-        if(empty($value)) {
-          unset($mapping[$key]);
-        }
-      }
-
-      $claimMappings[] = $mapping;
+      $claimMappings[] = $this->marshallDeclaredRow(
+        $claim,
+        $declaredClaimFields,
+        $withheldFields,
+        array(self::CFG_CONSTRAINTS_FIELD => $claimConstraints));
     }
+
+    // One line per pass over that loop, always. A line emitted only when
+    // something was withheld would make "nothing was withheld" and "this code
+    // never ran" the same observation; emitting it every pass makes silence
+    // the distinct third state, which is what a CI gate needs in order to fail
+    // on the signal rather than on its absence. The count is of VALUES, and
+    // the names appended after it are the distinct FIELDS those values sat
+    // under, so two claims withholding the same column read as two values and
+    // one name. Names are appended only when the count is non-zero, and the
+    // values themselves never are.
+    $withheldNames = array_values(array_unique($withheldFields));
+    sort($withheldNames);
+
+    $this->log(self::CFG_WITHHELD_SIGNAL . " version "
+               . var_export($this->cfgContractVersion(), true) . ": "
+               . count($withheldFields) . " values withheld from the claim mappings"
+               . (empty($withheldNames) ? "" : ": " . implode(', ', $withheldNames)));
 
     $qdl['args']['claim_mappings'] = $claimMappings;
     $cfg['tokens']['identity']['qdl'] = $qdl;
@@ -1935,38 +2297,45 @@ class Oa4mpClientOa4mpServer extends AppModel {
         $claimMappings = array();
 
         foreach($qdlClaimMappings as $qdlClaimMapping) {
+          // Read back exactly the fields the contract declares a mapping may
+          // carry, from the same group the marshaller emits from. Two
+          // hand-written lists were free to drift apart, and did: a field the
+          // marshaller emitted and this loop did not read was dropped on the
+          // way back and never compared, so the round trip reported "in sync"
+          // whatever that field held.
           $claimMapping = array();
-          $claimMapping['claim_name'] = $qdlClaimMapping['claim_name'];
-          $claimMapping['source_model'] = $qdlClaimMapping['source_model'];
 
-          if(!empty($qdlClaimMapping['source_model_claim_value_field'])) {
-            $claimMapping['source_model_claim_value_field'] = $qdlClaimMapping['source_model_claim_value_field'];
+          foreach($this->cfgContractNames('claim_mapping_fields') as $field) {
+            if($field === self::CFG_CONSTRAINTS_FIELD) {
+              // Republished below under the association key the comparator
+              // reads, not under its cfg name.
+              continue;
+            }
+
+            // empty(), matching the marshaller: a field it omitted for being
+            // empty is absent here, and one it emitted is present.
+            if(empty($qdlClaimMapping[$field])) {
+              continue;
+            }
+
+            $claimMapping[$field] = $qdlClaimMapping[$field];
           }
 
-          if(!empty($qdlClaimMapping['claim_value_selection'])) {
-            $claimMapping['claim_value_selection'] = $qdlClaimMapping['claim_value_selection'];
-          }
-
-          if(!empty($qdlClaimMapping['claim_value_json_format'])) {
-            $claimMapping['claim_value_json_format'] = $qdlClaimMapping['claim_value_json_format'];
-          }
-
-          if(!empty($qdlClaimMapping['claim_multiple_value_serialization'])) {
-            $claimMapping['claim_multiple_value_serialization'] = $qdlClaimMapping['claim_multiple_value_serialization'];
-          }
-
-          if(!empty($qdlClaimMapping['claim_value_string_serialization_delimiter'])) {
-            $claimMapping['claim_value_string_serialization_delimiter'] = $qdlClaimMapping['claim_value_string_serialization_delimiter'];
-          }
-
-          if(!empty($qdlClaimMapping['claim_constraints'])) {
-            $qdlClaimConstraints = $qdlClaimMapping['claim_constraints'];
+          if(!empty($qdlClaimMapping[self::CFG_CONSTRAINTS_FIELD])) {
+            $qdlClaimConstraints = $qdlClaimMapping[self::CFG_CONSTRAINTS_FIELD];
             $claimConstraints = array();
-          
+
             foreach($qdlClaimConstraints as $qdlClaimConstraint) {
               $claimConstraint = array();
-              $claimConstraint['constraint_field'] = $qdlClaimConstraint['constraint_field'];
-              $claimConstraint['constraint_value'] = $qdlClaimConstraint['constraint_value'];
+
+              foreach($this->cfgContractNames('claim_constraint_fields') as $field) {
+                if(empty($qdlClaimConstraint[$field])) {
+                  continue;
+                }
+
+                $claimConstraint[$field] = $qdlClaimConstraint[$field];
+              }
+
               $claimConstraints[] = $claimConstraint;
             }
             $claimMapping['Oa4mpClientClaimConstraint'] = $claimConstraints;
