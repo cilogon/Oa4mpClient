@@ -56,11 +56,13 @@ if [ -z "$plugin_table_count" ] || [ "$plugin_table_count" -lt "$min_plugin_tabl
 fi
 
 echo "==> Running the thin-runner test suite..."
-# Two independent gates, because neither is sufficient alone:
+# Three independent gates, because none is sufficient alone:
 #
 #   1. The exec exit status, which catches a failing assertion.
 #   2. The runner's ALL_TESTS_PASSED sentinel, which it prints only after every
 #      discovered test has run and passed.
+#   3. A floor on how many tests actually ran, because 2 says nothing about how
+#      many tests discovery found in the first place.
 #
 # The exit status alone is not a backstop: a test that reaches exit(0) -- its
 # own, or one inside the code under test, for example Controller::redirect()'s
@@ -77,10 +79,55 @@ if [ "$suite_status" -ne 0 ]; then
   exit 1
 fi
 
-if ! grep -q 'ALL_TESTS_PASSED' "$suite_log"; then
-  echo "==> ERROR: the suite exited 0 but never printed the runner's" \
-    "ALL_TESTS_PASSED sentinel, so it ended early rather than passing." >&2
+# The runner's verdict block: everything from its "N tests run, M failed."
+# summary onward. Both gates below read it rather than the whole log, because
+# the log is not a trustworthy place to search for the sentinel as a substring.
+# Test cases now read this script and assert on its text, so the literal
+# appears in the suite's own test data; a failing assertion that dumped its
+# haystack, or any test that echoed this file, would satisfy an unanchored
+# grep. The verdict block cannot be forged that way: the runner prints its
+# summary only after the last test has run, so nothing a test emits lands
+# inside it. (Trailing Cake shutdown warnings can follow the sentinel, so it is
+# the runner's last *statement*, not reliably the log's last line.)
+suite_tail="$(tr -d '\r' < "$suite_log" \
+  | sed -n '/^[0-9][0-9]* tests run, [0-9][0-9]* failed\.$/,$p')"
+
+# Gate 2: the sentinel as a line of its own inside that block, which the runner
+# prints only after every discovered test has run and passed.
+if ! grep -q '^ALL_TESTS_PASSED$' <<< "$suite_tail"; then
+  echo "==> ERROR: the suite exited 0 but never reached the runner's" \
+    "ALL_TESTS_PASSED verdict, so it ended early rather than passing." >&2
   exit 1
 fi
 
-echo "==> Suite passed (ALL_TESTS_PASSED)."
+echo "==> Verifying the suite ran a plausible number of tests..."
+# Gate 3. The sentinel above proves the runner finished the tests it
+# DISCOVERED, not that discovery found the suite. Discovery is silent about
+# what it misses: a `test*` method that acquires a `private` keyword drops out
+# of get_class_methods() (which returns public methods only), and a file
+# renamed off the *Test.php glob drops out of the scan. Either one retires a
+# regression test while both gates above stay green -- the runner's only floor
+# of its own is `$total === 0`.
+#
+# The floor sits a few tests below the suite's current size: the hermetic tier
+# runs 146 tests today, so 143 leaves three tests of headroom. That way
+# consolidating a case or two never forces an edit here, while any loss of four
+# or more goes red -- that is every test file in the tree except the two
+# smallest. Raise it deliberately as the suite grows; lower it only together
+# with a deliberate removal, never to make a red run green.
+min_tests_run=143
+tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
+  <<< "$suite_tail" | head -n 1)"
+if [ -z "$tests_run" ]; then
+  echo "==> ERROR: the suite printed no 'N tests run, M failed.' line, so how" \
+    "many tests actually ran cannot be established." >&2
+  exit 1
+fi
+if [ "$tests_run" -lt "$min_tests_run" ]; then
+  echo "==> ERROR: only $tests_run tests ran, expected at least" \
+    "$min_tests_run. Tests have gone missing from discovery -- e.g. a test*" \
+    "method turned private, or a test file renamed off the *Test.php glob." >&2
+  exit 1
+fi
+
+echo "==> Suite passed (ALL_TESTS_PASSED, $tests_run tests)."
