@@ -1228,6 +1228,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
       'registration_access_token',
       'client_secret_expires_at',
       'client_id_issued_at',
+      // The server builds this from its own endpoint and the client_id. It
+      // was reaching the extras blob and being echoed back on every edit;
+      // dev.cilogon.org tolerates that, but the plugin has no business
+      // asserting a URL the server owns.
+      'registration_client_uri',
     );
 
     try {
