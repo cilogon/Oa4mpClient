@@ -15,6 +15,24 @@ class HarnessSelfTest extends Oa4mpTestCase {
     $this->assertTrue(is_int($count), 'a count query should return an int from the real DB');
   }
 
+  /**
+   * The runner must merge the plugin's Lib/lang.php texts (Registry does this
+   * from AppController, which no console context reaches). Without it every
+   * _txt('pl.*') returns its own key, and because both sides of the sync
+   * comparison call _txt() they agree on the broken value -- so the comment
+   * contract silently stops being tested, in the hermetic tier and in the
+   * live-server tier alike. Asserting resolution here is what makes those
+   * comparisons mean something.
+   */
+  public function testPluginTextsAreLoadedInTheConsoleContext() {
+    $key = 'pl.oa4mp_client_co_oidc_client.signature';
+    $signature = _txt($key);
+
+    $this->assertFalse($signature === $key,
+      '_txt() returned its own key: the plugin texts were never bootstrapped');
+    $this->assertNotEmpty($signature, 'the client signature text must be non-empty');
+  }
+
   public function testAssertionHelpersWork() {
     $this->assertEqual(2, 1 + 1);
     $this->assertTrue(true, 'true is true');
