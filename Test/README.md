@@ -89,10 +89,51 @@ Locked with passing tests (`Test/Case/Model/`):
   hands to `title_for_layout`; the core `pageTitleAndButtons` element is the
   single escape point (ViewTitleEncodingTest).
 
-All nine documented bugs are locked. Each regression was additionally verified
-red by temporarily restoring the documented pre-fix code path (or, for the
+- **comparator/marshaller asymmetry** -- the sync comparator applies the same
+  emptiness rule the marshaller does, for half-populated claim constraints and
+  for a string-zero `source_model_claim_value_field`. Either previously made a
+  client report out of sync on every verify pass with no edit able to repair it
+  (ClaimConstraintSymmetryTest).
+- **claims write-path ordering** -- add, edit and delete check the local write's
+  result instead of discarding it, so a write that fails after the OA4MP server
+  accepted reports the drift and the repair rather than success
+  (ClaimsWritePathTest).
+
+All nine documented bugs are locked, plus the two above found while building the
+claims contract matrix. Each regression was additionally verified red by
+temporarily restoring the documented pre-fix code path (or, for the
 authorization matrix, by mutating the rule under test) and observing only its
 own test fail.
+
+## Claims contract coverage
+
+`Test/Case/Model/ClaimCfgContractTest.php` is a table-driven matrix over what
+actually changes the emitted cfg -- each claim field populated, empty and set to
+a string zero, plus the cfg shape a client resolves to -- with one `test*` method
+per row so a change that reddens several shows every one. Rows are declared in
+`Test/lib/Oa4mpClaimRows.php`.
+
+Three checks guard the matrix itself. `ClaimCfgDriftTest` derives the emitted
+field set from the claim table's declared columns and fails when a field the
+marshaller emits reaches no comparator list -- the case a new claim column would
+otherwise slip through silently. `ClaimCfgFallbackTest` is the one
+database-backed row, covering the configuration-fallback read the in-memory rows
+bypass. `ClaimCfgFixtureHygieneTest` proves no checked-in expected value or
+seeded credential can match the secret scan.
+
+`NamedConfigClaimSyncTest` locks, provisionally, the exemption that stops a
+named-configuration client being compared on its claims. The behaviour it pins
+is a known open defect -- see the learning it links.
+
+## Driving a controller action
+
+`Test/lib/Oa4mpClaimsControllerHarness.php` drives a claims controller action
+from the thin runner. It overrides the server-object factory to substitute a
+fake, and overrides `redirect()` to record its target and then throw, because a
+redirect that returned would let the public-client guard fall through into the
+server call. It never calls `constructClasses()`. `Test/run.sh` additionally
+requires the runner's `ALL_TESTS_PASSED` sentinel, so a mid-run `exit(0)`
+reddens the gate instead of reporting green.
 
 The two view-layer bugs (#1, #9) are locked at the seam the thin runner can
 reach: the real render of the core escaping element plus a statement-scoped
