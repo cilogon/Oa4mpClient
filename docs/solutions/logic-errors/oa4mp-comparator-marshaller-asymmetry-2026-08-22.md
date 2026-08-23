@@ -223,3 +223,9 @@ place, and the alternative is a client nobody can edit.
   comparison saves us".
 - `Test/Case/Model/CfgMarshallingTest.php::testEmptyConstraintValueIsNotSerialized`
   -- the marshaller-side lock for the constraint rule the comparator now shares.
+- `docs/solutions/logic-errors/oa4mp-named-config-claims-inert-2026-08-22.md`
+  -- the opposite failure in the same pair of functions. There the marshaller
+  and the comparator disagree and produce permanent silence instead of
+  permanent drift: both skip the claim comparison for a named-configuration
+  client, and nothing gates the tab that keeps producing claims for that
+  skipped path.

@@ -118,8 +118,10 @@ field set from the claim table's declared columns and fails when a field the
 marshaller emits reaches no comparator list -- the case a new claim column would
 otherwise slip through silently. `ClaimCfgFallbackTest` is the one
 database-backed row, covering the configuration-fallback read the in-memory rows
-bypass. `ClaimCfgFixtureHygieneTest` proves no checked-in expected value or
-seeded credential can match the secret scan.
+bypass. `ClaimCfgFixtureHygieneTest` checks every checked-in expected value and
+seeded credential in those files against the subset of the secret scanner's
+rules the guard models -- it is not a guarantee against the scanner's full rule
+set.
 
 `NamedConfigClaimSyncTest` locks, provisionally, the exemption that stops a
 named-configuration client being compared on its claims. The behaviour it pins
