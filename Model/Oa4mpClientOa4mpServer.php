@@ -408,7 +408,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
    */
 
   private function redactSecrets($row) {
-    foreach($this->secretFieldNames() as $field) {
+    foreach($this->loggingSecretFieldNames() as $field) {
       if(isset($row[$field])) {
         $row[$field] = '[REDACTED]';
       }
@@ -422,28 +422,186 @@ class Oa4mpClientOa4mpServer extends AppModel {
    *
    * The single enforcement point for both redaction helpers: redactSecrets()
    * matches these as array keys, redactSecretsInLogText() matches them as JSON
-   * keys. Adding a secret-bearing field to either shape only requires adding
-   * its name here.
+   * keys.
+   *
+   * The list is a union of two halves that are maintained differently, and the
+   * split is the point:
+   *
+   *  - The cfg-side half is DERIVED from cfg_contract.json's secret_bearing
+   *    flag, not written here. A credential-carrying capability therefore
+   *    cannot be declared without being redacted; declaring it is the whole
+   *    edit. See cfgContractSecretNames().
+   *  - The other half is literal, because those names never appear in a cfg:
+   *    the plugin's own column names and the credentials the OA4MP server
+   *    returns in a response. The contract declares only what the plugin emits
+   *    INTO a cfg, so widening it to cover them would misstate what it is.
+   *    See uncontractedSecretFieldNames().
+   *
+   * An empty cfg-side derivation raises rather than quietly leaving the union
+   * as the literals alone. The contract declares two secret-bearing keys, so
+   * deriving none means the reader or the document is broken -- and without
+   * the raise, that disarmed state looks exactly like a healthy one, which is
+   * the failure shape documented in
+   * docs/solutions/integration-issues/oa4mp-gitleaks-secret-scan-usedefault-trap-2026-08-22.md.
+   *
+   * The raise never reaches a caller: both redaction helpers go through
+   * loggingSecretFieldNames(), which catches it, logs it, and falls back. In
+   * production the defect therefore surfaces as that logged line rather than
+   * as an aborted client save or an unredacted log.
    *
    * @return array Field and JSON key names treated as secret.
+   * @throws RuntimeException If the contract cannot be read, or declares no
+   *                          secret-bearing capability at all.
    */
 
   private function secretFieldNames() {
+    $cfgNames = $this->cfgContractSecretNames();
+
+    if(empty($cfgNames)) {
+      throw new RuntimeException("Oa4mpClient cfg capability contract at "
+                                 . $this->cfgContractPath() . " declares no secret-bearing"
+                                 . " capability, so the cfg-side half of the log-redaction"
+                                 . " list derived from it is empty. The contract declares the"
+                                 . " two AWS credential keys; deriving none is a defect, not a"
+                                 . " cfg vocabulary that carries no credentials");
+    }
+
+    return array_values(array_unique(array_merge($cfgNames,
+                                                 $this->uncontractedSecretFieldNames())));
+  }
+
+  /**
+   * The cfg-side secret names, read out of the capability contract.
+   *
+   * Every capability group is scanned, not just the DynamoDB one: what makes a
+   * name belong here is the secret_bearing flag, so a credential declared in
+   * some future group is redacted the day it is declared, with no edit in this
+   * file. A missing flag is a malformed entry and never an implied false; the
+   * contract's own entry_fields note says so, and defaulting it here would
+   * silently drop a credential out of the redaction list.
+   *
+   * Unlike cfgContractNames(), a RETIRED entry is kept. The plugin no longer
+   * emits it, but a cfg written before the retirement is still stored on an
+   * OA4MP server and is still logged when it is read back, so its credential
+   * still has to be masked. Redaction wants every name a cfg may CARRY; the
+   * allowlist wants only the names the plugin may WRITE.
+   *
+   * @return array Secret-bearing names the contract declares, deduplicated.
+   * @throws RuntimeException If the contract cannot be read, or carries an
+   *                          entry with no secret_bearing flag.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function cfgContractSecretNames() {
+    $contract = $this->cfgContract();
+
+    $names = array();
+
+    foreach($contract['capabilities'] as $group => $declaration) {
+      if(empty($declaration['entries'])) {
+        continue;
+      }
+
+      foreach($declaration['entries'] as $entry) {
+        if(!isset($entry['name']) || !array_key_exists('secret_bearing', $entry)) {
+          throw new RuntimeException("Oa4mpClient cfg capability contract carries a malformed "
+                                     . $group . " entry: every entry names itself and states"
+                                     . " secret_bearing, which must not default to false");
+        }
+
+        if($entry['secret_bearing'] !== true) {
+          continue;
+        }
+
+        $names[] = $entry['name'];
+      }
+    }
+
+    return array_values(array_unique($names));
+  }
+
+  /**
+   * The secret names that have no cfg counterpart, and so are not derivable
+   * from the capability contract.
+   *
+   * Deliberately literal, and deliberately small. Neither vocabulary here ever
+   * appears inside a cfg: the first is how the plugin's own table names these
+   * columns, the second is what the OA4MP server puts in a RESPONSE. The
+   * contract declares what the plugin emits into a cfg and nothing else, so
+   * neither belongs in it.
+   *
+   * @return array Secret names with no cfg counterpart.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function uncontractedSecretFieldNames() {
     return array(
       // Oa4mpClientDynamoConfig column names, as the plugin persists them.
+      // The cfg spells the same two credentials access_key_id and
+      // secret_access_key; those come from the contract.
       'aws_access_key_id',
       'aws_secret_access_key',
-      // The same two credentials as they are named inside a marshalled cfg's
-      // DynamoDB module; see oa4mpMarshallCfgQdl(), which copies them across.
-      // A cfg travels in the request body of a create and an edit, so the
-      // plugin's own field names are not enough to cover a logged request.
-      'access_key_id',
-      'secret_access_key',
       // Credentials the OA4MP server issues and returns in a response body:
       // the client's own secret, and the token that authorizes managing the
       // client at the registration endpoint.
       'client_secret',
       'registration_access_token',
+    );
+  }
+
+  /**
+   * The redaction list as the logging helpers must have it: never raising.
+   *
+   * secretFieldNames() raises on a contract it cannot read or trust, which is
+   * right for a defect detector and wrong here. Both callers are about to log
+   * a body that carries credentials, so an exception would either abort a
+   * client save or leave the text unredacted -- reintroducing the leak fixed
+   * in 7.0.0-rc6. On any failure the full literal list is used instead,
+   * cfg-side names included, and the failure is logged rather than swallowed.
+   *
+   * The two cfg-side names are repeated in fallbackSecretFieldNames() rather
+   * than derived, on purpose: the fallback exists precisely for the case where
+   * the derivation is unavailable.
+   *
+   * @return array Field and JSON key names to mask.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function loggingSecretFieldNames() {
+    try {
+      return $this->secretFieldNames();
+    } catch(Throwable $e) {
+      // Throwable, not Exception: a malformed document can fail in ways that
+      // are Errors rather than Exceptions, and nothing about a broken contract
+      // may stop this line from being masked.
+      $this->log("Oa4mpClient could not derive the cfg-side log-redaction names from the"
+                 . " capability contract; falling back to the literal list so this line is"
+                 . " still redacted: " . $e->getMessage());
+
+      return $this->fallbackSecretFieldNames();
+    }
+  }
+
+  /**
+   * The redaction list used when the contract cannot be consulted.
+   *
+   * The cfg-side names are literal here and only here. This list is what
+   * secretFieldNames() returned before the contract existed, so an unreadable
+   * contract degrades to the redaction the plugin has always performed.
+   *
+   * @return array Every secret name, literal.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function fallbackSecretFieldNames() {
+    return array_merge(
+      array(
+        // The two credentials as a cfg spells them; normally derived from
+        // cfg_contract.json's secret_bearing flag.
+        'access_key_id',
+        'secret_access_key',
+      ),
+      $this->uncontractedSecretFieldNames()
     );
   }
 
@@ -468,7 +626,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
    */
 
   private function redactSecretsInLogText($text) {
-    foreach($this->secretFieldNames() as $field) {
+    foreach($this->loggingSecretFieldNames() as $field) {
       // Match "field": "value" and replace only the value, leaving the
       // surrounding JSON intact. The value pattern tolerates escaped
       // characters so a backslash inside a secret cannot end the match early.
