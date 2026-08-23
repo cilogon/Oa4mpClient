@@ -110,11 +110,19 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # of its own is `$total === 0`.
 #
 # The floor sits a few tests below the suite's current size: the hermetic tier
-# runs 203 tests today, so 200 leaves three tests of headroom. That way
+# runs 204 tests today, so 201 leaves three tests of headroom. That way
 # consolidating a case or two never forces an edit here, while any loss of four
 # or more goes red -- that is every test file in the tree except the two
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
+#
+# The 204 is 203 plus the one method added to ClaimCfgDriftTest's Half B, which
+# walks a column added to the claim table through the path such a column takes
+# now that the emitted field set is read out of cfg_contract.json rather than
+# out of schema.xml: undeclared it is emitted by nothing, declared it is read
+# back by all three comparator sites without any of them being edited, and the
+# moment one site keeps a list of its own the new column is what the drift
+# report names.
 #
 # The 203 is 199 plus the four methods in
 # Test/Case/Model/ContractRedactionTest.php, which cover the cfg-side half of
@@ -142,7 +150,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=200
+min_tests_run=201
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

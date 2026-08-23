@@ -231,6 +231,95 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
       . ' part of the set the readers are checked against');
   }
 
+  /**
+   * The third positive control, and the one that keeps the rebuilt derivation
+   * honest: a column added to the claim table is still drift-checked now that
+   * the emitted set is read out of the contract instead of out of schema.xml.
+   *
+   * This is the drift the schema-perturbing control used to catch, and it is
+   * the reason that control existed: a column added to the claim table was
+   * emitted, dropped on the way back, and never compared, so the round trip
+   * reported "in sync" whatever the new field held. The path such a column
+   * travels now runs through two documents rather than one, so it is walked
+   * here end to end:
+   *
+   *  - added to schema.xml alone it is emitted by nothing, because the
+   *    marshaller emits what the contract declares. That mismatch belongs to
+   *    ContractDeclarationTest, whose scenario 3 diffs the contract's
+   *    column-backed fields against the claim table in schema.xml order; it is
+   *    not re-asserted here.
+   *  - declared, as adding the column requires, it joins the emitted set --
+   *    and every site resolves the same capability group, so all three read it
+   *    back without being edited. That is the rebuild working: the seam is
+   *    closed by construction rather than watched.
+   *  - and the moment one site keeps a list of its own, the NEW COLUMN is what
+   *    this half's report names, which is the failure the old control caught.
+   *
+   * Both perturbations go into the DERIVATION SOURCES -- the schema text and
+   * the contract document -- and not into the report's inputs, following the
+   * convention this file's header sets out.
+   */
+  public function testAColumnAddedToTheClaimTableIsStillDriftChecked() {
+    $perturbedSchema = $this->schemaWithExtraClaimColumn($this->schemaSource, self::PROBE);
+    $this->assertFalse($perturbedSchema === $this->schemaSource,
+      'the control must actually alter the schema text it perturbs');
+    $this->assertTrue(in_array(self::PROBE, $this->claimColumns($perturbedSchema), true),
+      'and the schema derivation must see the new column, or everything below'
+      . ' is about a column nothing added');
+
+    // Step one: the schema on its own. The emitted set is the contract's now,
+    // so a column no entry declares is written by nothing, and this half stays
+    // quiet rather than holding the readers to a field never emitted.
+    $this->assertFalse(
+      in_array(self::PROBE, $this->emittedClaimFields($this->contractDocument), true),
+      'the new column is not emitted while the contract does not declare it');
+    $this->assertEqual('',
+      $this->comparatorDriftReport($this->modelSource, $this->contractDocument),
+      'so nothing in this half is red yet');
+
+    // Step two: declared, as adding the column requires. It is emitted now,
+    // and every site resolves the group it was declared in, so all three read
+    // it back with no edit of their own.
+    $declared = $this->contractWithExtraClaimField($this->contractDocument, self::PROBE);
+    $this->assertFalse($declared === $this->contractDocument,
+      'the control must actually alter the contract document it perturbs');
+    $this->assertTrue(in_array(self::PROBE, $this->emittedClaimFields($declared), true),
+      'a declared claim-mapping field is emitted by the marshaller');
+    $this->assertEqual('',
+      $this->comparatorDriftReport($this->modelSource, $declared),
+      'and is read back by all three sites the moment it is declared, because'
+      . ' all three resolve the same capability group');
+
+    // Step three: the drift itself. One site back on a list of its own -- the
+    // shape all three had the three times this seam shipped open -- and the
+    // new column is what the report names.
+    $perturbedModel = $this->modelWithHandWrittenClaimList($this->modelSource,
+      'normalizeClaimForComparison');
+    $this->assertFalse($perturbedModel === $this->modelSource,
+      'the control must actually alter the model text it perturbs');
+
+    $report = $this->comparatorDriftReport($perturbedModel, $declared);
+    $this->assertContains(self::PROBE, $report,
+      'a claim column the marshaller emits and a comparator cannot see is'
+      . ' round-tripped as "in sync" whatever it holds; the column has to be'
+      . ' named');
+    $this->assertContains('normalization', $report,
+      'and the site that can no longer see it has to be named with it');
+
+    // The declaration, not the model perturbation on its own, is what put the
+    // new column in the report: the same site on the same hand-written list
+    // says nothing about a field no contract declares.
+    $this->assertFalse(
+      strpos($this->comparatorDriftReport($perturbedModel, $this->contractDocument),
+             self::PROBE) !== false,
+      'a field the contract does not declare is not emitted, so no reader is'
+      . ' held to it even when the reader has stopped reading the contract');
+
+    $this->assertEqual('',
+      $this->comparatorDriftReport($this->modelSource, $this->contractDocument),
+      'and the unperturbed tree stays clean, so the controls are the difference');
+  }
+
   // ------------------------------------------------------------------
   // Half A: row-set coverage.
   // ------------------------------------------------------------------
@@ -874,6 +963,32 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
       $body);
 
     return str_replace($body, $perturbed, $model);
+  }
+
+  /**
+   * Give the claim table one more column, as a schema change adding a claim
+   * field would.
+   *
+   * Every declaration of the table gets it. schema.xml declares the table once
+   * per schema version, claimColumns() refuses to guess when the declarations
+   * disagree, and a real change adds the column to each of them; a control
+   * that touched one would be perturbing the derivation into a failure about
+   * the schema rather than about the column.
+   *
+   * @param string $schema The schema text, comment-stripped.
+   * @param string $column The column name to add.
+   * @return string
+   */
+  private function schemaWithExtraClaimColumn($schema, $column) {
+    $field = '<field name="' . $column . '" type="C" size="64" />';
+    $anchor = '<field name="created" type="T" />';
+
+    return preg_replace_callback(
+      '~<table\s+name="oa4mp_client_claims"\s*>.*?</table>~s',
+      function ($block) use ($field, $anchor) {
+        return str_replace($anchor, $field . "\n        " . $anchor, $block[0]);
+      },
+      $schema);
   }
 
   /**
