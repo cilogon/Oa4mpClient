@@ -148,15 +148,43 @@ The separate, non-gating test tier that exercises a real authorization server
 with a dedicated test credential. It cannot run in the Hermetic tier's
 conditions and is not run casually.
 
+### Test discovery
+The step that decides which automated tests exist, before any of them runs:
+scanning the test tree for case files and enumerating each case's test methods.
+Everything the runner reports afterwards — its exit status, its all-passed
+sentinel, its counts — describes only what discovery handed it, and none of it
+can speak to what discovery missed.
+
+Discovery fails by subtraction. A case file or a test method that stops matching
+what the scan looks for is not reported as missing; it is simply absent, so the
+run that follows is smaller and no error is raised anywhere. The only signal
+that scales with what discovery found, rather than with how the run ended, is
+the count of tests actually run — which is why a floor under that count is the
+check that catches a shrinking suite. A suite that silently loses tests and
+still reports green is a **Silent pass**.
+
 ### Silent pass
-A check that reports success while verifying nothing — a green gate guarding an
-empty rule set, a scan whose configuration disarmed it, a test asserting on data
-it never loaded. Distinct from an ordinary false negative in that the check is
-not merely wrong but structurally incapable of failing, so it reports success
-forever. Any gate whose disarmed state is indistinguishable from its passing
-state needs a test asserting the gate itself is armed.
+A check that reports success while verifying nothing, or far less than it
+appears to — a green gate guarding an empty rule set, a scan whose configuration
+disarmed it, a test asserting on data it never loaded, a suite that ran a
+fraction of its tests and reported the fraction as a pass. Distinct from an
+ordinary false negative in that the check is not merely wrong but structurally
+incapable of failing, so it reports success forever. Any gate whose disarmed
+state is indistinguishable from its passing state needs a test asserting the
+gate itself is armed.
+
+Guarding the empty case does not guard the partial case. A check that refuses to
+report success when it verified *nothing* still reports success when it verified
+half, because zero is the one shortfall most tools notice for free and every
+other shortfall is shaped exactly like success. Closing the empty case is
+therefore evidence that the partial case is still open, not that it is shut.
 
 ### Verified red
 The discipline of confirming a new regression test fails against the pre-fix
 behavior before shipping it. A test that has never been observed to fail is a
 Silent pass waiting to happen.
+
+A gate is subject to the same discipline, in both directions: show it goes red
+when the thing it watches is broken, and show that the gate it replaces or
+supplements would have stayed green on that same input. Without the second half
+the new gate has not been shown to add anything.
