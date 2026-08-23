@@ -456,27 +456,53 @@ class Oa4mpClientOa4mpServer extends AppModel {
         return false;
       }
 
+      // Identifier for the dropped-constraint log below. A half-populated
+      // constraint is filtered out of the comparison, so the only trace it
+      // leaves is that log line; naming the client is what makes it useful.
+      $clientIdentifier = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'] ?? null;
+
       // Build a normalized array of claims from curData for comparison.
       $curClaimsNormalized = array();
       foreach($curClaims as $claim) {
         $normalized = array();
         $normalized['claim_name'] = $claim['claim_name'];
         $normalized['source_model'] = $claim['source_model'];
-        $normalized['source_model_claim_value_field'] = $claim['source_model_claim_value_field'] ?? null;
+        // Use the same emptiness test the marshaller uses, not a null coalesce.
+        // oa4mpMarshallCfgQdl() strips any empty value from the emitted mapping,
+        // and empty('0') is true, so a string-zero value field is never sent to
+        // the server. Reading it here with ?? kept the '0' on the plugin side and
+        // compared it against the server's absent value; '0' does not equal null
+        // even loosely, so the client reported out of sync on every verify pass
+        // and could not be repaired by re-sending the same data.
+        $normalized['source_model_claim_value_field'] = !empty($claim['source_model_claim_value_field']) ? $claim['source_model_claim_value_field'] : null;
         $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
         $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
         $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
         $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
 
-        // Normalize constraints.
+        // Normalize constraints. Keep a constraint only when BOTH fields are
+        // populated, which is the rule oa4mpMarshallCfgQdl() applies when it
+        // emits them. Keeping a half-populated constraint here compared one
+        // constraint against the nothing that was actually sent, so the client
+        // reported out of sync permanently.
         $constraints = array();
         if(!empty($claim['Oa4mpClientClaimConstraint'])) {
           foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
-            if(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
+            if(!empty($constraint['constraint_field']) && !empty($constraint['constraint_value'])) {
               $constraints[] = array(
                 'constraint_field' => $constraint['constraint_field'] ?? null,
                 'constraint_value' => $constraint['constraint_value'] ?? null
               );
+            } elseif(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
+              // Dropping the constraint takes it out of the comparison, so this
+              // is the only place that state stays visible. Log the client and
+              // the constraint's field name only -- never the constraint value
+              // and never a row-shaped payload, which in this model can carry
+              // the DynamoDB credentials.
+              $this->log("Oa4mpClientClaim: dropping half-populated constraint from"
+                         . " the plugin-side comparison"
+                         . " (client=" . var_export($clientIdentifier, true)
+                         . ", constraint_field=" . var_export($constraint['constraint_field'] ?? null, true) . ")");
             }
           }
         }
@@ -499,21 +525,33 @@ class Oa4mpClientOa4mpServer extends AppModel {
         $normalized = array();
         $normalized['claim_name'] = $claim['claim_name'];
         $normalized['source_model'] = $claim['source_model'];
-        $normalized['source_model_claim_value_field'] = $claim['source_model_claim_value_field'] ?? null;
+        // Same emptiness test as the plugin-side normalization above, for the
+        // same reason: the two sides have to apply the marshaller's rule
+        // identically or the comparison is between different questions.
+        $normalized['source_model_claim_value_field'] = !empty($claim['source_model_claim_value_field']) ? $claim['source_model_claim_value_field'] : null;
         $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
         $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
         $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
         $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
 
-        // Normalize constraints.
+        // Normalize constraints, applying the marshaller's both-fields rule the
+        // same way the plugin-side normalization above does.
         $constraints = array();
         if(!empty($claim['Oa4mpClientClaimConstraint'])) {
           foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
-            if(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
+            if(!empty($constraint['constraint_field']) && !empty($constraint['constraint_value'])) {
               $constraints[] = array(
                 'constraint_field' => $constraint['constraint_field'] ?? null,
                 'constraint_value' => $constraint['constraint_value'] ?? null
               );
+            } elseif(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
+              // A half-populated constraint on the OA4MP server's own copy is
+              // the case the plugin can no longer report, so it matters more
+              // here than on the plugin side. Client and field name only.
+              $this->log("Oa4mpClientClaim: dropping half-populated constraint from"
+                         . " the oa4mp-side comparison"
+                         . " (client=" . var_export($clientIdentifier, true)
+                         . ", constraint_field=" . var_export($constraint['constraint_field'] ?? null, true) . ")");
             }
           }
         }

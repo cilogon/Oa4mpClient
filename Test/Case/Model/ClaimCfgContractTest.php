@@ -114,13 +114,16 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
   // Emptiness axis. Every claim column that reaches the cfg, three ways:
   // populated, empty, and set to a string zero.
   //
-  // The three layers disagree about a string zero. The marshaller strips it
-  // (empty('0') is true) and the unmarshaller skips it for the same reason,
-  // but the comparator reads source_model_claim_value_field with a null
-  // coalesce rather than an emptiness test, so that one column keeps its '0'
-  // on the plugin side and compares unequal to the server's absent value.
-  // Each string-zero row therefore asserts the comparator's verdict, not
-  // merely that the field is absent from the cfg.
+  // All three layers now agree about a string zero. The marshaller strips it
+  // (empty('0') is true), the unmarshaller skips it for the same reason, and
+  // the comparator applies the same emptiness test to
+  // source_model_claim_value_field, so the column normalizes to null on both
+  // sides. It did not always: the comparator used to read that column with a
+  // null coalesce, kept the '0' on the plugin side, and compared it unequal to
+  // the server's absent value, which reported the client out of sync on every
+  // verify pass. Each string-zero row therefore asserts the comparator's
+  // verdict, not merely that the field is absent from the cfg -- see
+  // Test/Case/Model/ClaimConstraintSymmetryTest.php for the regression lock.
   //
   // The populated rows each override a single column to a value distinct from
   // the baseline, so each row pins its own column. The marshaller copies the
@@ -295,13 +298,14 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
       ),
     ));
 
-    // The comparator reads this column with a null coalesce, so the plugin
-    // side keeps the empty string where the server side has null. Its final
-    // array comparison is loose, and '' == null, so an empty value still
-    // reports in sync. A string zero does not -- see the next row.
+    // The comparator applies the marshaller's emptiness test to this column,
+    // so the empty string normalizes to null on the plugin side exactly as the
+    // server's absent value does. This row reported in sync before that fix
+    // too, but only because the final array comparison is loose and
+    // '' == null; the string-zero row below is where the difference showed.
     $this->assertRowVerdict($row, $claim, true,
-      'an empty value field is absent from the cfg and the comparator, whose'
-      . ' array comparison is loose, treats the empty string and null as equal');
+      'an empty value field is absent from the cfg and normalizes to null on'
+      . ' both sides of the comparison');
   }
 
   public function testSourceModelClaimValueFieldStringZero() {
@@ -320,15 +324,15 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
       ),
     ));
 
-    // This is the one column where the three layers disagree. The marshaller
-    // and the unmarshaller both use an emptiness test and drop the '0'; the
-    // comparator reads the plugin side with a null coalesce, keeps '0', and
-    // compares it against the server's null. '0' != null even loosely, so the
-    // client reports out of sync on every verify pass and can never be brought
-    // back into sync by re-sending the same data. Characterized, not endorsed.
-    $this->assertRowVerdict($row, $claim, false,
-      'a string-zero value field is stripped from the cfg but kept by the'
-      . " comparator's null-coalescing read, so the client reports out of sync");
+    // This column used to be the one place the three layers disagreed: the
+    // marshaller and the unmarshaller both dropped the '0' on an emptiness
+    // test while the comparator's null-coalescing read kept it, so the client
+    // reported out of sync on every verify pass and could never be brought
+    // back into sync by re-sending the same data. The comparator now applies
+    // the same emptiness test, so the column normalizes to null on both sides.
+    $this->assertRowVerdict($row, $claim, true,
+      'a string-zero value field is stripped from the cfg and the comparator'
+      . ' applies the same emptiness test, so the client reports in sync');
   }
 
   public function testClaimValueSelectionPopulated() {
