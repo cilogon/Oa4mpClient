@@ -110,11 +110,23 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # of its own is `$total === 0`.
 #
 # The floor sits a few tests below the suite's current size: the hermetic tier
-# runs 211 tests today, so 208 leaves three tests of headroom. That way
+# runs 218 tests today, so 215 leaves three tests of headroom. That way
 # consolidating a case or two never forces an edit here, while any loss of four
 # or more goes red -- that is every test file in the tree except the two
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
+#
+# The 218 is 211 plus the seven methods in
+# Test/Case/ContractGuidanceTest.php, which lock the two contributor-facing
+# records of the cross-repository obligation the contract creates: AGENTS.md
+# (the contract artifact and the conformance check by name, the deployment
+# ordering rule, the repository, tier branches and path the QDL lives at, and
+# the boundary that the rule covers dynamodb_claims.qdl only) and the pull
+# request template (the conformance result a contract_version bump records, and
+# a moved golden value naming the behaviour change it reflects). One of the
+# seven asserts an ABSENCE instead: this repository is PUBLIC, so the guidance
+# may name that repository and its branches and must say nothing about what it
+# holds.
 #
 # The 211 is 204 plus the seven methods in
 # Test/Case/Lib/QdlConformanceTest.php, which cover the QDL conformance check
@@ -162,7 +174,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=208
+min_tests_run=215
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

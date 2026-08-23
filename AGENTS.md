@@ -52,6 +52,13 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
 - `cfg_format.md`, `cfg_schema.json`, `cfg_example.json`: documentation, a JSON
   schema, and an example of the OA4MP server `cfg` object the plugin marshals
   for a client.
+- `cfg_contract.json`: the cfg capability contract -- the one declaration of
+  every name the plugin may emit into a `cfg`, read by the marshaller, by the
+  unmarshaller and the synchronization comparator, by the cfg-side half of the
+  log-redaction name list, and by the conformance check. See Architecture &
+  Key Concepts.
+- `bin/qdl-conformance.php`: checks a named tier's QDL against
+  `cfg_contract.json`. See Testing & Verification.
 - `docs/solutions/`: documented solutions to past problems (bugs,
   best practices, workflow patterns), organized by category with
   YAML frontmatter (`module`, `tags`, `problem_type`). Relevant
@@ -86,6 +93,31 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   EmailAddress, group membership, role, and so on) to an output claim asserted
   in the token, and may carry claim constraints. Deprecated LDAP search
   attributes are migrated into claims when a client's edit page loads.
+- The cfg capability contract, and the QDL that consumes it. `cfg_contract.json`
+  declares every name the plugin may put into a `cfg`. The marshaller emits
+  nothing the contract does not declare, and every marshalled `cfg` carries the
+  `contract_version` it was built against. A change to what claim marshalling
+  emits therefore starts in `cfg_contract.json`, and a change to the declared
+  capability set raises `contract_version`.
+- Where that QDL lives. The script that reads those capabilities is
+  `dynamodb_claims.qdl` in the `cilogon-service-config-us` repository, at
+  `roles/oa4mp-server/files/qdl/COmanageRegistry/default/dynamodb_claims.qdl`.
+  It is absent from that repository's `main`; the live lines are the
+  `us-east-2-dev`, `us-east-2-test`, and `us-east-2-prod` branches, one per
+  tier. Read it with `git show <branch>:<path>` rather than by switching that
+  checkout, and do not conclude from `main` that the file does not exist. A
+  capability the plugin emits that a tier's QDL does not implement is a
+  silently ignored `cfg` key, not an error, which is why the coupling is
+  written down here instead of being met by accident.
+- Deployment ordering across the two repositories. A QDL change is deployed to a
+  tier BEFORE any plugin deployment that emits a capability introduced with it.
+  One QDL copy serves every subscriber on a tier while plugin deployments
+  advance per subscriber, so deploying the QDL early is always safe -- it is a
+  no-op for older `cfg` values -- and deploying the plugin early never is.
+- What the contract rule covers. The rule above is about `dynamodb_claims.qdl`
+  ONLY. The plugin's other claim consumer, the LDAP path, is outside it:
+  satisfying the contract and its conformance check says nothing about that
+  consumer, and a change there is not handled by having done this.
 - See `CONCEPTS.md` for the authoritative glossary of these terms.
 
 ## Coding Style & Conventions
@@ -113,11 +145,28 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   the OA4MP server or the database, cannot be verified from this repository
   alone; validate such changes manually in a running COmanage Registry with a
   reachable OA4MP server.
+- A change to what claim marshalling emits is checked against the target tier's
+  QDL before it is treated as complete:
+
+      php bin/qdl-conformance.php --tier us-east-2-dev \
+        --config-repo <path to a cilogon-service-config-us checkout>
+
+  The check needs a local checkout of that repository, which this plugin's CI
+  does not have, so it is a local check and a review-time obligation rather
+  than a merge gate. A pull request that raises `contract_version` records the
+  check's verdict and the tier it ran against -- the verdict and the tier, not
+  pasted output -- and names the QDL change that satisfies it; the pull request
+  template carries the item. Without a checkout of that repository, ask a
+  maintainer who has one to run the check rather than attesting to it yourself.
 
 ## Do's & Don'ts
 - Do: Respect existing code style and patterns but suggest alternatives
   that provide generally cleaner and more maintainable code.
 - Do: Lint changed PHP with `php -l` after changes.
+- Do: In a plan that changes claim marshalling, carry a QDL implementation unit
+  that names the target repository (`cilogon-service-config-us`) and the path
+  within it, so the cross-repository half of the change is planned rather than
+  remembered later.
 - Don't: Introduce new dependencies without approval.
 
 ## Git, Remotes, and Pushing
