@@ -1,5 +1,23 @@
 # Changelog
 
+## 7.0.0-rc6 (2026-08-23)
+
+- Report a failed claim save or delete instead of reporting success when
+  the OA4MP server has already accepted the change.
+- Say what repairs a client left out of sync by such a failure, rather
+  than advising a retry, which the synchronization check blocks.
+- Compare a client against the configuration the plugin actually sends,
+  so a client carrying a half-populated claim constraint, or a value
+  field of `0`, no longer reports as permanently out of sync with no
+  edit able to repair it.
+- Stop writing the OIDC client secret and the DynamoDB credentials into
+  the Registry log when creating, editing, verifying, or deleting a
+  client.
+- Stop returning the server-generated registration client URI to the
+  OA4MP server when editing a client.
+- Stop emitting PHP warnings when comparing a client that has no refresh
+  token or access token configuration.
+
 ## 7.0.0-rc5 (2026-08-10)
 
 - Do not send a custom configuration to the OA4MP server for a public
