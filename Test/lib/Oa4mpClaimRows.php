@@ -254,9 +254,13 @@ class Oa4mpClaimRows {
    *   dimension    the matrix dimension the row covers
    *   values       the enumerated option values the row pins, by column
    *
-   * Keep this in step with the test methods: a row added there and not here is
-   * invisible to the drift check, which is the one thing that check cannot
-   * detect for itself.
+   * This list and the test methods must name the same rows. That used to be a
+   * matter of discipline -- a row added there and not here was invisible, and
+   * nothing was looking -- so it is now checked:
+   * ClaimCfgDriftTest::testDeclaredRowsMatchTheRowsTheContractTestExercises()
+   * reads the "$row = '...'" literal out of every row method in
+   * ClaimCfgContractTest.php and diffs the two sets in both directions. A row
+   * added on either side alone fails, naming the side that is missing it.
    *
    * @return array
    */
@@ -431,6 +435,20 @@ class Oa4mpClaimRows {
    * assertion than the rest, with the reason. U4's drift check reads this so
    * an uncovered cell is either a row or an explicit, reviewed decision --
    * never a silent gap.
+   *
+   * There are two kinds, and U4 reads both:
+   *
+   *   row exemption     'row' plus 'exempt_from', narrowing what one matrix
+   *                     row asserts. The row must be one declaredRows()
+   *                     declares. Every entry below is this kind.
+   *   option exemption  'option', as "column=value", covering an enumerated
+   *                     option the claims tab offers that no matrix row pins.
+   *                     The option must be one the tab still offers.
+   *
+   * Both kinds carry a 'reason'. ClaimCfgDriftTest::exemptionReport() rejects
+   * an entry of neither kind, one with no reason, and one naming a row or an
+   * option that no longer exists -- an exemption nothing reads, or one left
+   * behind by the thing it excused, reads as coverage while providing none.
    *
    * @return array
    */
