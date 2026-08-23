@@ -280,14 +280,23 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // zero and our representation does not have a value is considered to be
     // synchronized.
 
-    $curRefreshToken = $curData['Oa4mpClientRefreshToken'];
-    $oa4mpRefreshToken = $oa4mpServerData['Oa4mpClientRefreshToken'];
+    // Both sides are optional. A caller may omit the section entirely (the
+    // live-server tier does), and the unmarshaller only sets token_lifetime
+    // when the server returned rt_lifetime. Reading through the missing key
+    // raised "Undefined array key" and "array offset on null" warnings on
+    // every live-tier comparison; resolving to null first keeps the
+    // null-vs-zero rule below reading exactly as it did.
+    $curRefreshToken = $curData['Oa4mpClientRefreshToken'] ?? array();
+    $oa4mpRefreshToken = $oa4mpServerData['Oa4mpClientRefreshToken'] ?? array();
 
-    if($curRefreshToken['token_lifetime'] != $oa4mpRefreshToken['token_lifetime']) {
-      if(!(is_null($curRefreshToken['token_lifetime']) && ($oa4mpRefreshToken['token_lifetime'] === 0))) {
+    $curTokenLifetime = $curRefreshToken['token_lifetime'] ?? null;
+    $oa4mpTokenLifetime = $oa4mpRefreshToken['token_lifetime'] ?? null;
+
+    if($curTokenLifetime != $oa4mpTokenLifetime) {
+      if(!(is_null($curTokenLifetime) && ($oa4mpTokenLifetime === 0))) {
         $this->log("Oa4mpClientRefreshToken token_lifetime is out of sync"
-                   . " (plugin=" . var_export($curRefreshToken['token_lifetime'], true)
-                   . ", oa4mp=" . var_export($oa4mpRefreshToken['token_lifetime'], true) . ")");
+                   . " (plugin=" . var_export($curTokenLifetime, true)
+                   . ", oa4mp=" . var_export($oa4mpTokenLifetime, true) . ")");
         return false;
       }
     }
@@ -409,24 +418,30 @@ class Oa4mpClientOa4mpServer extends AppModel {
       return true;
     }
 
-    // Compare access token configuration.
-    if($curData['Oa4mpClientAccessToken'] && $curData['Oa4mpClientAccessToken']['is_jwt'] && !$oa4mpServerData['Oa4mpClientAccessToken']) {
+    // Compare access token configuration. Optional on both sides for the same
+    // reason as the refresh token above: an omitted section is "no access
+    // token configuration", which is what the three tests below already
+    // treat an empty array as.
+    $curAccessToken = $curData['Oa4mpClientAccessToken'] ?? array();
+    $oa4mpAccessToken = $oa4mpServerData['Oa4mpClientAccessToken'] ?? array();
+
+    if($curAccessToken && ($curAccessToken['is_jwt'] ?? null) && !$oa4mpAccessToken) {
       $this->log("Oa4mpClientAccessToken plugin has access token configuration but Oa4mp server does not");
-      $this->log("curAccessToken: " . print_r($curData['Oa4mpClientAccessToken'], true));
+      $this->log("curAccessToken: " . print_r($curAccessToken, true));
       return false;
     }
 
-    if(!$curData['Oa4mpClientAccessToken'] && $oa4mpServerData['Oa4mpClientAccessToken']) {
+    if(!$curAccessToken && $oa4mpAccessToken) {
       $this->log("Oa4mpClientAccessToken Oa4mp server has access token configuration but plugin does not");
-      $this->log("oa4mpAccessToken: " . print_r($oa4mpServerData['Oa4mpClientAccessToken'], true));
+      $this->log("oa4mpAccessToken: " . print_r($oa4mpAccessToken, true));
       return false;
     }
 
-    if($curData['Oa4mpClientAccessToken'] && $oa4mpServerData['Oa4mpClientAccessToken']) {
-      if($curData['Oa4mpClientAccessToken']['is_jwt'] != $oa4mpServerData['Oa4mpClientAccessToken']['is_jwt']) {
+    if($curAccessToken && $oa4mpAccessToken) {
+      if(($curAccessToken['is_jwt'] ?? null) != ($oa4mpAccessToken['is_jwt'] ?? null)) {
         $this->log("Oa4mpClientAccessToken is_jwt is out of sync"
-                   . " (plugin=" . var_export($curData['Oa4mpClientAccessToken']['is_jwt'], true)
-                   . ", oa4mp=" . var_export($oa4mpServerData['Oa4mpClientAccessToken']['is_jwt'], true) . ")");
+                   . " (plugin=" . var_export($curAccessToken['is_jwt'] ?? null, true)
+                   . ", oa4mp=" . var_export($oa4mpAccessToken['is_jwt'] ?? null, true) . ")");
         return false;
       }
     }
