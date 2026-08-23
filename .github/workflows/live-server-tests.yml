@@ -9,7 +9,9 @@
 #     policy is restricted to main, so a workflow run on any other ref cannot
 #     read it -- including a same-repo branch pull request that adds a workflow
 #     to try, and a workflow_dispatch that selects another branch;
-#   - the job additionally refuses to run unless github.ref is main.
+#   - the job additionally refuses to run unless github.ref is main;
+#   - and it refuses to run outside the canonical repository, so no fork can
+#     reach it.
 # Triggers are limited to schedule and workflow_dispatch: never pull_request,
 # never pull_request_target, and never workflow_run over pull-request head code,
 # each of which would run a contributor's code with the secret in scope.
@@ -42,9 +44,22 @@ jobs:
     # run whose ref is outside the environment's deployment-branch policy.
     environment: live-server
 
-    # Belt and braces: refuse to run off main even if the environment policy is
-    # ever loosened.
-    if: github.ref == 'refs/heads/main'
+    # Two refusals, both belt and braces behind the environment's own policy.
+    #
+    # The repository check keeps this tier off every fork. A fork's schedule
+    # fires from the fork's own default branch, and a fork must never hold the
+    # dev.cilogon.org credential -- so a scheduled run there can only fail. It
+    # did: a fork went red at 07:00 UTC the first night after this workflow
+    # reached main, and would have every night after. Skipping is the only
+    # correct outcome on a fork, and skipping beats a workflow disabled by hand
+    # in one fork's settings, which the next fork does not inherit.
+    #
+    # A fork owner who has their own test admin client can still run the tier
+    # with Test/run-live.sh locally, which is where iterating on it belongs.
+    #
+    # The ref check refuses to run off main even if the environment's
+    # deployment-branch policy is ever loosened.
+    if: github.repository == 'cilogon/Oa4mpClient' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Check out main
