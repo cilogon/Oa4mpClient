@@ -86,6 +86,32 @@ class CiWorkflowTest extends Oa4mpTestCase {
   }
 
   /**
+   * The CO id must reach the live tier as a variable, not a secret.
+   *
+   * It is not a credential: it names the CO the admin client belongs to and
+   * only feeds the comment URL. As a secret it is actively harmful, because
+   * Actions masks every occurrence of a secret's value anywhere in the log and
+   * this value is a single digit -- the first successful run printed HTTP 200
+   * as ***00 across hundreds of lines, corrupting the log a failure would be
+   * diagnosed from. The other three stay secrets.
+   */
+  public function testLiveTierTakesTheCoIdAsAVariable() {
+    $yaml = $this->directives($this->workflow('live-server-tests.yml'));
+
+    $this->assertContains('vars.OA4MP_LIVE_CO_ID', $yaml,
+      'the CO id must come from an environment variable');
+    $this->assertTrue(strpos($yaml, 'secrets.OA4MP_LIVE_CO_ID') === false,
+      'the CO id must not be passed as a secret: masking a one-character'
+      . ' value rewrites every matching digit in the log');
+
+    foreach (array('OA4MP_LIVE_SERVER_URL', 'OA4MP_LIVE_ADMIN_IDENTIFIER',
+                   'OA4MP_LIVE_ADMIN_SECRET') as $secret) {
+      $this->assertContains("secrets.$secret", $yaml,
+        "$secret must still come from the live-server environment's secrets");
+    }
+  }
+
+  /**
    * The live tier must not run on a fork.
    *
    * A fork's schedule fires from the fork's own default branch, and a fork

@@ -70,7 +70,16 @@ jobs:
           OA4MP_LIVE_SERVER_URL: ${{ secrets.OA4MP_LIVE_SERVER_URL }}
           OA4MP_LIVE_ADMIN_IDENTIFIER: ${{ secrets.OA4MP_LIVE_ADMIN_IDENTIFIER }}
           OA4MP_LIVE_ADMIN_SECRET: ${{ secrets.OA4MP_LIVE_ADMIN_SECRET }}
-          OA4MP_LIVE_CO_ID: ${{ secrets.OA4MP_LIVE_CO_ID }}
+          # A variable, not a secret. The CO id is not a credential -- it names
+          # the CO the admin client belongs to and only feeds the comment URL
+          # Router::url() builds -- and it is a single digit, which Actions
+          # masking turns into a liability: GitHub replaces every occurrence of
+          # a secret's value anywhere in the log, so a one-character secret
+          # rewrote every matching digit in the first successful run's output.
+          # HTTP 200 printed as ***00, timestamps and client identifiers lost
+          # digits, across 621 lines. That is exactly the log someone reads
+          # when this tier fails. Variables are not masked.
+          OA4MP_LIVE_CO_ID: ${{ vars.OA4MP_LIVE_CO_ID }}
         # Same digest-pinned environment as the hermetic tier: this job runs the
         # harness with a live credential in scope, so a mutable image alongside
         # a secret would be a supply-chain exfiltration risk.
