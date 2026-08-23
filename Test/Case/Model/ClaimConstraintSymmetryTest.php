@@ -31,8 +31,53 @@
  * emitted cfg back through oa4mpUnMarshallContent(), never hand-built, so a
  * test only passes if the real marshall/unmarshall/compare round trip agrees.
  *
+ * The one exception is the server side of the drop rule. Nothing that arrives
+ * through marshall/unmarshall can carry a half-populated constraint -- the
+ * marshaller strips it on the way out -- so the two tests that exercise the
+ * OA4MP-side loop put the constraint on the unmarshalled data directly, and
+ * say so where they do it.
+ *
  * See docs/solutions/logic-errors/oa4mp-comparator-marshaller-asymmetry-2026-08-22.md
  */
+
+App::uses('Oa4mpClientOa4mpServer', 'Oa4mpClient.Model');
+
+/**
+ * The comparator with its log calls captured instead of written.
+ *
+ * Dropping a half-populated constraint removes it from the comparison, so the
+ * log line is the only evidence that state ever existed -- which makes the
+ * line, and what it does and does not carry, part of the behavior under test.
+ * Overriding log() keeps that assertion off the global CakeLog configuration:
+ * no engine is added, nothing is left behind for a later test, and the
+ * captured lines belong to this comparison and no other.
+ *
+ * Local to this file on purpose: it exists for the two tests below, not as
+ * shared infrastructure.
+ */
+class Oa4mpConstraintDropLogSpy extends Oa4mpClientOa4mpServer {
+
+  /** @var array Every message log() was handed, in order. */
+  public $logged = array();
+
+  public function log($msg, $type = LOG_ERR, $scope = null) {
+    $this->logged[] = (string)$msg;
+
+    return true;
+  }
+
+  /** Just the lines reporting a dropped constraint. */
+  public function droppedConstraintLines() {
+    $lines = array();
+    foreach ($this->logged as $line) {
+      if (strpos($line, 'dropping half-populated constraint') !== false) {
+        $lines[] = $line;
+      }
+    }
+
+    return $lines;
+  }
+}
 
 class ClaimConstraintSymmetryTest extends Oa4mpTestCase {
 
@@ -79,6 +124,31 @@ class ClaimConstraintSymmetryTest extends Oa4mpTestCase {
 
     return $this->server()->isClientDataSynchronized(
       Oa4mpClaimRows::pluginSide($pluginClaim), $serverData);
+  }
+
+  /**
+   * The OA4MP server side as the real round trip produces it, with
+   * $constraints then put on its claim directly.
+   *
+   * Direct injection is not a shortcut here, it is the only route: the
+   * marshaller strips a half-populated constraint on the way out, so anything
+   * that reaches the server-side normalization through marshall/unmarshall
+   * arrives already filtered. Everything else about the server side is still
+   * the product of the real round trip.
+   *
+   * @param array $claim The claim row both sides are built from.
+   * @param array $constraints The constraint rows to put on the server side.
+   * @return array The OA4MP server representation, ready to compare.
+   */
+  private function serverSideWithConstraints($claim, $constraints) {
+    $cfg = $this->server()->oa4mpMarshallCfgQdl(Oa4mpClaimRows::data($claim));
+
+    $serverData = $this->server()->oa4mpUnMarshallContent(
+      Oa4mpClaimRows::serverObject($cfg), Oa4mpClaimRows::adminClientContext());
+
+    $serverData['Oa4mpClientClaim'][0]['Oa4mpClientClaimConstraint'] = $constraints;
+
+    return $serverData;
   }
 
   // ---------------------------------------------------------------------
@@ -173,6 +243,98 @@ class ClaimConstraintSymmetryTest extends Oa4mpTestCase {
     $this->assertFalse($this->verdictFor($pluginClaim, $serverClaim),
       'two fully populated constraints that differ in their value must still'
       . ' report the client out of sync');
+  }
+
+  // ---------------------------------------------------------------------
+  // Defect A, the OA4MP server's side of it.
+  // ---------------------------------------------------------------------
+
+  /**
+   * A half-populated constraint on the OA4MP server's own copy is dropped
+   * there too, so the client still reports in sync.
+   *
+   * Every test above reaches the server side through marshall/unmarshall,
+   * which strips a half-populated constraint before the comparator can see
+   * one -- so they all exercise the plugin-side loop and none of them the
+   * server-side one. This test is the server-side half: the constraint is put
+   * on the unmarshalled data directly, which is the only way that state
+   * reaches the OA4MP-side normalization at all.
+   *
+   * It is not a hypothetical shape. The plugin can no longer send one, but the
+   * server's stored cfg is not written only by this plugin, and a cfg edited
+   * anywhere else can hold one.
+   */
+  public function testHalfPopulatedConstraintOnTheServerSideIsDroppedFromTheComparison() {
+    $claim = Oa4mpClaimRows::claim(array('Oa4mpClientClaimConstraint' => array()));
+
+    $this->assertEqual(array(), $this->emittedConstraints($claim),
+      'the plugin side of this comparison carries no constraint, so the only'
+      . ' constraint in play is the one put on the server side below');
+
+    $serverData = $this->serverSideWithConstraints($claim, array(
+      array('constraint_field' => 'owner', 'constraint_value' => '')
+    ));
+
+    $spy = new Oa4mpConstraintDropLogSpy();
+    $verdict = $spy->isClientDataSynchronized(Oa4mpClaimRows::pluginSide($claim), $serverData);
+
+    $this->assertTrue($verdict,
+      'a half-populated constraint counts for as little on the OA4MP side as'
+      . ' on the plugin side: the marshaller would never have emitted one, so'
+      . ' keeping it here compares one constraint against the nothing that was'
+      . ' actually sent and reports a client out of sync that no edit can'
+      . ' repair');
+
+    $lines = $spy->droppedConstraintLines();
+    $this->assertEqual(1, count($lines),
+      'dropping the constraint takes it out of the comparison, so this log'
+      . ' line is the only trace that state leaves anywhere');
+    $this->assertContains('oa4mp-side', $lines[0],
+      'the line says which side the constraint was dropped from, which is the'
+      . ' whole difference between this case and the plugin-side one');
+  }
+
+  /**
+   * What that log line may carry: the client and the constraint's field name,
+   * never the constraint value.
+   *
+   * Both loops' comments promise this and nothing checked it. The claim rows
+   * this model logs elsewhere can carry the DynamoDB credentials, so "log the
+   * row" is a habit worth keeping a test against.
+   *
+   * Two half-populated constraints, one of each shape: the field-only one has
+   * a field name to report, and the value-only one has a value that must not
+   * be reported.
+   */
+  public function testServerSideDropLogNamesTheClientAndFieldButNeverTheValue() {
+    $claim = Oa4mpClaimRows::claim(array('Oa4mpClientClaimConstraint' => array()));
+
+    $value = 'zzz-constraint-value-that-must-not-be-logged';
+    $serverData = $this->serverSideWithConstraints($claim, array(
+      array('constraint_field' => 'owner', 'constraint_value' => ''),
+      array('constraint_field' => '', 'constraint_value' => $value)
+    ));
+
+    $spy = new Oa4mpConstraintDropLogSpy();
+    $spy->isClientDataSynchronized(Oa4mpClaimRows::pluginSide($claim), $serverData);
+
+    $lines = $spy->droppedConstraintLines();
+    $this->assertEqual(2, count($lines),
+      'both half-populated constraints were dropped, so both were reported');
+
+    $report = implode("\n", $lines);
+    $this->assertContains(Oa4mpClaimRows::CLIENT_IDENTIFIER, $report,
+      'the log names the client the constraint was dropped for; without it the'
+      . ' line cannot be acted on');
+    $this->assertContains('owner', $report,
+      'and names the constraint field, which is what identifies the row');
+
+    $this->assertTrue(strpos($report, $value) === false,
+      'but never the constraint value: a dropped-constraint line is written on'
+      . ' data the plugin did not author, and this model logs rows that can'
+      . ' carry the DynamoDB credentials');
+    $this->assertTrue(strpos(implode("\n", $spy->logged), $value) === false,
+      'and nothing else the comparison logged echoed it either');
   }
 
   // ---------------------------------------------------------------------

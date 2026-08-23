@@ -137,6 +137,14 @@ server call. It never calls `constructClasses()`. `Test/run.sh` additionally
 requires the runner's `ALL_TESTS_PASSED` sentinel, so a mid-run `exit(0)`
 reddens the gate instead of reporting green.
 
+The two test cases that drive it -- `ClaimsControllerHarnessTest` and
+`ClaimsWritePathTest` -- extend `Test/lib/Oa4mpClaimsControllerTestCase.php`,
+which seeds the client graph both need (CO, admin client with a default Dynamo
+configuration, an ordinary and a public OIDC client, a claim and its
+constraint), purges it in `tearDown()`, and supplies the shared
+harness/count/source helpers. A subclass supplies only its fixture tag through
+`fixtureTagPrefix()`.
+
 The two view-layer bugs (#1, #9) are locked at the seam the thin runner can
 reach: the real render of the core escaping element plus a statement-scoped
 source check for the exact pattern each fix removed or added. Full page

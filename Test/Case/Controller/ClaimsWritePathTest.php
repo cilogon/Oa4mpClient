@@ -32,77 +32,16 @@
 
 App::uses('ConnectionManager', 'Model');
 
-class ClaimsWritePathTest extends Oa4mpTestCase {
+class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
 
-  /** @var Oa4mpFixtures */
-  private $fx;
-
-  private $coId;
-  private $adminId;
-  private $clientId;
-  private $publicClientId;
-  private $claimId;
-  private $constraintId;
-
-  public function setUp() {
-    $this->fx = new Oa4mpFixtures();
-    $tag = Oa4mpFixtures::tag('oa4mpwritepath');
-
-    $this->coId = $this->fx->co($tag);
-    $this->adminId = $this->fx->adminClient($this->coId, $tag);
-
-    // admin() reads DefaultDynamoConfig, so seed one and exercise the real read.
-    $this->fx->insert('cm_oa4mp_client_dynamo_configs', array(
-      'admin_id' => $this->adminId,
-      'client_id' => null,
-      'aws_region' => 'us-east-1',
-      'aws_access_key_id' => 'AKIAEXAMPLE',
-      'aws_secret_access_key' => 'not-a-real-secret',
-      'table_name' => 'oa4mp-test-table',
-      'partition_key' => 'client_id',
-      'partition_key_template' => '${client_id}',
-      'partition_key_claim_name' => 'sub'
-    ));
-
-    $this->clientId = $this->fx->oidcClient($this->adminId, 'writepath-' . $tag);
-    $this->publicClientId = $this->fx->oidcClient($this->adminId, 'public-' . $tag,
-      array('public_client' => true));
-
-    $this->claimId = $this->fx->insert('cm_oa4mp_client_claims', array(
-      'client_id' => $this->clientId,
-      'claim_name' => 'eppn',
-      'source_model' => 'Identifier',
-      'source_model_claim_value_field' => 'identifier',
-      'claim_value_selection' => 'first',
-      'claim_value_json_format' => 'string'
-    ));
-
-    $this->constraintId = $this->fx->insert('cm_oa4mp_client_claim_constraints', array(
-      'claim_id' => $this->claimId,
-      'constraint_field' => 'type',
-      'constraint_value' => 'eppn'
-    ));
-  }
-
-  public function tearDown() {
-    if ($this->fx === null) {
-      return;
-    }
-
-    // The driven actions insert and delete claims of their own, so purge by
-    // client rather than by the ids this file happens to know. Constraints
-    // first: they carry the foreign key into claims.
-    $purge = array();
-    if ($this->clientId !== null) {
-      $clients = (int)$this->clientId . ', ' . (int)$this->publicClientId;
-      $purge['cm_oa4mp_client_claim_constraints'] =
-        'claim_id IN (SELECT id FROM cm_oa4mp_client_claims WHERE client_id IN (' . $clients . '))';
-      $purge['cm_oa4mp_client_claims'] = 'client_id IN (' . $clients . ')';
-      $purge['cm_oa4mp_client_dynamo_configs'] = 'admin_id = ' . (int)$this->adminId;
-    }
-
-    $this->fx->cleanup($purge);
-    $this->fx = null;
+  /**
+   * The seeded client graph, its teardown, and the harness/count/source
+   * helpers come from Oa4mpClaimsControllerTestCase (Test/lib), which
+   * Test/Case/Controller/ClaimsControllerHarnessTest.php shares. Only the
+   * fixture tag differs.
+   */
+  protected function fixtureTagPrefix() {
+    return 'oa4mpwritepath';
   }
 
   // ==========================================================================
@@ -463,17 +402,45 @@ class ClaimsWritePathTest extends Oa4mpTestCase {
 
       $this->assertEqual(1, substr_count($source, "_txt('" . $key . "')"),
         "the controller flashes $key through _txt() exactly once");
-      $this->assertEqual(0, substr_count($source, '$this->Flash->set("'),
-        'no flash message is a double-quoted literal in the controller');
+
+      // Scoped to this branch's own flash statement rather than scanned over
+      // the whole controller. What the check is after is that these three
+      // messages reach the user through the lang file: a double-quoted literal
+      // elsewhere in the file is a different concern, and scanning for one
+      // makes an unrelated edit anywhere in the controller red for no reason
+      // this test can explain.
+      $statement = '$this->Flash->set(_txt(\'' . $key . '\'), array(\'key\' => \'error\'));';
+      $this->assertEqual(1, substr_count($source, $statement),
+        "the $key branch flashes the key through _txt() under the error key,"
+        . " as a single-quoted literal: $statement");
     }
 
-    // Each repair sentence names the action that undoes the half that landed.
-    $this->assertContains('remove the claim from the OA4MP server',
-      $this->pluginText('pl.oa4mp_client_claim.er.add.save'), 'the add repair is named');
-    $this->assertContains('restore the claim on the OA4MP server',
-      $this->pluginText('pl.oa4mp_client_claim.er.edit.save'), 'the edit repair is named');
-    $this->assertContains('Delete the claim again',
-      $this->pluginText('pl.oa4mp_client_claim.er.delete.remove'), 'the delete repair is named');
+    // Each message names the repair on the OA4MP server -- the side that
+    // still holds the half that landed -- and says that retrying the action
+    // in Registry is not the way back. It cannot be: the drift these messages
+    // report is exactly what the synchronization guard blocks, so every
+    // further change to this client, the retry included, is refused until the
+    // two sides agree again. The delete message used to end "Delete the claim
+    // again to bring them back into agreement", which was advice that could
+    // not work.
+    $add = $this->pluginText('pl.oa4mp_client_claim.er.add.save');
+    $this->assertContains('including adding the claim again', $add,
+      'the add message names the blocked retry rather than offering it');
+    $this->assertContains('remove the claim from the OA4MP server', $add,
+      'the add repair is named, and it is the server-side one');
+
+    $edit = $this->pluginText('pl.oa4mp_client_claim.er.edit.save');
+    $this->assertContains('including editing the claim again', $edit,
+      'the edit message names the blocked retry rather than offering it');
+    $this->assertContains('restore the claim on the OA4MP server', $edit,
+      'the edit repair is named, and it is the server-side one');
+
+    $delete = $this->pluginText('pl.oa4mp_client_claim.er.delete.remove');
+    $this->assertContains('including deleting the claim again', $delete,
+      'the delete message names the blocked retry rather than offering it');
+    $this->assertContains('restore the claim on the OA4MP server', $delete,
+      'the delete repair is named, and it is the server-side one: Registry'
+      . ' still holds the claim, so the values to restore it with are there');
   }
 
   /**
@@ -524,11 +491,6 @@ class ClaimsWritePathTest extends Oa4mpTestCase {
   // ==========================================================================
   // Helpers (must not begin with "test": the runner would call them)
   // ==========================================================================
-
-  /** A harness pointed at the ordinary (non-public) seeded client. */
-  private function harness($data = array()) {
-    return Oa4mpClaimsControllerHarness::build($this->clientId, $this->coId, $data);
-  }
 
   /** A well-formed add() body. */
   private function validAddData() {
@@ -592,28 +554,10 @@ class ClaimsWritePathTest extends Oa4mpTestCase {
     return $data;
   }
 
-  /** Claims currently attached to the seeded client. */
-  private function claimCount() {
-    return $this->countRows($this->fx, 'cm_oa4mp_client_claims',
-      'client_id = ' . (int)$this->clientId);
-  }
-
   /** Claims on the seeded client with the given claim_name. */
   private function claimNameCount($claimName) {
     return $this->countRows($this->fx, 'cm_oa4mp_client_claims',
       'client_id = ' . (int)$this->clientId . " AND claim_name = '" . $claimName . "'");
-  }
-
-  /**
-   * Count rows, having first dropped CakePHP's in-memory query cache.
-   *
-   * DboSource::fetchAll() caches every SELECT by its exact SQL text and
-   * nothing invalidates that cache on a write, so asking the same count
-   * question twice around a write returns the first answer both times.
-   */
-  private function countRows($fx, $table, $where) {
-    ConnectionManager::getDataSource('default')->flushQueryCache();
-    return $fx->count($table, $where);
   }
 
   /** A claim id that is certain not to exist, so Model::delete() returns false. */
@@ -682,13 +626,5 @@ class ClaimsWritePathTest extends Oa4mpTestCase {
     }
 
     return $candidates;
-  }
-
-  /** The claims controller's source, for the lang-key locks above. */
-  private function controllerSource() {
-    $path = App::pluginPath('Oa4mpClient') . 'Controller' . DS
-      . 'Oa4mpClientClaimsController.php';
-    $this->assertTrue(is_readable($path), "the claims controller exists at $path");
-    return file_get_contents($path);
   }
 }

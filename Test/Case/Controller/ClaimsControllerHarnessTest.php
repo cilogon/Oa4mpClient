@@ -16,9 +16,8 @@ App::uses('Oa4mpClientClaimsController', 'Oa4mpClient.Controller');
 App::uses('Oa4mpClientOa4mpServer', 'Oa4mpClient.Model');
 App::uses('CakeRequest', 'Network');
 App::uses('CakeResponse', 'Network');
-App::uses('ConnectionManager', 'Model');
 
-class ClaimsControllerHarnessTest extends Oa4mpTestCase {
+class ClaimsControllerHarnessTest extends Oa4mpClaimsControllerTestCase {
 
   /**
    * Set by the first test that drives an action and read by the next one.
@@ -28,113 +27,25 @@ class ClaimsControllerHarnessTest extends Oa4mpTestCase {
    */
   private static $droveAnAction = false;
 
-  /** @var Oa4mpFixtures */
-  private $fx;
-
-  private $coId;
-  private $adminId;
-  private $clientId;
-  private $publicClientId;
-  private $claimId;
-
-  public function setUp() {
-    $this->fx = new Oa4mpFixtures();
-    $tag = Oa4mpFixtures::tag('oa4mpclaimsctl');
-
-    $this->coId = $this->fx->co($tag);
-    $this->adminId = $this->fx->adminClient($this->coId, $tag);
-
-    // The admin client's default configuration. admin() contains
-    // DefaultDynamoConfig, so seed one to exercise the real read.
-    $this->fx->insert('cm_oa4mp_client_dynamo_configs', array(
-      'admin_id' => $this->adminId,
-      'client_id' => null,
-      'aws_region' => 'us-east-1',
-      'aws_access_key_id' => 'AKIAEXAMPLE',
-      'aws_secret_access_key' => 'not-a-real-secret',
-      'table_name' => 'oa4mp-test-table',
-      'partition_key' => 'client_id',
-      'partition_key_template' => '${client_id}',
-      'partition_key_claim_name' => 'sub'
-    ));
-
-    $this->clientId = $this->fx->oidcClient($this->adminId, 'claims-' . $tag);
-    $this->publicClientId = $this->fx->oidcClient($this->adminId, 'public-' . $tag,
-      array('public_client' => true));
-
-    $this->claimId = $this->fx->insert('cm_oa4mp_client_claims', array(
-      'client_id' => $this->clientId,
-      'claim_name' => 'eppn',
-      'source_model' => 'Identifier',
-      'source_model_claim_value_field' => 'identifier',
-      'claim_value_selection' => 'first',
-      'claim_value_json_format' => 'string'
-    ));
-
-    $this->fx->insert('cm_oa4mp_client_claim_constraints', array(
-      'claim_id' => $this->claimId,
-      'constraint_field' => 'type',
-      'constraint_value' => 'eppn'
-    ));
-  }
-
-  public function tearDown() {
-    if ($this->fx === null) {
-      return;
-    }
-
-    // The driven actions insert and delete claims of their own, so purge by
-    // client rather than by the ids this file happens to know. Constraints
-    // first: they carry the foreign key into claims.
-    $purge = array();
-    if ($this->clientId !== null) {
-      $clients = (int)$this->clientId . ', ' . (int)$this->publicClientId;
-      $purge['cm_oa4mp_client_claim_constraints'] =
-        'claim_id IN (SELECT id FROM cm_oa4mp_client_claims WHERE client_id IN (' . $clients . '))';
-      $purge['cm_oa4mp_client_claims'] = 'client_id IN (' . $clients . ')';
-      $purge['cm_oa4mp_client_dynamo_configs'] = 'admin_id = ' . (int)$this->adminId;
-    }
-
-    $this->fx->cleanup($purge);
-    $this->fx = null;
-  }
-
-  /** A harness pointed at the ordinary (non-public) seeded client. */
-  private function harness($data = array()) {
-    return Oa4mpClaimsControllerHarness::build($this->clientId, $this->coId, $data);
-  }
-
-  private function claimCount() {
-    return $this->countRows($this->fx, 'cm_oa4mp_client_claims',
-      'client_id = ' . (int)$this->clientId);
-  }
-
   /**
-   * Count rows, having first dropped CakePHP's in-memory query cache.
-   *
-   * DboSource::fetchAll() caches every SELECT by its exact SQL text and
-   * nothing invalidates that cache on a write, so asking the same count
-   * question twice around a delete returns the first answer both times.
+   * The seeded client graph, its teardown, and the harness/count/source
+   * helpers come from Oa4mpClaimsControllerTestCase (Test/lib), which
+   * Test/Case/Controller/ClaimsWritePathTest.php shares. Only the fixture tag
+   * differs.
    */
-  private function countRows($fx, $table, $where) {
-    ConnectionManager::getDataSource('default')->flushQueryCache();
-    return $fx->count($table, $where);
-  }
-
-  /** The controller's source, for the static locks below. */
-  private function controllerSource() {
-    $path = App::pluginPath('Oa4mpClient') . 'Controller' . DS
-      . 'Oa4mpClientClaimsController.php';
-    $this->assertTrue(is_readable($path), "the claims controller exists at $path");
-    return file_get_contents($path);
+  protected function fixtureTagPrefix() {
+    return 'oa4mpclaimsctl';
   }
 
   /**
    * The load-bearing scenario: a real claims action runs inside the runner.
    *
-   * delete()'s error branch is the easiest first target -- it flashes and
-   * falls off the end of the action without redirecting -- so a failure here
-   * is about drivability and nothing else.
+   * delete()'s server-error branch is the first target -- one server call, one
+   * flash, no local write -- so a failure here is about drivability and
+   * nothing else. The branch redirects to the claims index rather than falling
+   * off the end of the action, because delete() has no view to fall through
+   * to; what this test asserts is that the harness recorded that redirect and
+   * handed control back, instead of the process exiting inside the action.
    */
   public function testHarnessDrivesAClaimsActionWithoutExiting() {
     $harness = $this->harness();
@@ -144,8 +55,10 @@ class ClaimsControllerHarnessTest extends Oa4mpTestCase {
 
     self::$droveAnAction = true;
 
-    $this->assertNull($redirect, 'the error branch does not redirect');
-    $this->assertFalse($harness->harnessStopped, 'the action ran to its end');
+    $this->assertTrue($harness->harnessStopped,
+      'the harness recorded the redirect and returned control to the test');
+    $this->assertEqual('index', $redirect['action'],
+      'the error branch redirected to the claims index');
     $this->assertEqual(array('oa4mpEditClient'), $harness->harnessServer->callNames(),
       'the action called the OA4MP server exactly once');
     $this->assertEqual(1, $this->claimCount(),
@@ -191,12 +104,15 @@ class ClaimsControllerHarnessTest extends Oa4mpTestCase {
    * verdicts from the same call site select three different branches.
    */
   public function testFakeServerVerdictSelectsTheBranchTaken() {
-    // 2 -- plugin and server out of sync. Flash, no delete, no redirect.
+    // 2 -- plugin and server out of sync. Flash, no delete, and a redirect
+    // away from this client's claims: delete() has no view to fall through to,
+    // and the claims index re-verifies on every request, so an out-of-sync
+    // client sent there would bounce straight back out.
     $outOfSync = $this->harness();
     $outOfSync->harnessServer->editClientReturn = 2;
     $outOfSync->harnessInvoke('delete', array($this->claimId));
 
-    $this->assertEqual(0, $outOfSync->harnessRedirectCount, 'the out-of-sync branch does not redirect');
+    $this->assertEqual(1, $outOfSync->harnessRedirectCount, 'the out-of-sync branch redirects');
     $this->assertEqual(1, $this->claimCount(), 'the out-of-sync branch deletes nothing');
     $outOfSyncFlash = $outOfSync->Flash->last();
 
@@ -304,6 +220,46 @@ class ClaimsControllerHarnessTest extends Oa4mpTestCase {
   }
 
   /**
+   * The other verdict the GET tail can get back: re-verification finds the
+   * plugin and the OA4MP server out of sync.
+   *
+   * The tail then flashes and redirects out of this controller entirely -- to
+   * the OIDC client list, which is the nearest page that can still show this
+   * client. It cannot be the claims index: that action re-verifies on every
+   * request and would bounce the user straight back here. The plugin and the
+   * controller are named on the target on purpose; without them Router::url
+   * resolves it relative to this request and lands on this controller's index
+   * with no clientid, an action that cannot run.
+   *
+   * The fake defaults to a synchronized verdict, so nothing else in the suite
+   * takes this branch.
+   */
+  public function testGetTailRedirectsOutWhenReVerificationFindsDrift() {
+    $harness = $this->harness();
+    $harness->harnessServer->verifySynchronized = false;
+
+    $redirect = $harness->harnessInvoke('add');
+
+    $this->assertTrue($harness->harnessStopped, 'the tail stopped at the redirect');
+    $this->assertEqual(1, $harness->harnessRedirectCount, 'redirect() was called once');
+    $this->assertEqual(array('oa4mpVerifyClient'), $harness->harnessServer->callNames(),
+      'the redirect follows the one verification call the tail makes');
+    $this->assertEqual('oa4mp_client', $redirect['plugin'],
+      'the target names this plugin, so it does not resolve relative to the'
+      . ' current request');
+    $this->assertEqual('oa4mp_client_co_oidc_clients', $redirect['controller'],
+      'the target is the OIDC client list, not the claims index this action'
+      . ' would bounce back out of');
+    $this->assertEqual('index', $redirect['action'], 'the client list index');
+    $this->assertEqual($this->coId, $redirect['co'], 'for the current CO');
+    $this->assertContains(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'),
+      $harness->Flash->last(), 'the out-of-sync error was flashed');
+    $this->assertFalse(array_key_exists('vv_identifier_types', $harness->viewVars),
+      'the redirect terminated the tail: the four type lookups the add form'
+      . ' needs never ran');
+  }
+
+  /**
    * The production default is unchanged: the factory hands the real actions a
    * real Oa4mpClientOa4mpServer. Without this, the seam could quietly ship a
    * test double to production.
@@ -336,8 +292,14 @@ class ClaimsControllerHarnessTest extends Oa4mpTestCase {
 
     $this->assertEqual(1, substr_count($source, 'new Oa4mpClientOa4mpServer()'),
       'the factory is the only place the server object is constructed');
-    $this->assertFalse(strpos($source, 'Configure::read') !== false,
-      'the controller reads no configuration at all, so none can select the class');
+    // Scoped to the factory body. The class this seam hands back is chosen
+    // here and nowhere else, so this is the region where a configuration read
+    // would matter; scanning the whole controller instead makes an unrelated
+    // action that legitimately reads configuration red for a reason that has
+    // nothing to do with the substitution point.
+    $this->assertFalse(strpos($body, 'Configure::read') !== false,
+      'the factory reads no configuration, so no deployment setting can select'
+      . ' the class it constructs');
     $this->assertFalse(strpos($source, 'new $') !== false,
       'no variable class name is instantiated anywhere in the controller');
   }

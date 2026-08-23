@@ -16,7 +16,10 @@
  *    claim normalizations in isClientDataSynchronized() are fixed whitelists.
  *    A column added to the claim table is therefore emitted, dropped on the way
  *    back, and never compared -- the round trip reports "in sync" whatever the
- *    new field does. This half makes that silent.
+ *    new field does. This half makes that silent. The two normalizations now
+ *    delegate to one shared helper on the model, so the derivation follows that
+ *    call out of each loop; it still keeps the two sides apart, and asserts
+ *    they resolve to the same list rather than assuming it.
  *
  *  - Half C, row-set correspondence. Half A trusts declaredRows() to say what
  *    the matrix pins, and that list is hand-written next to 46 test methods in
@@ -103,6 +106,25 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
       'a claim column the marshaller emits but a comparator cannot see is'
       . ' round-tripped as "in sync" no matter what it holds; add it to the'
       . ' unmarshaller and to both normalizations in isClientDataSynchronized()');
+
+    // The two comparator lists are checked separately above, and they are now
+    // provably one list: both normalizations hand their claim row to the same
+    // shared helper, so the derivation resolves both to that helper's
+    // subscripts. Two sides applying the same rules is the property this half
+    // wanted all along -- two hand-maintained copies were free to drift apart
+    // and the comparison then asked two different questions -- so assert the
+    // sharing here rather than leave it to be re-read out of the model.
+    $lists = array_values($this->comparatorFieldLists($this->modelSource));
+    $this->assertEqual(2, count($lists),
+      'the comparator normalizes two claim lists, the plugin side and the'
+      . ' OA4MP server side');
+
+    sort($lists[0]);
+    sort($lists[1]);
+    $this->assertEqual($lists[0], $lists[1],
+      'the plugin-side and OA4MP-side normalizations must read exactly the same'
+      . ' claim fields; a field one side reads and the other does not means the'
+      . ' comparison is between two different questions');
   }
 
   /**
@@ -580,6 +602,18 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
    * keyed by the claim list it normalizes. There are two -- the plugin side and
    * the OA4MP server side -- and both are located from the association key they
    * read the claims out of, not from their own names.
+   *
+   * Neither loop reads the claim row itself any more: both hand it to one
+   * shared private helper on the model, and the whitelist lives there. So the
+   * derivation follows that call out of the loop and reads the subscripts from
+   * the helper's body. It still reads whatever the loop reads directly, so a
+   * side that goes back to normalizing inline is derived the same way.
+   *
+   * The two entries are kept even though both now resolve to the same helper.
+   * They are what makes the sharing checkable rather than assumed -- see
+   * testEveryEmittedClaimFieldReachesAllThreeComparatorLists(), which asserts
+   * the two lists are the same list -- and they are what keeps each side
+   * checked on its own the day one of them stops delegating.
    */
   private function comparatorFieldLists($model) {
     $body = $this->functionBody($model, 'isClientDataSynchronized');
@@ -597,8 +631,27 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
           . ' but never normalizes them in a foreach loop; the drift check'
           . ' locates each normalization by that loop.');
       }
-      $lists['the ' . $listVar . ' normalization in isClientDataSynchronized()'] =
-        $this->subscriptKeys($loop['body'], $loop['var']);
+
+      $label = 'the ' . $listVar . ' normalization in isClientDataSynchronized()';
+      $fields = $this->subscriptKeys($loop['body'], $loop['var']);
+
+      $helper = $this->normalizationHelper($loop['body'], $loop['var']);
+      if ($helper !== '') {
+        $label .= ', via ' . $helper . '(),';
+        $fields = array_values(array_unique(
+          array_merge($fields, $this->helperClaimFields($model, $helper))));
+      }
+
+      if (empty($fields)) {
+        $this->fail('the ' . $listVar . ' normalization in'
+          . ' isClientDataSynchronized() neither reads claim fields off $'
+          . $loop['var'] . ' itself nor hands it to a $this->...() helper this'
+          . ' derivation can follow, so its whitelist cannot be located. The'
+          . ' derivation is stale; redo it against whatever the normalization'
+          . ' does now, before trusting this check.');
+      }
+
+      $lists[$label] = $fields;
     }
 
     if (count($lists) !== 2) {
@@ -609,6 +662,63 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
     }
 
     return $lists;
+  }
+
+  /**
+   * The name of the $this->...() helper a normalization loop hands its claim
+   * row to, or '' when the loop keeps the normalization inline.
+   *
+   * The call is identified by the row it is passed, not by its name: a helper
+   * renamed is still followed, while $this->log() and any other call that does
+   * not take the loop variable is not mistaken for one.
+   */
+  private function normalizationHelper($loopBody, $loopVar) {
+    if (!preg_match_all('~\$this->(\w+)\s*\(~', $loopBody, $m, PREG_OFFSET_CAPTURE)) {
+      return '';
+    }
+
+    foreach ($m[1] as $i => $call) {
+      $args = $this->parenBlock($loopBody, strpos($loopBody, '(', $m[0][$i][1]));
+      if (preg_match('~\$' . $loopVar . '\b~', $args)) {
+        return $call[0];
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * The claim fields a shared normalization helper reads off the row it is
+   * handed, located by the helper's own first parameter rather than by the
+   * caller's variable name.
+   */
+  private function helperClaimFields($model, $helper) {
+    $at = strpos($model, 'function ' . $helper . '(');
+    if ($at === false) {
+      $this->fail('the claim normalizations in isClientDataSynchronized() hand'
+        . ' their row to ' . $helper . '(), which is not declared in'
+        . ' Model/Oa4mpClientOa4mpServer.php. The derivation follows that call'
+        . ' to find the whitelist; redo it against wherever the normalization'
+        . ' rules live now.');
+    }
+
+    if (!preg_match('~\$(\w+)~', $this->parenBlock($model, strpos($model, '(', $at)), $param)) {
+      $this->fail($helper . '() takes no parameter, so the claim row it'
+        . ' normalizes cannot be named and its whitelist cannot be read. The'
+        . ' derivation is stale; redo it.');
+    }
+
+    $body = $this->functionBody($model, $helper);
+    $fields = ($body === '') ? array() : $this->subscriptKeys($body, $param[1]);
+
+    if (empty($fields)) {
+      $this->fail($helper . '() reads no field off $' . $param[1] . ', so it is'
+        . ' not where the normalization whitelist lives any more. The'
+        . ' derivation is stale; redo it against whatever reads the claim row'
+        . ' now, before trusting this check.');
+    }
+
+    return $fields;
   }
 
   /** Add a column to the claim table wherever schema.xml declares it. */
