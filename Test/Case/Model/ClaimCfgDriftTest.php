@@ -748,9 +748,20 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
     }
 
     // The allowlist is resolved once, ahead of the loop, and consumed inside
-    // it, so the whole function body is what says which groups it reads.
+    // it, so the whole function body is where the resolution is looked for --
+    // but only the groups the CLAIM loop actually consumes count as the
+    // writer's claim vocabulary. See claimGroupsResolvedIn().
+    $writerGroups = $this->claimGroupsResolvedIn($marshaller, $claimLoop['body']);
+
+    if (empty($writerGroups)) {
+      $this->fail('oa4mpMarshallCfgQdl() no longer resolves the claim mapping'
+        . ' field names out of a capability group the claim loop consumes, so'
+        . ' the writer\'s vocabulary cannot be located. This derivation is'
+        . ' stale; redo it against whatever the marshaller does instead.');
+    }
+
     $sites['oa4mpMarshallCfgQdl()'] = $this->claimFieldSite('writer',
-      $this->contractGroupsRead($marshaller),
+      $writerGroups,
       $this->subscriptKeys($claimLoop['body'], $claimLoop['var']),
       $contract);
 
@@ -866,6 +877,48 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
     preg_match_all('~cfgContractNames\s*\(\s*\'([^\']+)\'\s*\)~', $source, $m);
 
     return array_values(array_unique($m[1]));
+  }
+
+  /**
+   * The capability groups the marshaller resolves its CLAIM vocabulary out of.
+   *
+   * Not every cfgContractNames() call in oa4mpMarshallCfgQdl() names a claim
+   * group. The marshaller builds the whole cfg out of the contract now, so it
+   * also resolves qdl_args and dynamo_module_config_keys -- groups that
+   * describe the QDL args block and the DynamoDB module configuration, and
+   * that have no counterpart in a reader which only ever sees claims.
+   * Scanning the whole function body would report those as groups the readers
+   * fail to share, which would redden the sharing assertion on a marshaller
+   * that became MORE contract-driven rather than less. That is the wrong
+   * direction for this gate to point.
+   *
+   * A group counts as the writer's claim vocabulary when the CLAIM LOOP
+   * consumes it: either resolved inline inside the loop, or resolved into a
+   * variable ahead of the loop that the loop then references. Anything
+   * resolved for the args block lands in a variable the claim loop never
+   * mentions, so it is not picked up -- and a marshaller that started
+   * resolving claim fields somewhere new would still be followed, because the
+   * derivation follows the loop rather than a list of group names kept here.
+   *
+   * @param string $marshaller The oa4mpMarshallCfgQdl() body.
+   * @param string $loopBody The body of its claim loop.
+   * @return array Group names, deduplicated.
+   */
+  private function claimGroupsResolvedIn($marshaller, $loopBody) {
+    // Resolved inline, inside the loop.
+    $groups = $this->contractGroupsRead($loopBody);
+
+    // Resolved into a variable ahead of the loop and referenced by it.
+    preg_match_all('~\$(\w+)\s*=\s*\$this->cfgContractNames\s*\(\s*\'([^\']+)\'\s*\)~',
+                   $marshaller, $assignments, PREG_SET_ORDER);
+
+    foreach ($assignments as $assignment) {
+      if (preg_match('~\$' . preg_quote($assignment[1], '~') . '\b~', $loopBody)) {
+        $groups[] = $assignment[2];
+      }
+    }
+
+    return array_values(array_unique($groups));
   }
 
   /**

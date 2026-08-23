@@ -230,7 +230,11 @@ class ContractGuidanceTest extends Oa4mpTestCase {
       'the pull request template carries a checklist item naming'
       . ' bin/qdl-conformance.php; without it R16 has no artifact at all');
     $this->assertContains('contract_version', $item,
-      'the item is conditioned on the pull request raising contract_version');
+      'the item names contract_version; it fires whenever what the plugin may'
+      . ' emit changes, not only when the version is raised, so introducing'
+      . ' the contract cannot satisfy the checklist with no conformance run');
+    $this->assertFalse(stripos($item, 'If this pull request raises') === 0,
+      'the item is not conditioned on raising the version alone');
     $this->assertTrue(stripos($item, 'tier') !== false,
       'the item asks which tier the check ran against; a verdict with no tier'
       . ' names nothing');
@@ -252,14 +256,16 @@ class ContractGuidanceTest extends Oa4mpTestCase {
   public function testPullRequestTemplateRequiresAMovedGoldenValueToNameItsChange() {
     $item = null;
     foreach ($this->checklistItems() as $candidate) {
-      if (stripos($candidate, 'ClaimCfgContractTest') !== false) {
+      if (stripos($candidate, 'expected cfg value') !== false) {
         $item = $candidate;
       }
     }
 
     $this->assertNotEmpty($item,
-      'the pull request template carries an item about moved golden values in'
-      . ' Test/Case/Model/ClaimCfgContractTest.php');
+      'the pull request template carries an item requiring a changed expected'
+      . ' cfg value to name the behaviour change it reflects; that pre-existing'
+      . ' item already covers ClaimCfgContractTest, which lives under'
+      . ' Test/Case/Model/, so this work adds no narrower duplicate of it');
     $this->assertTrue(stripos($item, 'behaviour change it reflects') !== false,
       'the item requires a moved value to name the behaviour change it'
       . ' reflects');

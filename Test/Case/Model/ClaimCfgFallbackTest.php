@@ -229,6 +229,15 @@ class ClaimCfgFallbackTest extends Oa4mpTestCase {
    * the premise of the whole sync check, so deriving this from the emitted cfg
    * rather than from the fixture is the point: if the send path and the compare
    * path resolve the configuration differently, this reports out of sync.
+   *
+   * sort_key and sort_key_template are absent rather than pinned to null.
+   * cfg_contract.json declares neither name, so the marshaller writes neither
+   * and the unmarshaller reads neither back -- there is no value here to
+   * derive from the emitted cfg. Pinning them to null used to be what let this
+   * pass: the comparator compared both, and the fixture happened to leave the
+   * plugin side null too. A configuration with either column populated
+   * reported out of sync forever; see
+   * SyncVerificationTest::testPopulatedSortKeyReportsInSync.
    */
   private function serverConfigFromCfg($cfg) {
     $args = $this->qdlArgs($cfg);
@@ -241,9 +250,7 @@ class ClaimCfgFallbackTest extends Oa4mpTestCase {
       'table_name' => $module['table_name'],
       'partition_key' => $module['partition_key'],
       'partition_key_template' => $args['partition_key_template'],
-      'partition_key_claim_name' => $args['partition_key_claim_name'],
-      'sort_key' => null,
-      'sort_key_template' => null
+      'partition_key_claim_name' => $args['partition_key_claim_name']
     );
   }
 

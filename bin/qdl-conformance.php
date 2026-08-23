@@ -17,7 +17,10 @@
  * a FAILURE. A capability the QDL implements that the contract does not
  * declare is NOT a failure: during a staggered rollout the tier is expected to
  * run ahead of the plugin, and that is the ordering the contract's
- * version_policy.on_raising requires.
+ * version_policy.on_raising requires. A contract group this script maps to no
+ * QDL declaration variable is a FAILURE as well: the QDL was never asked to
+ * implement it, so reporting a pass would answer a question that was not put.
+ * Excusing a group takes a named line in groupsNotRequired() saying why.
  *
  * Authority (KTD7). The QDL's `claims_contract_*` declaration block is the
  * vocabulary AUTHORITY; pattern extraction from the code beneath it is a
@@ -47,8 +50,12 @@
  *
  * The comparison logic is a class with no I/O so that
  * Test/Case/Lib/QdlConformanceTest.php can drive it from in-memory fixtures
- * without git or the configuration repository. The CLI path runs only when
- * this file is the entry script, so requiring it is side-effect free.
+ * without git or the configuration repository. The one place that starts a
+ * process, runGit(), is a seam for the same reason: gitShow() takes an
+ * optional runner and defaults to it, so which command is composed and which
+ * of its two nulls comes back are testable where no git binary exists. The CLI
+ * path runs only when this file is the entry script, so requiring it is
+ * side-effect free.
  *
  * See docs/plans/2026-08-23-0844-feat-cfg-qdl-contract-plan.md U7.
  */
@@ -150,6 +157,14 @@ class QdlConformance {
    * Groups with no declaration variable (see groupsNotRequired()) are excluded
    * here and reported as a note instead.
    *
+   * At least as strict as the model. Oa4mpClientOa4mpServer::cfgContractNames()
+   * RAISES on a mapped group with no entries list, on an entry that does not
+   * name itself, and on an entry with no retired_in at all -- a missing
+   * retired_in is a malformed entry and never an implied null. A contract this
+   * function accepted while every marshalling call raised on it would report
+   * conformance about a plugin that cannot emit anything, so the same three
+   * shapes are unreadable here rather than quietly skipped.
+   *
    * @param string $json cfg_contract.json's text.
    * @return array|null group => list of names, or null when unreadable.
    */
@@ -168,17 +183,21 @@ class QdlConformance {
       if (!isset($declarations[$group])) {
         // Either a group the QDL is not expected to implement, or a group
         // added to the contract without a declaration variable here. Both are
-        // reported by the caller; neither is silently required.
+        // reported by the caller; neither is silently required, and an
+        // unexcused one fails the run.
         continue;
       }
-      $entries = isset($body['entries']) && is_array($body['entries'])
-        ? $body['entries'] : array();
+      if (!is_array($body) || !isset($body['entries'])
+          || !is_array($body['entries'])) {
+        return null;
+      }
       $required[$group] = array();
-      foreach ($entries as $entry) {
-        if (!is_array($entry) || !isset($entry['name'])) {
-          continue;
+      foreach ($body['entries'] as $entry) {
+        if (!is_array($entry) || !isset($entry['name'])
+            || !array_key_exists('retired_in', $entry)) {
+          return null;
         }
-        if (array_key_exists('retired_in', $entry) && $entry['retired_in'] !== null) {
+        if ($entry['retired_in'] !== null) {
           $retired++;
           continue;
         }
@@ -201,13 +220,23 @@ class QdlConformance {
   // ------------------------------------------------------------------
 
   /**
-   * Blank out `//` comments, preserving offsets and line numbers.
+   * Blank out `//` and block comments, preserving offsets and line numbers.
    *
    * Quote-aware, and deliberately so: the declaration block's own comment
    * carries an apostrophe ("dynamo_module_config's own keys"), which a naive
    * quote tracker would read as the start of a string and then swallow the
    * rest of the file. Once inside a comment, quoting stops mattering and the
-   * scan runs to the newline.
+   * scan runs to the comment's end.
+   *
+   * Both comment forms are handled for the same reason. The real QDL uses only
+   * `//` today, but an apostrophe inside a block comment a future edit adds
+   * ("the mapping's fields") would desynchronize a tracker that knew only `//`
+   * -- everything after it would be read as a string, and the declaration
+   * block behind it would vanish. That does not fail closed the way an
+   * unrecognized read form does: it would land as NOTHING_TO_COMPARE or as a
+   * shrunken cross-check, so the form is stripped rather than documented as a
+   * limitation. Newlines inside a stripped block comment are preserved so the
+   * line numbers this script reports stay true.
    *
    * @param string $source QDL text.
    * @return string Same length, comments replaced by spaces.
@@ -237,6 +266,22 @@ class QdlConformance {
         }
         if ($i < $length) {
           $out .= "\n";
+        }
+        continue;
+      }
+      if ($c === '/' && $i + 1 < $length && $source[$i + 1] === '*') {
+        $out .= '  ';
+        $i += 2;
+        while ($i < $length
+            && !($source[$i] === '*' && $i + 1 < $length && $source[$i + 1] === '/')) {
+          $out .= $source[$i] === "\n" ? "\n" : ' ';
+          $i++;
+        }
+        if ($i < $length) {
+          // The closing `*/` itself. An unterminated block comment simply runs
+          // to the end of the file, which is what the QDL parser would do too.
+          $out .= '  ';
+          $i++;
         }
         continue;
       }
@@ -323,7 +368,17 @@ class QdlConformance {
         // Form 2: has_key('name', var.)
         if (substr($tail, 0, 1) === ')'
             && preg_match("/has_key\(\s*'([A-Za-z0-9_]+)'\s*,\s*$/", $head, $hit)) {
-          $reads[] = array($hit[1], $groups, $line);
+          // Same item-namespace exclusion as Form 1/4 above, and applied here
+          // for the same reason it is applied by PREFIX rather than by which
+          // variable the name was read off: `x` is bound to a mapping, to a
+          // constraint and to a DynamoDB item in different places in the same
+          // file, so a presence test on an item field -- has_key('cm_given',
+          // x.) -- is not cfg vocabulary either. Missing the guard here made
+          // the same name conformant in one read form and an undeclared
+          // literal in another.
+          if (strpos($hit[1], self::ITEM_FIELD_PREFIX) !== 0) {
+            $reads[] = array($hit[1], $groups, $line);
+          }
           continue;
         }
         // Form 3: the whole stem is handed on, naming nothing.
@@ -368,12 +423,16 @@ class QdlConformance {
    *                               has no such file -- reported distinctly
    *                               rather than as every capability missing.
    * @param string $tier The tier whose QDL this is. Named in the output.
+   * @param string|null $qdlPath Repository-relative path the QDL was read
+   *                             from, for the report; defaults to QDL_PATH.
+   *                             main() passes only a validated relative path,
+   *                             so no absolute path can reach the text.
    * @return array Result, for render().
    */
-  public static function evaluate($contractJson, $qdlSource, $tier) {
+  public static function evaluate($contractJson, $qdlSource, $tier, $qdlPath = null) {
     $result = array(
       'tier' => (string)$tier,
-      'qdl_path' => self::QDL_PATH,
+      'qdl_path' => $qdlPath === null ? self::QDL_PATH : (string)$qdlPath,
       'verdict' => self::VERDICT_PASS,
       'contract_version' => null,
       'required_count' => 0,
@@ -382,6 +441,7 @@ class QdlConformance {
       'beyond' => array(),
       'undeclared_reads' => array(),
       'unrecognized' => array(),
+      'unmapped_groups' => array(),
       'cross_checked' => 0,
       'retired_skipped' => 0,
       'notes' => array(),
@@ -391,18 +451,34 @@ class QdlConformance {
     if ($contract === null) {
       $result['verdict'] = self::VERDICT_CONTRACT_UNREADABLE;
       $result['notes'][] = 'the capability contract did not parse as JSON with a'
-        . ' capabilities object';
+        . ' capabilities object whose every entry names itself and states'
+        . ' retired_in; the plugin itself raises on such a contract, so no'
+        . ' conformance answer about it would mean anything';
 
       return $result;
     }
     $result['contract_version'] = $contract['version'];
     $result['retired_skipped'] = $contract['retired'];
 
+    // A contract group with no declaration variable is a FAILURE unless
+    // groupsNotRequired() excuses it by name. The contract is designed to
+    // grow, so adding a group there and forgetting groupDeclarations() here is
+    // the likeliest future edit -- and it is the one edit that would leave the
+    // QDL never asked to implement the group while this check still printed
+    // PASS. Reporting it as a note alone is the fail-open shape the check
+    // exists to prevent; excusing it takes a deliberate line in
+    // groupsNotRequired() saying why. The verdict itself is set at the end,
+    // with the other failures; the two returns below it reach QDL_ABSENT and
+    // NOTHING_TO_COMPARE, which are non-zero exits of their own, so an
+    // unmapped group can never leave this function as a PASS.
     $notRequired = self::groupsNotRequired();
     foreach ($contract['unmapped_groups'] as $group) {
-      $result['notes'][] = isset($notRequired[$group])
-        ? "not required of the QDL: $group (" . $notRequired[$group] . ')'
-        : "no declaration variable is mapped for contract group $group";
+      if (isset($notRequired[$group])) {
+        $result['notes'][] = 'not required of the QDL: ' . self::clip($group)
+          . ' (' . $notRequired[$group] . ')';
+        continue;
+      }
+      $result['unmapped_groups'][] = self::clip($group);
     }
 
     if ($qdlSource === null) {
@@ -479,7 +555,8 @@ class QdlConformance {
       }
     }
 
-    if ($result['missing'] || $result['undeclared_reads'] || $result['unrecognized']) {
+    if ($result['missing'] || $result['undeclared_reads'] || $result['unrecognized']
+        || $result['unmapped_groups']) {
       $result['verdict'] = self::VERDICT_FAIL;
     }
 
@@ -530,6 +607,11 @@ class QdlConformance {
 
     foreach ($result['notes'] as $note) {
       $out[] = 'note: ' . $note;
+    }
+    foreach (self::listed($result['unmapped_groups']) as $entry) {
+      $out[] = 'UNMAPPED contract group, never compared against the QDL: '
+        . $entry . ' (map it in groupDeclarations(), or excuse it by name in'
+        . ' groupsNotRequired())';
     }
     foreach (self::listed($result['missing']) as $entry) {
       $out[] = 'MISSING from the QDL: ' . $entry;
@@ -599,6 +681,53 @@ class QdlConformance {
   }
 
   /**
+   * Run one composed git command and report its status and output.
+   *
+   * This is the ONLY place in the script that starts a process, and it exists
+   * as a method of its own so that gitShow()'s resolution logic -- which tier
+   * is asked for, which command is composed, and which of the two nulls comes
+   * back -- can be driven by a test with no git binary present. The suite runs
+   * inside a digest-pinned image on purpose, so that a pass or fail is
+   * attributable to the pull request's code rather than to image drift;
+   * installing git into it to test this logic would trade that away for a
+   * network dependency.
+   *
+   * Standard error is discarded rather than captured: it would carry paths and
+   * content out of a PRIVATE repository into a verdict pasted on a PUBLIC one.
+   *
+   * @param string $command Composed command, without redirection.
+   * @return array 'status' => process exit status, 'output' => list of lines.
+   */
+  public static function runGit($command) {
+    $output = array();
+    $status = 1;
+    exec($command . ' 2>/dev/null', $output, $status);
+
+    return array('status' => $status, 'output' => $output);
+  }
+
+  /**
+   * Run a git command through the injected runner, normalizing its answer.
+   *
+   * A runner that answers in some other shape is read as a failed command
+   * rather than as an empty success, so a broken stub cannot manufacture a
+   * conformance verdict out of nothing.
+   *
+   * @param callable $runner
+   * @param string $command
+   * @return array 0 => status, 1 => output lines.
+   */
+  private static function ranGit($runner, $command) {
+    $result = call_user_func($runner, $command);
+
+    return array(
+      is_array($result) && isset($result['status']) ? (int)$result['status'] : 1,
+      is_array($result) && isset($result['output']) && is_array($result['output'])
+        ? $result['output'] : array(),
+    );
+  }
+
+  /**
    * Resolve the QDL from a tier's branch WITHOUT touching the working copy.
    *
    * `git show <tier>:<path>` reads out of the object store; the checkout is
@@ -610,34 +739,41 @@ class QdlConformance {
    * @param string $tier Branch name.
    * @param string $path Repository-relative path to the QDL.
    * @param string $error Set to a bounded message on failure.
+   * @param callable|null $runner Runs one composed command and returns
+   *                              array('status' => int, 'output' => array).
+   *                              Defaults to runGit(), which is what the CLI
+   *                              always uses; a test passes a stub so that the
+   *                              resolution logic can be checked where no git
+   *                              binary exists.
    * @return string|null The QDL text; null when the tier carries no such file.
    */
-  public static function gitShow($repo, $tier, $path, &$error) {
+  public static function gitShow($repo, $tier, $path, &$error, $runner = null) {
     $error = '';
     if (!preg_match('~^[A-Za-z0-9._/-]+$~', $tier)) {
       $error = 'the tier name is not a plausible branch name';
 
       return null;
     }
+    if ($runner === null) {
+      $runner = array(__CLASS__, 'runGit');
+    }
     $base = 'git -C ' . escapeshellarg($repo) . ' ';
-    exec($base . 'rev-parse --git-dir 2>/dev/null', $ignored, $status);
+    list($status, $ignored) = self::ranGit($runner, $base . 'rev-parse --git-dir');
     if ($status !== 0) {
       $error = 'the configuration repository path is not a git repository';
 
       return null;
     }
-    $ignored = array();
-    exec($base . 'rev-parse --verify --quiet ' . escapeshellarg($tier . '^{commit}')
-      . ' 2>/dev/null', $ignored, $status);
+    list($status, $ignored) = self::ranGit($runner, $base . 'rev-parse --verify'
+      . ' --quiet ' . escapeshellarg($tier . '^{commit}'));
     if ($status !== 0) {
       $error = 'the configuration repository has no branch or commit named '
-        . $tier;
+        . self::clip($tier);
 
       return null;
     }
-    $lines = array();
-    exec($base . 'show ' . escapeshellarg($tier . ':' . $path) . ' 2>/dev/null',
-      $lines, $status);
+    list($status, $lines) = self::ranGit($runner,
+      $base . 'show ' . escapeshellarg($tier . ':' . $path));
     if ($status !== 0) {
       // Absent at that path on that branch. Not an error: evaluate() reports
       // it distinctly from every capability missing.
@@ -651,6 +787,44 @@ class QdlConformance {
   // CLI.
   // ------------------------------------------------------------------
 
+  /** Longest QDL path this script will accept, and therefore print. */
+  const MAX_PATH_LENGTH = 200;
+
+  /**
+   * Is a QDL path repository-relative, and therefore safe to print?
+   *
+   * The rendered verdict is pasted into pull requests on a PUBLIC repository
+   * while the configuration repository it reads is PRIVATE, and the path is
+   * the one part of the report an operator can type. An absolute path names a
+   * directory on the machine the check ran on and, through the checkout's
+   * layout, the private repository itself; `..` says the same thing sideways.
+   * `git show <tier>:<path>` wants a repository-relative path anyway, so
+   * refusing anything else costs nothing and keeps the bound a property of the
+   * script rather than of how carefully it was invoked.
+   *
+   * @param string $path The --qdl-path option's value.
+   * @return bool
+   */
+  public static function isRepositoryRelativePath($path) {
+    $path = (string)$path;
+    if ($path === '' || strlen($path) > self::MAX_PATH_LENGTH) {
+      return false;
+    }
+    if (substr($path, 0, 1) === '/' || substr($path, 0, 1) === '-') {
+      return false;
+    }
+    if (!preg_match('~^[A-Za-z0-9._/-]+$~', $path)) {
+      return false;
+    }
+    foreach (explode('/', $path) as $segment) {
+      if ($segment === '' || $segment === '.' || $segment === '..') {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   /** Usage text. */
   public static function usage() {
     return "usage: php bin/qdl-conformance.php --tier <tier>"
@@ -663,7 +837,9 @@ class QdlConformance {
       . "                 with `git show` and never modified\n"
       . "  --qdl-path     repository-relative path to the QDL (defaults to the"
       . " DynamoDB\n"
-      . "                 claims script)\n"
+      . "                 claims script); absolute paths and `..` are refused,"
+      . " since the\n"
+      . "                 verdict is pasted into a PUBLIC pull request\n"
       . "  --contract     path to cfg_contract.json (defaults to this"
       . " plugin's)\n"
       . "\n"
@@ -721,6 +897,17 @@ class QdlConformance {
       return 64;
     }
 
+    // Refused rather than sanitized, and the offending value is not echoed:
+    // the whole point is that no absolute path into the private configuration
+    // repository can reach text pasted into a PUBLIC pull request, and an
+    // error message quoting it back would put it there itself.
+    if (!self::isRepositoryRelativePath($options['qdl-path'])) {
+      fwrite(STDERR, "the --qdl-path must be a repository-relative path with no"
+        . " leading slash and no `..`\n");
+
+      return 64;
+    }
+
     $contractJson = self::readFileOrNull($options['contract']);
     if ($contractJson === null) {
       fwrite(STDERR, "the capability contract could not be read\n");
@@ -737,8 +924,11 @@ class QdlConformance {
       return 64;
     }
 
-    $result = self::evaluate($contractJson, $qdl, $options['tier']);
-    $result['qdl_path'] = $options['qdl-path'];
+    // The path reaches the report only through evaluate(), and only after the
+    // check above; nothing reassigns it afterwards, so the rendered value is
+    // always a validated repository-relative one.
+    $result = self::evaluate($contractJson, $qdl, $options['tier'],
+      $options['qdl-path']);
     fwrite(STDOUT, self::render($result));
 
     return self::exitCode($result['verdict']);

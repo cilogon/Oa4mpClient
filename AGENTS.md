@@ -114,6 +114,12 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   One QDL copy serves every subscriber on a tier while plugin deployments
   advance per subscriber, so deploying the QDL early is always safe -- it is a
   no-op for older `cfg` values -- and deploying the plugin early never is.
+- How a QDL change reaches the tiers. It lands on `us-east-2-dev` first and is
+  promoted to `us-east-2-test` and `us-east-2-prod` by hand, by the developer,
+  after manual testing on dev. So expect `bin/qdl-conformance.php` to report
+  `NOTHING_TO_COMPARE` for test and prod until that promotion happens; that is
+  the normal state between the two, not a defect. Run the check against the
+  tier you are actually about to deploy.
 - What the contract rule covers. The rule above is about `dynamodb_claims.qdl`
   ONLY. The plugin's other claim consumer, the LDAP path, is outside it:
   satisfying the contract and its conformance check says nothing about that

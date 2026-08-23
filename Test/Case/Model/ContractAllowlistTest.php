@@ -581,4 +581,191 @@ class ContractAllowlistTest extends Oa4mpTestCase {
       'a claim with no constraints emits no claim_constraints key, the same'
       . ' emptiness rule applied to the one synthesised field');
   }
+
+  // ------------------------------------------------------------------
+  // Scenario 10: the QDL args block and the DynamoDB module configuration
+  // are the contract's vocabulary too.
+  // ------------------------------------------------------------------
+
+  /**
+   * A client that populates every optional section emits nothing under
+   * tokens.identity.qdl.args, and nothing inside dynamo_module_config, that
+   * the contract does not declare.
+   *
+   * The contract has declared qdl_args (eight names) and
+   * dynamo_module_config_keys (five) since version 1, and for that whole time
+   * neither group had a reader: those keys were literal assignments in
+   * oa4mpMarshallCfgQdl(). The declaration and the emission agreed only
+   * because one person kept them agreeing, which is precisely the arrangement
+   * the contract exists to replace -- a ninth arg would have reached every
+   * tier with no withheld line and a conformance run that still said PASS.
+   *
+   * The authorization section is populated on purpose. Its four args are the
+   * only CONDITIONAL entries in the group, emitted only when the row carries
+   * the value each names, so a subset check run against a client without them
+   * would leave four of the eight declared names untested.
+   */
+  public function testEmittedQdlArgsAndModuleConfigKeysAreAllContractDeclared() {
+    $server = $this->server();
+    $declaredArgs = $server->cfgContractNames('qdl_args');
+    $declaredModuleKeys = $server->cfgContractNames('dynamo_module_config_keys');
+
+    $cfg = $server->oa4mpMarshallCfgQdl($this->authorizedData());
+    $args = $cfg['tokens']['identity']['qdl']['args'];
+
+    $undeclaredArgs = array_values(array_diff(array_keys($args), $declaredArgs));
+    $this->assertEqual(array(), $undeclaredArgs,
+      'every key under tokens.identity.qdl.args must be a name the contract'
+      . ' declares in qdl_args; got '
+      . var_export(array_keys($args), true));
+
+    $moduleKeys = array_keys($args['dynamo_module_config']);
+    $undeclaredModuleKeys = array_values(array_diff($moduleKeys, $declaredModuleKeys));
+    $this->assertEqual(array(), $undeclaredModuleKeys,
+      'every key inside dynamo_module_config must be a name the contract'
+      . ' declares in dynamo_module_config_keys; got '
+      . var_export($moduleKeys, true));
+
+    // The four conditional args really were exercised. Without this the subset
+    // check above would pass just as well on a client that emitted none of
+    // them, and the conditional half of the group would be untested.
+    foreach (array('require_active_status',
+                   'authorization_group_id',
+                   'authorization_group_redirect_url',
+                   'require_active_redirect_url') as $conditional) {
+      $this->assertTrue(isset($args[$conditional]),
+        'the probe client populates the optional authorization section, so '
+        . $conditional . ' must be emitted; a subset check that never sees it'
+        . ' says nothing about the conditional half of qdl_args');
+    }
+
+    // And the conditionality is still conditionality: the same client with no
+    // authorization section emits none of the four.
+    $bare = $this->server()->oa4mpMarshallCfgQdl(Oa4mpClaimRows::data(Oa4mpClaimRows::claim()));
+    $bareArgs = $bare['tokens']['identity']['qdl']['args'];
+
+    foreach (array('require_active_status',
+                   'authorization_group_id',
+                   'authorization_group_redirect_url',
+                   'require_active_redirect_url') as $conditional) {
+      $this->assertFalse(array_key_exists($conditional, $bareArgs),
+        'a client with no authorization row must emit no ' . $conditional
+        . ': routing the block through the contract must not turn four'
+        . ' conditional args into four unconditional ones');
+    }
+  }
+
+  /**
+   * The declaration is really READ, for every group -- and the way to show
+   * that is to take a name out of it and watch the value stop being emitted.
+   *
+   * A subset assertion alone cannot distinguish "the marshaller consults
+   * qdl_args" from "the marshaller assigns eight literals that happen to match
+   * qdl_args". This drives the marshaller against a fixture contract missing
+   * one entry per group, through the same redirectable path accessor the
+   * unusable-contract scenario uses, and asserts both halves of the
+   * withholding rule: the value does not reach the cfg, and the signal names
+   * the key it withheld.
+   *
+   * The entries chosen are one unconditional top-level arg, one conditional
+   * one, the synthesised claim_mappings, and one module key -- the four
+   * distinct ways a name gets into the args block.
+   */
+  public function testAnUndeclaredQdlArgOrModuleConfigKeyIsWithheldAndNamed() {
+    $cases = array(
+      array('group' => 'qdl_args', 'name' => 'partition_key_template'),
+      array('group' => 'qdl_args', 'name' => 'require_active_status'),
+      array('group' => 'qdl_args', 'name' => 'claim_mappings'),
+      array('group' => 'dynamo_module_config_keys', 'name' => 'partition_key'),
+    );
+
+    foreach ($cases as $case) {
+      $probe = new Oa4mpContractPathProbe();
+      $probe->contractPath = $this->fixtureContract(
+        $this->contractTextWithout($case['group'], $case['name']));
+
+      $cfg = $probe->oa4mpMarshallCfgQdl($this->authorizedData());
+      $args = $cfg['tokens']['identity']['qdl']['args'];
+
+      $emitted = ($case['group'] === 'dynamo_module_config_keys')
+                 ? array_keys($args['dynamo_module_config'])
+                 : array_keys($args);
+
+      $this->assertFalse(in_array($case['name'], $emitted, true),
+        $case['group'] . '/' . $case['name'] . ': a name the contract does not'
+        . ' declare must not be emitted, or the group has no reader and the'
+        . ' declaration is decoration; got ' . var_export($emitted, true));
+
+      $line = $this->soleSignalLine($probe);
+      $this->assertContains('1 values withheld', $line,
+        $case['group'] . '/' . $case['name'] . ': withholding an args key'
+        . ' counts exactly like withholding a claim column');
+      $this->assertContains($case['name'], $line,
+        $case['group'] . '/' . $case['name'] . ': the signal names the key it'
+        . ' withheld, or the value is dropped as silently as it was assigned');
+    }
+  }
+
+  /**
+   * A client carrying the optional authorization section, so the four
+   * conditional qdl_args entries are actually emitted.
+   *
+   * The values are the shapes Oa4mpClientAuthorization persists: a boolean
+   * flag, a CO group id, and two redirect URLs. Nothing here is
+   * credential-shaped.
+   */
+  private function authorizedData() {
+    $data = Oa4mpClaimRows::data(Oa4mpClaimRows::claim());
+
+    $data['Oa4mpClientAuthorization'] = array(
+      'id' => 55,
+      'require_active' => true,
+      'authz_co_group_id' => 12,
+      'authz_group_redirect_url' => 'https://example.org/not-a-member',
+      'require_active_redirect_url' => 'https://example.org/not-active',
+    );
+
+    return $data;
+  }
+
+  /**
+   * The shipping contract with one entry removed, as JSON text.
+   *
+   * Derived from the shipping document rather than written out here, so the
+   * fixture stays a real contract as the real one grows: only the named entry
+   * differs, and every other group, the version and the secret_bearing flags
+   * are whatever the plugin actually ships.
+   *
+   * @param string $group The capability group to remove an entry from.
+   * @param string $name The entry name to remove.
+   * @return string The fixture contract document.
+   */
+  private function contractTextWithout($group, $name) {
+    $contract = json_decode(
+      file_get_contents(App::pluginPath('Oa4mpClient') . 'cfg_contract.json'), true);
+
+    $this->assertTrue(isset($contract['capabilities'][$group]['entries']),
+      'the shipping contract declares a ' . $group . ' group for the fixture'
+      . ' to remove an entry from');
+
+    $kept = array();
+    $removed = 0;
+
+    foreach ($contract['capabilities'][$group]['entries'] as $entry) {
+      if ($entry['name'] === $name) {
+        $removed++;
+        continue;
+      }
+
+      $kept[] = $entry;
+    }
+
+    $this->assertEqual(1, $removed,
+      'the fixture removed exactly one ' . $group . ' entry named ' . $name
+      . '; removing none would make the probe a copy of the shipping contract');
+
+    $contract['capabilities'][$group]['entries'] = $kept;
+
+    return json_encode($contract);
+  }
 }

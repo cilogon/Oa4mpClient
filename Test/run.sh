@@ -110,11 +110,60 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # of its own is `$total === 0`.
 #
 # The floor sits a few tests below the suite's current size: the hermetic tier
-# runs 218 tests today, so 215 leaves three tests of headroom. That way
+# runs 238 tests today, so 235 leaves three tests of headroom. That way
 # consolidating a case or two never forces an edit here, while any loss of four
 # or more goes red -- that is every test file in the tree except the two
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
+#
+# The 238 is 234 plus the four methods added when the cfg capability contract
+# gained readers for the last two groups nothing was reading.
+#
+# Two are in Test/Case/Model/ContractAllowlistTest.php and close
+# tokens.identity.qdl.args and dynamo_module_config the way the claim mappings
+# were already closed: every key a client emits under either is a name the
+# contract declares, the four CONDITIONAL authorization args included; and a
+# name taken out of either group stops being emitted and is named in the
+# withheld signal, which is what shows the declaration is really read rather
+# than merely matched by hand.
+#
+# Two are in Test/Case/Model/SyncVerificationTest.php and cover the DynamoDB
+# sort key: a configuration carrying a populated sort_key, and one carrying
+# sort_key_template, now report IN SYNC. cfg_contract.json declares neither
+# name, so the marshaller writes neither -- but the comparator compared both
+# and the unmarshaller read both back, so an operator who filled either
+# editable field got a client that was permanently and unrepairably out of
+# sync. Test/Case/Model/ClaimCfgFallbackTest.php stopped pinning both to null
+# in the same change; that is not a new method, so it is not in the four.
+#
+# The 234 is 228 plus the six methods in
+# Test/Case/Model/UnmarshallFailureDiagnosticsTest.php, which cover what the
+# OA4MP server model logs and concludes when unmarshalling the server's
+# representation of a client fails: two for the credential leak the contract
+# reader made reachable (the server object logged on the failure path is masked
+# rather than print_r'd, and the extras blob is masked in both the line written
+# when it is captured and the line written when it is merged back), one that
+# client_secret is never captured into that blob at all, and three for the
+# misleading failure (the catch names the exception's class, file and line; a
+# comparison that could not run reports itself as an internal error rather than
+# as a mismatch; and the operator-facing verdict for that is the generic edit
+# error, never the "modified outside of the Registry" tampering message).
+#
+# The 228 is the 218 below plus the ten methods added to
+# Test/Case/Lib/QdlConformanceTest.php when the QDL conformance check's own
+# review findings were fixed: three for the contract's growth (a contract
+# group mapped to no QDL declaration variable now FAILS instead of passing
+# with a note, a group excused by name in groupsNotRequired() still passes
+# with its note, and a malformed contract entry is unreadable here rather than
+# accepted by a check whose model raises on it), two for the reading of the
+# QDL text (a DynamoDB item field is excluded by PREFIX in every read form,
+# not only the extraction operator; a block comment is stripped and an
+# apostrophe inside one hides nothing behind it), four for gitShow() -- the
+# only code implementing R8's distinguishing property, that a NAMED TIER's QDL
+# is read out of the object store rather than out of a shared working copy,
+# and previously untested -- and one that drives the script as a process to
+# pin that an operator-supplied absolute --qdl-path is refused rather than
+# rendered into a report pasted on a PUBLIC repository.
 #
 # The 218 is 211 plus the seven methods in
 # Test/Case/ContractGuidanceTest.php, which lock the two contributor-facing
@@ -174,7 +223,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=215
+min_tests_run=235
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
