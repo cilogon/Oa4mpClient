@@ -31,7 +31,14 @@ fi
 
 cd "$TEST_DIR/docker"
 
-cleanup() { docker compose down -v >/dev/null 2>&1 || true; }
+# Captured so the gates below can read the runner's verdict block. Defined
+# before the trap so cleanup can always remove it under `set -u`.
+live_log="$(mktemp)"
+
+cleanup() {
+  docker compose down -v >/dev/null 2>&1 || true
+  rm -f "$live_log"
+}
 trap cleanup EXIT
 
 echo "==> Bringing up Registry + Postgres..."
@@ -68,11 +75,45 @@ if [ -z "$plugin_table_count" ] || [ "$plugin_table_count" -lt "$min_plugin_tabl
 fi
 
 echo "==> Running the live-server tier against $OA4MP_LIVE_SERVER_URL ..."
-# The credential is passed to the container's environment only for this command.
+# Two gates, as in Test/run.sh: the exit status, and the runner's sentinel.
+#
+# The exit status alone is not a backstop here either. A test that reaches
+# exit(0) -- its own, or one inside the code under test such as
+# Controller::redirect()'s _stop() -- ends the process mid-run with a success
+# status, and a tier that stopped after its first case is indistinguishable
+# from one that finished. That matters more here than in the hermetic tier,
+# because this tier creates real clients on a real server: a run that stops
+# early can strand one, and reporting success would hide it.
+#
+# The count floor Test/run.sh applies as its third gate is deliberately not
+# mirrored. This tier discovers only Test/Case/LiveServer, so the number is
+# small enough that a floor would be edited on nearly every change and would
+# stop meaning anything. The sentinel is the gate that carries here.
+live_status=0
 docker compose exec -T \
   -e OA4MP_LIVE_SERVER_URL \
   -e OA4MP_LIVE_ADMIN_IDENTIFIER \
   -e OA4MP_LIVE_ADMIN_SECRET \
   -e OA4MP_LIVE_CO_ID \
   comanage-registry bash -c '
-  cd /srv/comanage-registry/app && ./Console/cake Oa4mpClient.Oa4mp_test live'
+  cd /srv/comanage-registry/app && ./Console/cake Oa4mpClient.Oa4mp_test live' \
+  2>&1 | tee "$live_log" || live_status=$?
+
+if [ "$live_status" -ne 0 ]; then
+  echo "==> ERROR: the live-server tier exited with status $live_status." >&2
+  exit 1
+fi
+
+# Same verdict-block anchoring as Test/run.sh, for the same reason: the
+# sentinel is matched as a line of its own inside the region the runner prints
+# only after the last test, which no test's own output can reach.
+live_tail="$(tr -d '\r' < "$live_log" \
+  | sed -n '/^[0-9][0-9]* tests run, [0-9][0-9]* failed\.$/,$p')"
+if ! grep -q '^ALL_TESTS_PASSED$' <<< "$live_tail"; then
+  echo "==> ERROR: the live-server tier exited 0 but never reached the" \
+    "runner's ALL_TESTS_PASSED verdict, so it ended early rather than" \
+    "passing. A client it created may be stranded on the server." >&2
+  exit 1
+fi
+
+echo "==> Live-server tier passed (ALL_TESTS_PASSED)."

@@ -28,6 +28,16 @@ class ClaimsControllerHarnessTest extends Oa4mpClaimsControllerTestCase {
   private static $droveAnAction = false;
 
   /**
+   * How far Test/run.sh's min_tests_run floor may sit below the suite's real
+   * size before testRunShRequiresAPlausibleTestCount() calls it drift.
+   *
+   * Loose on purpose. The floor is meant to sit a few tests below current so
+   * that consolidating a case or two never forces an edit; this only fires
+   * once the gap is wide enough that a real loss of tests would slip under it.
+   */
+  const MAX_COUNT_GATE_SLACK = 10;
+
+  /**
    * The seeded client graph, its teardown, and the harness/count/source
    * helpers come from Oa4mpClaimsControllerTestCase (Test/lib), which
    * Test/Case/Controller/ClaimsWritePathTest.php shares. Only the fixture tag
@@ -329,6 +339,110 @@ class ClaimsControllerHarnessTest extends Oa4mpClaimsControllerTestCase {
       . 'Oa4mpTestShell.php';
     $this->assertContains("ALL_TESTS_PASSED", file_get_contents($shell),
       'the runner still emits the sentinel run.sh looks for');
+
+    // Anchoring, not just presence. This very file contains the sentinel
+    // literal (three lines up), so it now lives in the suite's own test data:
+    // a failing assertion that dumped its haystack would put the string in the
+    // log without the runner ever reaching it. An unanchored search of the
+    // whole log is therefore forgeable from inside the suite, and only the
+    // line-anchored match against the runner's verdict block is not.
+    $this->assertContains('\'^ALL_TESTS_PASSED$\'', $script,
+      'the sentinel is matched as a whole line, so the literal embedded in a'
+      . ' quoted line or in test output does not satisfy the gate');
+    $this->assertContains('tests run, ', $script,
+      'run.sh cuts the log down to the runner\'s verdict block -- the region'
+      . ' printed after the last test, which no test can write into -- and'
+      . ' searches that rather than the whole log');
+  }
+
+  /**
+   * Test/run.sh must require a plausible test count, not just a clean finish.
+   *
+   * The sentinel above proves the runner finished the tests DISCOVERY handed
+   * it, never that discovery found the suite. A test* method that acquires a
+   * private keyword drops out of get_class_methods(), and a file renamed off
+   * the *Test.php glob drops out of the scan; either retires a regression test
+   * while the exit status and the sentinel both stay green. The runner's only
+   * floors of its own are the two zero cases, so a partial loss is invisible
+   * without a floor above zero.
+   *
+   * The expected count here is derived from the source tree rather than from
+   * the runner, which makes it a second and independent count: if discovery
+   * silently shrinks, the two disagree. The slack bound exists because the
+   * floor is a hand-maintained literal and drifted once already -- it was
+   * raised from 143 to 155 while the comment deriving it kept saying 146. The
+   * bound is deliberately loose: it is meant to catch a floor left materially
+   * behind a growing suite, not to force an edit every time a test is added.
+   *
+   * See docs/solutions/test-failures/oa4mp-test-runner-silent-pass-count-gate.md
+   */
+  public function testRunShRequiresAPlausibleTestCount() {
+    $path = App::pluginPath('Oa4mpClient') . 'Test' . DS . 'run.sh';
+    $this->assertTrue(is_readable($path), "the runner script exists at $path");
+    $script = file_get_contents($path);
+
+    $matched = preg_match('/^min_tests_run=([0-9]+)$/m', $script, $m);
+    $this->assertTrue($matched === 1,
+      'run.sh sets a numeric min_tests_run floor');
+    $floor = (int)$m[1];
+    $this->assertTrue($floor > 0,
+      'the floor is above zero, since zero is the one shortfall the runner'
+      . ' already refuses on its own');
+    $this->assertContains('tests_run', $script,
+      'run.sh reads how many tests actually ran out of the verdict block');
+    $this->assertContains('-lt', $script,
+      'run.sh fails the run when the count falls below the floor');
+
+    $actual = $this->countHermeticTestMethods();
+    $this->assertTrue($actual > 0,
+      'the source scan found test methods to count');
+    $this->assertTrue($floor <= $actual,
+      "the floor ($floor) is at or below the $actual test methods in the tree;"
+      . ' a floor above the suite\'s real size can never be met and would keep'
+      . ' the gate permanently red');
+    $slack = $actual - $floor;
+    $this->assertTrue($slack <= self::MAX_COUNT_GATE_SLACK,
+      "the floor ($floor) has drifted $slack tests below the suite's actual"
+      . ' size (' . $actual . '), past the ' . self::MAX_COUNT_GATE_SLACK
+      . ' allowed; raise min_tests_run in Test/run.sh -- and its comment --'
+      . ' so that losing a handful of tests still reddens the gate');
+  }
+
+  /**
+   * Count the hermetic tier's test methods by reading the source.
+   *
+   * Deliberately not get_class_methods(): that is the very mechanism whose
+   * silent subtraction this gate exists to catch, so counting with it would
+   * agree with the runner by construction and prove nothing. Matching the
+   * public declaration in the file is an independent derivation, and it drops
+   * a private helper whose name begins with test the same way the runner does.
+   *
+   * @return int number of public test* methods under Test/Case, LiveServer
+   *   excluded, since the hermetic tier does not run that directory.
+   */
+  protected function countHermeticTestMethods() {
+    $base = App::pluginPath('Oa4mpClient') . 'Test' . DS . 'Case';
+    $count = 0;
+    $stack = array($base);
+    while ($stack) {
+      $dir = array_pop($stack);
+      foreach (scandir($dir) ?: array() as $entry) {
+        if ($entry === '.' || $entry === '..' || $entry === 'LiveServer') {
+          continue;
+        }
+        $full = $dir . DS . $entry;
+        if (is_dir($full)) {
+          $stack[] = $full;
+          continue;
+        }
+        if (substr($entry, -8) !== 'Test.php') {
+          continue;
+        }
+        $count += preg_match_all('/^\s*public\s+function\s+test/m',
+          file_get_contents($full));
+      }
+    }
+    return $count;
   }
 
   /**
