@@ -289,18 +289,50 @@ provisioned solely for testing, scoped to the minimum privileges it needs and
 distinct from any staff or production credential.
 
 In CI the tier runs from `.github/workflows/live-server-tests.yml` on a schedule
-or on demand, on `main` only. The credential lives in the `live-server` GitHub
-Environment whose deployment-branch policy is restricted to `main`, and the job
-additionally guards on `github.ref`; the workflow has no `pull_request`,
-`pull_request_target`, or `workflow_run` trigger. `Test/Case/CiWorkflowTest.php`
-runs in the hermetic gate and fails if any of that wiring changes.
+(07:00 UTC daily) or on demand, on `main` only. The credential belongs in the
+`live-server` GitHub Environment, as four environment secrets
+(`OA4MP_LIVE_SERVER_URL`, `OA4MP_LIVE_ADMIN_IDENTIFIER`,
+`OA4MP_LIVE_ADMIN_SECRET`, `OA4MP_LIVE_CO_ID`), with the environment's
+deployment-branch policy restricted to `main`; the job additionally guards on
+`github.ref`, and the workflow has no `pull_request`, `pull_request_target`, or
+`workflow_run` trigger. `Test/Case/CiWorkflowTest.php` runs in the hermetic gate
+and fails if any of that wiring changes.
+
+**Not configured in CI yet.** The environment exists in name only -- GitHub
+created it empty the first time the scheduled job referenced it -- so it holds
+no secrets and carries no branch policy. Until both are set, the scheduled run
+fails at `Test/run-live.sh`'s first credential check, and the `github.ref` guard
+is the only thing keeping the (absent) credential off other refs, not the two
+independent gates described above. A test asserting the workflow's YAML cannot
+see any of that; it is repository configuration, not code.
 
 The hermetic runner skips `Test/Case/LiveServer` entirely; the live tier runs
 only via `./Console/cake Oa4mpClient.Oa4mp_test live`.
 
-**Not yet verified:** the live tests have never been run against a real server
-from this repository -- no test admin client exists yet. Expect to iterate on
-them the first time they run with a real credential.
+**First verified run: 2026-08-23**, against `dev.cilogon.org` from a developer
+workstation with a dedicated test admin client -- all three tests passed, and
+every client created was deleted. It confirmed the two things only a real server
+can: that the server accepts a confidential client and issues it a secret, and
+that it accepts a public client (`token_endpoint_auth_method: none`, scope
+`openid`) without issuing one, which is the server-acceptance half of the
+public-client cfg bug. It also exercised the extra-keys round trip for real: the
+server returns roughly a dozen fields the plugin does not model, and they
+survive an edit.
+
+That run found four defects, each fixed with hermetic coverage: real client
+secrets were printed in the clear by the server model's request/response
+logging; `_txt()` was never bootstrapped in the console context, so the client
+comment was an unresolved translation key *and* the sync comparison agreed with
+itself about it; the sync comparison read two optional sections through missing
+keys; and `registration_client_uri` was captured as an extra and echoed back to
+the server. Expect the same pattern from any future first contact with a server
+behaviour this tier has not seen.
+
+One cosmetic artifact remains: `Router::url()` has no HTTP host in a console
+context, so the URL after the signature in a client's comment reads
+`http://localhost/oa4mp_client/...` rather than the Registry's own base URL.
+The sync comparison checks the signature prefix only, so this does not affect
+any verdict; it is visible on clients this tier creates.
 
 **Known gap:** each test deletes the clients it created, including when it
 fails, but a process killed mid-run can still leave a `oa4mp-live-test-` client
