@@ -226,6 +226,71 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * Ensure a cfg carries an array-valued metadata.Oa4mpClient container.
+   *
+   * A named configuration's stored JSON is operator-authored and entirely
+   * unvalidated: nothing on the way in requires metadata to be an object, or
+   * requires metadata.Oa4mpClient to be one. Writing an array offset into a
+   * string raises a TypeError under PHP 8, so a configuration carrying
+   * "metadata": "anything" would take down the save rather than being saved.
+   * A non-array value at either level is therefore replaced with an empty
+   * array, which is the only reading that lets the client still be sent.
+   *
+   * @param array $cfg The cfg being marshalled.
+   * @return array The same cfg with metadata.Oa4mpClient guaranteed an array.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function normalizeCfgMetadataContainer($cfg) {
+    if(!isset($cfg['metadata']) || !is_array($cfg['metadata'])) {
+      $cfg['metadata'] = array();
+    }
+
+    if(!isset($cfg['metadata']['Oa4mpClient']) || !is_array($cfg['metadata']['Oa4mpClient'])) {
+      $cfg['metadata']['Oa4mpClient'] = array();
+    }
+
+    return $cfg;
+  }
+
+  /**
+   * Record the capability contract version this cfg was marshalled against.
+   *
+   * Every cfg the plugin sends carries the version, so the set of cfgs stored
+   * on the OA4MP servers is a census of which contract versions are actually
+   * deployed. That census cannot be reconstructed after the fact -- a cfg
+   * written without the stamp never acquires one -- which is why the stamp
+   * ships ahead of anything that reads it.
+   *
+   * It sits at metadata.Oa4mpClient.contract_version, not under
+   * tokens.identity.qdl.args: the QDL args are the capabilities a tier's QDL
+   * has to implement, and the version is a fact about the cfg rather than a
+   * capability the QDL must understand. The namespace already exists and
+   * already round-trips -- the named-configuration branch writes
+   * metadata.Oa4mpClient.Oa4mpClientCoNamedConfig into it -- and cfg_schema.json
+   * permits it through its top-level additionalProperties.
+   *
+   * The write is unconditional and overwrites. Operator-authored JSON that
+   * happens to set the same key does not get a say, and because this runs
+   * AFTER the named configuration has been merged, it cannot collide with that
+   * merge: array_merge_recursive() merges rather than overwrites, so a stamp
+   * written before the merge would leave an array of two values behind where a
+   * scalar version belongs.
+   *
+   * @param array $cfg The cfg being marshalled.
+   * @return array The same cfg carrying the contract version.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function stampCfgContractVersion($cfg) {
+    $cfg = $this->normalizeCfgMetadataContainer($cfg);
+
+    $cfg['metadata']['Oa4mpClient']['contract_version'] = $this->cfgContractVersion();
+
+    return $cfg;
+  }
+
+  /**
    * Keys a persisted claim or constraint row carries that are never candidates
    * for a cfg: the surrogate keys, the foreign keys, the timestamps, and the
    * contained constraint association.
@@ -1210,6 +1275,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
         }
       }
 
+      // The stored JSON is operator-authored and unvalidated, so the metadata
+      // container it may or may not carry is made an array before anything
+      // writes into it. Without this a configuration carrying a scalar
+      // metadata value raises a TypeError on the very next line.
+      $namedCfg = $this->normalizeCfgMetadataContainer($namedCfg);
+
       // Add metadata with URL to the named configuration if not already present.
       if($namedCfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] ?? true) {
 
@@ -1223,6 +1294,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
 
       $cfg = array_merge_recursive($cfg, $namedCfg);
+
+      // After the merge, never before it: see stampCfgContractVersion().
+      $cfg = $this->stampCfgContractVersion($cfg);
 
       return $cfg;
     }
@@ -1355,6 +1429,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $qdl['args']['claim_mappings'] = $claimMappings;
     $cfg['tokens']['identity']['qdl'] = $qdl;
+
+    $cfg = $this->stampCfgContractVersion($cfg);
 
     return $cfg;
   }
