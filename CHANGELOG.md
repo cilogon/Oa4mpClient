@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Say that the Registry could not verify a client, rather than that the client
+  was modified outside the Registry, when the synchronization check itself
+  could not run -- so a deployment fault no longer presents as client
+  tampering on every claims tab, callback list and scope page.
+- Record which client and which page a failed verification check was for, so a
+  fault affecting every client is distinguishable from one affecting a single
+  client.
+
 - Send an OA4MP client configuration built only from the values the plugin
   declares it may send, so a value the tier's claim script cannot act on is
   no longer sent to be silently ignored.
