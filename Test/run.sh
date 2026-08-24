@@ -227,11 +227,13 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # Half B, whose two checks became three when the emitted field set moved from
 # schema.xml to cfg_contract.json.
 #
-# Raised from 240 to 248 for the pre-flight internal-error verdict work: seven
-# in Test/Case/Controller/PreflightVerdictTest.php, which covers both verdict
+# Raised from 240 to 248 for the pre-flight internal-error verdict work, which
+# added nine tests (245 -> 252): seven in
+# Test/Case/Controller/PreflightVerdictTest.php, which covers both verdict
 # branches at the two harness-drivable guards and locks the whole set of
 # thirteen by source scan, and two in UnmarshallFailureDiagnosticsTest for the
-# bare verify form's third state.
+# bare verify form's third state. The floor sits a few below the real count on
+# purpose, per the slack rule below.
 #
 # These numbers are hand-maintained and have drifted once already: the floor
 # was raised from 143 to 155 while this comment went on citing the 146 tests it

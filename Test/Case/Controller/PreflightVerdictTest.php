@@ -108,10 +108,17 @@ class PreflightVerdictTest extends Oa4mpClaimsControllerTestCase {
 
     $harness->harnessInvoke('add');
 
+    // The identifier is asserted by value. Matching only on 'did not
+    // complete' would pass against a line that named no client at all, which
+    // is precisely the line that would be useless to whoever reads the report.
+    $identifier = $this->seededClientIdentifier();
+    $this->assertTrue($identifier !== '', 'the fixture client has an identifier');
+
     $found = false;
     foreach ($harness->harnessLogged as $line) {
       if (strpos($line, 'did not complete') !== false
-          && strpos($line, 'add') !== false) {
+          && strpos($line, $identifier) !== false
+          && strpos($line, '::add') !== false) {
         $found = true;
         break;
       }
@@ -119,7 +126,7 @@ class PreflightVerdictTest extends Oa4mpClaimsControllerTestCase {
 
     $this->assertTrue($found,
       'the internal-error branch logs that the check did not complete, and'
-      . ' names the guarded action');
+      . " names the client ($identifier) and the guarded action");
   }
 
   // ==========================================================================
@@ -202,9 +209,12 @@ class PreflightVerdictTest extends Oa4mpClaimsControllerTestCase {
       $source = file_get_contents($path);
       $name = basename($path);
 
+      // Match the call, not the name: '->oa4mpVerifyClient(' cannot be
+      // satisfied by a comment or a docblock mentioning the method, so a guard
+      // deleted and replaced by prose cannot keep the site count up.
       $offsets = array();
       $at = 0;
-      while (($at = strpos($source, 'oa4mpVerifyClient(', $at)) !== false) {
+      while (($at = strpos($source, '->oa4mpVerifyClient(', $at)) !== false) {
         $offsets[] = $at;
         $at += 1;
       }
@@ -225,6 +235,24 @@ class PreflightVerdictTest extends Oa4mpClaimsControllerTestCase {
           "$name: the guard at offset $start flashes er.bad_client without"
           . ' first testing the error key, so a failed check would be'
           . ' reported as client tampering');
+
+        // Ordering alone is a weak lock: a guard could read the error key and
+        // still flash the tampering message on that branch. Require the
+        // failed-check message to be present in the same region and to be
+        // selected no later than the tampering message, so a guard that reads
+        // the key and ignores it cannot pass.
+        $failedMessage = strpos($region, 'er.verify_failed');
+
+        $this->assertTrue($failedMessage !== false && $failedMessage < $bad,
+          "$name: the guard at offset $start reads the error key but never"
+          . ' reaches er.verify_failed before er.bad_client, so a failed check'
+          . ' would still be reported as client tampering');
+
+        // And the key has to be doing the selecting. A dead read followed by
+        // an unconditional tampering flash satisfies both checks above.
+        $this->assertTrue(strpos($region, '$verifyFailed') !== false,
+          "$name: the guard at offset $start does not branch on the"
+          . ' failed-check flag, so the error key is read but not acted on');
       }
     }
 
@@ -237,6 +265,28 @@ class PreflightVerdictTest extends Oa4mpClaimsControllerTestCase {
   // ==========================================================================
   // Helpers.
   // ==========================================================================
+
+  /**
+   * The seeded client's oa4mp_identifier, read from the database.
+   *
+   * Read rather than reconstructed: the log assertion is only worth anything
+   * if it matches the value the controller actually handled.
+   */
+  private function seededClientIdentifier() {
+    $db = ConnectionManager::getDataSource('default');
+    $db->flushQueryCache();
+    $rows = $db->fetchAll('SELECT oa4mp_identifier FROM cm_oa4mp_client_co_oidc_clients WHERE id = '
+      . (int)$this->clientId);
+
+    if (empty($rows)) {
+      return '';
+    }
+
+    $row = $rows[0];
+    $first = reset($row);
+
+    return isset($first['oa4mp_identifier']) ? (string)$first['oa4mp_identifier'] : '';
+  }
 
   /** Whether $message is among the flashes this harness recorded. */
   private function flashed($harness, $message) {
