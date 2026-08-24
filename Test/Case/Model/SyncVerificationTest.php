@@ -342,4 +342,148 @@ class SyncVerificationTest extends Oa4mpTestCase {
       'a claim mapping present in the plugin but absent from the server cfg'
       . ' must report out-of-sync');
   }
+
+  // ------------------------------------------------------------------
+  // The DynamoDB sort key: stored by the plugin, never written into a cfg,
+  // and therefore compared by nothing.
+  // ------------------------------------------------------------------
+
+  /**
+   * Marshall a client whose resolved DynamoDB configuration carries
+   * $overrides, read the emitted cfg back through the unmarshaller, and hand
+   * both sides to the comparator.
+   *
+   * One fixture through all three stages on purpose. sort_key was compared and
+   * read back while the marshaller emitted it on neither path, so a test that
+   * built the server side by hand could agree with the plugin side about a
+   * value that never left the building.
+   *
+   * @param array $overrides Columns to merge into the DynamoDB configuration.
+   * @param boolean $perClient Attach the configuration as the client's own
+   *                           Oa4mpClientDynamoConfig row rather than as the
+   *                           admin client's DefaultDynamoConfig.
+   * @return array list($cfg, $serverData, $verdict)
+   */
+  private function dynamoRoundTrip($overrides, $perClient = false) {
+    $server = $this->server();
+    $config = array_merge(Oa4mpClaimRows::dynamoConfig(), $overrides);
+    $claim = Oa4mpClaimRows::claim();
+
+    $data = Oa4mpClaimRows::data($claim);
+    $pluginSide = Oa4mpClaimRows::pluginSide($claim);
+
+    if ($perClient) {
+      $data['Oa4mpClientDynamoConfig'] = $config;
+      $pluginSide['Oa4mpClientDynamoConfig'] = $config;
+    } else {
+      $data['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'] = $config;
+      $pluginSide['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'] = $config;
+    }
+
+    $cfg = $server->oa4mpMarshallCfgQdl($data);
+
+    $serverData = $server->oa4mpUnMarshallContent(
+      Oa4mpClaimRows::serverObject($cfg), Oa4mpClaimRows::adminClientContext());
+
+    return array($cfg, $serverData,
+                 $server->isClientDataSynchronized($pluginSide, $serverData));
+  }
+
+  /**
+   * A client whose DynamoDB configuration carries a populated sort_key reports
+   * IN SYNC.
+   *
+   * cfg_contract.json's qdl_args group declares neither sort_key nor
+   * sort_key_template, which settles that the plugin never writes either into
+   * a cfg -- and the marshaller never did. The comparator nonetheless compared
+   * both, and the unmarshaller read both back, so the plugin's stored value
+   * was put up against the server's permanent null.
+   *
+   * That is not a theoretical column. View/Oa4mpClientCoAdminClients/fields.inc
+   * offers DefaultDynamoConfig.sort_key and .sort_key_template as editable text
+   * inputs, and Oa4mpClientCoOidcClientsController copies the whole
+   * DefaultDynamoConfig row into a new client's Oa4mpClientDynamoConfig. An
+   * operator who filled either field therefore got a client that reported out
+   * of sync on every verify pass and that no edit could repair, because the
+   * repair the comparison implied -- send the value -- is one the contract says
+   * is never sent. Both resolution paths are exercised here for that reason.
+   */
+  public function testPopulatedSortKeyReportsInSync() {
+    list($cfg, $serverData, $verdict) = $this->dynamoRoundTrip(array('sort_key' => 'group_name'));
+
+    // The premise first: the marshaller really does not send it. If it ever
+    // starts to, this file is the wrong place to find out, and the verdict
+    // below would be right for a different reason.
+    $args = $cfg['tokens']['identity']['qdl']['args'];
+    $this->assertFalse(array_key_exists('sort_key', $args),
+      'the marshaller emits no sort_key arg; the contract declares no such'
+      . ' capability, so nothing may compare one');
+    $this->assertFalse(array_key_exists('sort_key', $args['dynamo_module_config']),
+      'and none inside the DynamoDB module configuration either');
+    $this->assertFalse(isset($serverData['Oa4mpClientDynamoConfig']['sort_key']),
+      'so the unmarshaller has nothing to read back, and must publish no'
+      . ' sort_key at all rather than a null the comparator would read');
+
+    $this->assertTrue($verdict,
+      'a client whose stored DynamoDB configuration carries a sort_key must'
+      . ' report in sync: the value was never sent, so the comparator must not'
+      . ' count it -- comparing it is permanent, unrepairable drift');
+
+    // The per-client row is how the value actually reaches a client: the
+    // controller copies the admin default into it on create.
+    list($perClientCfg, $perClientServer, $perClientVerdict) =
+      $this->dynamoRoundTrip(array('sort_key' => 'group_name'), true);
+
+    $this->assertTrue($perClientVerdict,
+      'the same holds for a per-client Oa4mpClientDynamoConfig row, which is'
+      . ' where the controller copies the admin default sort_key to');
+
+    // The negative control: the comparator has not stopped looking at the
+    // DynamoDB configuration altogether.
+    $server = $this->server();
+    $drifted = $perClientServer;
+    $drifted['Oa4mpClientDynamoConfig']['table_name'] = 'a-different-table';
+
+    $pluginSide = Oa4mpClaimRows::pluginSide(Oa4mpClaimRows::claim());
+    $pluginSide['Oa4mpClientDynamoConfig'] =
+      array_merge(Oa4mpClaimRows::dynamoConfig(), array('sort_key' => 'group_name'));
+
+    $this->assertFalse($server->isClientDataSynchronized($pluginSide, $drifted),
+      'a real DynamoDB difference must still report out of sync, or the'
+      . ' verdicts above are the comparator having stopped looking');
+  }
+
+  /**
+   * The same for sort_key_template, the second of the two columns.
+   *
+   * Both are asserted rather than one standing in for the other: they were two
+   * separate comparisons, they are two separate read-backs, and an operator
+   * may fill either without the other.
+   */
+  public function testPopulatedSortKeyTemplateReportsInSync() {
+    list($cfg, $serverData, $verdict) =
+      $this->dynamoRoundTrip(array('sort_key_template' => '${group_name}'));
+
+    $args = $cfg['tokens']['identity']['qdl']['args'];
+    $this->assertFalse(array_key_exists('sort_key_template', $args),
+      'the marshaller emits no sort_key_template arg either');
+    $this->assertFalse(isset($serverData['Oa4mpClientDynamoConfig']['sort_key_template']),
+      'and the unmarshaller publishes none');
+
+    $this->assertTrue($verdict,
+      'a client whose stored DynamoDB configuration carries a'
+      . ' sort_key_template must report in sync, for the same reason sort_key'
+      . ' must');
+
+    // Both columns populated at once, which is what copying a fully filled
+    // admin default into a new client produces.
+    list($bothCfg, $bothServer, $bothVerdict) = $this->dynamoRoundTrip(array(
+      'sort_key' => 'group_name',
+      'sort_key_template' => '${group_name}',
+    ), true);
+
+    $this->assertTrue($bothVerdict,
+      'a client carrying both columns must report in sync: the controller'
+      . ' copies the whole DefaultDynamoConfig row, so both arrive together');
+  }
 }

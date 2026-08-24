@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Send an OA4MP client configuration built only from the values the plugin
+  declares it may send, so a value the tier's claim script cannot act on is
+  no longer sent to be silently ignored.
+- Record in the Registry log, each time a client configuration is built, how
+  many values were withheld and which fields they sat under -- field names
+  only, never the values -- so a withheld value is visible rather than silent.
+- Stamp every client configuration the plugin sends with the version of that
+  declaration it was built from, so a stored configuration can be read back
+  against the vocabulary that produced it.
+
 ## 7.0.0-rc6 (2026-08-23)
 
 - Report a failed claim save or delete instead of reporting success when

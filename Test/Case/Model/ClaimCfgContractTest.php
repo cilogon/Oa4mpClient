@@ -65,6 +65,29 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
   }
 
   /**
+   * The contract version a cfg marshalled now must be stamped with, read
+   * straight out of the shipped document.
+   *
+   * Read here rather than taken from the model's cfgContractVersion() so the
+   * rows below compare the emitted stamp against the declaration itself, and
+   * not against the same accessor that produced it. Derived rather than
+   * written out as a literal because contract_version is expected to advance;
+   * WHERE the stamp lands and what else sits beside it are what these rows
+   * pin, and neither of those moves when the number does.
+   *
+   * @return mixed The declared contract_version.
+   */
+  private function contractVersion() {
+    $contract = json_decode(
+      file_get_contents(App::pluginPath('Oa4mpClient') . 'cfg_contract.json'), true);
+
+    $this->assertTrue(isset($contract['contract_version']),
+      'cfg_contract.json declares a contract_version for the stamp to carry');
+
+    return $contract['contract_version'];
+  }
+
+  /**
    * Marshall one claim and assert the emitted claim mapping matches the row's
    * stored expected value exactly, including key order and scalar type.
    *
@@ -1259,6 +1282,16 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
           ),
         ),
       ),
+      // The capability contract version the cfg was built against, written
+      // last and outside the QDL args. Every cfg the plugin sends carries it,
+      // so the cfgs stored on the servers are a census of which contract
+      // versions are deployed -- see
+      // Test/Case/Model/ContractVersionStampTest.php.
+      'metadata' => array(
+        'Oa4mpClient' => array(
+          'contract_version' => $this->contractVersion(),
+        ),
+      ),
     ), $cfg, 'row ' . $row . ': the whole emitted cfg must match the stored expected value');
   }
 
@@ -1324,11 +1357,13 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
    * row locks current behavior so it cannot drift unnoticed; it is expected to
    * CHANGE when Q1 is resolved, not to block that resolution.
    *
-   * The metadata key is excluded from the comparison: the named-configuration
-   * branch builds it with Router::url(..., true), so it is environment-
-   * dependent even here at the QDL marshaller, which is the same reason the
-   * matrix captures its golden values at oa4mpMarshallCfgQdl() rather than at
-   * oa4mpMarshallContent(). Its presence is asserted; its value is not.
+   * The metadata block is asserted separately and then excluded from the
+   * whole-cfg comparison. Its named-configuration URL is built with
+   * Router::url(..., true), so it is environment-dependent even here at the
+   * QDL marshaller, which is the same reason the matrix captures its golden
+   * values at oa4mpMarshallCfgQdl() rather than at oa4mpMarshallContent(); the
+   * URL's presence is asserted and its value is not. The contract version that
+   * shares the block is not environment-dependent, so its value IS asserted.
    */
   public function testNamedConfigClientResolvesToNamedConfigAndDropsClaims() {
     $row = 'cfg_shape/named_config';
@@ -1341,6 +1376,15 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
     $this->assertNotEmpty($cfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'],
       'row ' . $row . ': the branch must stamp the named configuration URL into'
       . ' the metadata block');
+
+    // The contract version rides in the same block, written after the named
+    // configuration is merged. Asserted here so that dropping the block below
+    // does not quietly drop the stamp's coverage too.
+    $this->assertEqual($this->contractVersion(),
+      $cfg['metadata']['Oa4mpClient']['contract_version'],
+      'row ' . $row . ': a cfg produced by the named-configuration branch must'
+      . ' carry the contract version it was built against');
+
     unset($cfg['metadata']);
 
     // The structural fact the deferred defect turns on: the client carries a
@@ -1386,9 +1430,20 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
     $this->assertTrue(isset($content['cfg']),
       'row ' . $row . ': a confidential client carrying claims must carry a cfg');
 
-    $this->assertFalse(isset($content['cfg']['metadata']),
-      'row ' . $row . ': a client with no named configuration must carry no'
+    // A client with no named configuration still carries a metadata block,
+    // because every marshalled cfg is stamped with the contract version it was
+    // built against. The stamp is all it carries: the assertion is on the key
+    // SET rather than on the absence of one key, so a named-configuration URL
+    // appearing on a client that has no named configuration still fails here.
+    $this->assertEqual(array('contract_version' => $this->contractVersion()),
+      $content['cfg']['metadata']['Oa4mpClient'],
+      'row ' . $row . ': a client with no named configuration must carry the'
+      . ' contract version in its metadata and nothing else -- in particular no'
       . ' named-configuration metadata');
+
+    $this->assertEqual(array('Oa4mpClient'), array_keys($content['cfg']['metadata']),
+      'row ' . $row . ": the plugin's metadata namespace is the only one it"
+      . ' writes');
 
     $this->assertEqual('COmanageRegistry/test/dynamodb_claims.qdl',
       $content['cfg']['tokens']['identity']['qdl']['load'],

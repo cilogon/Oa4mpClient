@@ -129,7 +129,19 @@ incidental edit cannot change it unnoticed:
   locks the marshaller's half: the named-configuration shape is returned and
   carries no claim mappings.
 
-Both are locked **provisionally**. They describe the defect, not a decision
+One thing has changed on the marshaller's side since this was written, and it
+is not a remedy. The named-configuration branch now stamps the cfg capability
+contract version at `metadata.Oa4mpClient.contract_version` before it returns,
+so a named-configuration cfg is counted in the deployment census like every
+other cfg the plugin sends. The stamp is a fact about the cfg, written after
+the named configuration is merged; the branch still returns before the claim
+loop, the comparator still never reads the cfg's metadata, and the claims are
+as inert as they were. The row above asserts the stamp alongside the
+named-configuration URL rather than dropping the whole metadata block
+unexamined, and `Test/Case/Model/ContractVersionStampTest.php` covers the
+stamp itself.
+
+Both locks are held **provisionally**. They describe the defect, not a decision
 that the defect is correct. A Q1 remedy that changes how the marshaller or the
 comparator treats named-configuration clients is expected to change these
 tests; a maintainer who hits them red while fixing Q1 should update them and

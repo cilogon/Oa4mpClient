@@ -31,6 +31,391 @@ class Oa4mpClientOa4mpServer extends AppModel {
   public $useTable = false;
 
   /**
+   * Decoded cfg capability contracts, keyed by the path each was read from.
+   *
+   * The document is small and every claim mapping consults it, so it is read
+   * once per path rather than once per claim. Keying on the path rather than
+   * on a bare flag keeps a subclass that points cfgContractPath() somewhere
+   * else from being handed the default document's cache entry.
+   *
+   * @var array
+   */
+  private $cfgContractCache = array();
+
+  /**
+   * The prefix every withheld-value signal line carries, so the line can be
+   * recognized without matching the whole sentence.
+   */
+  const CFG_WITHHELD_SIGNAL = 'Oa4mpClientClaim: cfg capability contract';
+
+  /**
+   * The one claim-mapping field the marshaller synthesises rather than reading
+   * off a claim column: the mapping's claim_constraints list, built from the
+   * claim's Oa4mpClientClaimConstraint rows. The contract declares it last and
+   * marks it column_backed false; see its claim_mapping_fields note.
+   */
+  const CFG_CONSTRAINTS_FIELD = 'claim_constraints';
+
+  /**
+   * Path to the cfg capability contract document.
+   *
+   * protected, not private, on purpose. The suite has no mocking framework, so
+   * a test that needs the reader pointed at a fixture -- an unreadable or a
+   * malformed contract -- subclasses this model and overrides this one method.
+   * Test/Case/Model/ClaimConstraintSymmetryTest.php overrides log() the same
+   * way and for the same reason.
+   *
+   * @return string Absolute path to cfg_contract.json.
+   * @since COmanage Registry 4.5.1
+   */
+
+  protected function cfgContractPath() {
+    return App::pluginPath('Oa4mpClient') . 'cfg_contract.json';
+  }
+
+  /**
+   * The decoded cfg capability contract.
+   *
+   * Every enforcement site that asks what this plugin may put in a cfg comes
+   * through here, so an unreadable or unparseable document raises rather than
+   * resolving to an empty array. An allowlist reads an empty contract as "emit
+   * nothing" and a redaction list reads it as "redact nothing"; both are
+   * silent, and either is worse than a stopped edit.
+   *
+   * @return array The decoded contract.
+   * @throws RuntimeException If the document cannot be read or is not a usable
+   *                          contract.
+   * @since COmanage Registry 4.5.1
+   */
+
+  protected function cfgContract() {
+    $path = $this->cfgContractPath();
+
+    if(array_key_exists($path, $this->cfgContractCache)) {
+      return $this->cfgContractCache[$path];
+    }
+
+    $text = is_readable($path) ? file_get_contents($path) : false;
+
+    if($text === false) {
+      throw new RuntimeException("Oa4mpClient cfg capability contract cannot be read at " . $path);
+    }
+
+    $contract = json_decode($text, true);
+
+    if(!is_array($contract)
+       || !isset($contract['contract_version'])
+       || empty($contract['capabilities'])) {
+      throw new RuntimeException("Oa4mpClient cfg capability contract at " . $path
+                                 . " is not a usable contract document: "
+                                 . json_last_error_msg());
+    }
+
+    $this->cfgContractCache[$path] = $contract;
+
+    return $contract;
+  }
+
+  /**
+   * The version of the capability contract a cfg marshalled now is built to.
+   *
+   * @return mixed The declared contract_version.
+   * @since COmanage Registry 4.5.1
+   */
+
+  public function cfgContractVersion() {
+    $contract = $this->cfgContract();
+
+    return $contract['contract_version'];
+  }
+
+  /**
+   * The names one capability group declares, in declaration order, excluding
+   * any entry that has been retired.
+   *
+   * Declaration order is load-bearing for claim_mapping_fields: it is the
+   * order a marshalled mapping carries, and the suite's assertEqual is key
+   * -order sensitive. Retired entries stay in the document so an older cfg
+   * remains interpretable, but they are not emitted, so they are not returned.
+   *
+   * @param string $group Capability group name, e.g. 'claim_mapping_fields'.
+   * @return array Declared names, in contract order.
+   * @throws RuntimeException If the group is absent or carries a malformed entry.
+   * @since COmanage Registry 4.5.1
+   */
+
+  public function cfgContractNames($group) {
+    $contract = $this->cfgContract();
+
+    if(!isset($contract['capabilities'][$group]['entries'])) {
+      throw new RuntimeException("Oa4mpClient cfg capability contract declares no "
+                                 . $group . " group, which the plugin looks up by name");
+    }
+
+    $names = array();
+
+    foreach($contract['capabilities'][$group]['entries'] as $entry) {
+      // A missing retired_in is a malformed entry and never an implied null;
+      // see the contract's own entry_fields note. Defaulting it here would
+      // emit a capability nothing declared was still live.
+      if(!isset($entry['name']) || !array_key_exists('retired_in', $entry)) {
+        throw new RuntimeException("Oa4mpClient cfg capability contract carries a malformed "
+                                   . $group . " entry: every entry names itself and states"
+                                   . " retired_in");
+      }
+
+      if($entry['retired_in'] !== null) {
+        continue;
+      }
+
+      $names[] = $entry['name'];
+    }
+
+    return $names;
+  }
+
+  /**
+   * The capability group enumerating the values $field may carry, or '' when
+   * the contract enumerates no values for it.
+   *
+   * Derived from the contract rather than from a map kept here: an enumerated
+   * -value group is named for the field it constrains, so source_model is
+   * constrained by source_model_values and constraint_field by
+   * constraint_field_values. A further such group added to the contract is
+   * therefore enforced the day it is declared, with no edit in this file.
+   *
+   * @param string $field A declared field name.
+   * @return string The value group's name, or ''.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function cfgContractValueGroup($field) {
+    $contract = $this->cfgContract();
+    $group = $field . '_values';
+
+    return isset($contract['capabilities'][$group]['entries']) ? $group : '';
+  }
+
+  /**
+   * Whether the contract permits $field to carry $value.
+   *
+   * Called from the marshaller and from normalizeClaimForComparison(), which
+   * is the whole point of it being one function: a value the marshaller
+   * withholds never reaches the server, so a comparator that kept it would
+   * compare the plugin's value against the nothing that was actually sent and
+   * report the client out of sync on every verify pass, with no edit able to
+   * repair it. That failure has shipped from this file three times.
+   *
+   * Free-text fields (a claim_name, a constraint_value) are permitted whatever
+   * they carry: the contract enumerates names for them, not values.
+   *
+   * @param string $field A declared field name.
+   * @param mixed $value The value the row carries.
+   * @return boolean
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function cfgContractPermitsValue($field, $value) {
+    $group = $this->cfgContractValueGroup($field);
+
+    if($group === '') {
+      return true;
+    }
+
+    return in_array($value, $this->cfgContractNames($group), true);
+  }
+
+  /**
+   * Ensure a cfg carries an array-valued metadata.Oa4mpClient container.
+   *
+   * A named configuration's stored JSON is operator-authored and entirely
+   * unvalidated: nothing on the way in requires metadata to be an object, or
+   * requires metadata.Oa4mpClient to be one. Writing an array offset into a
+   * string raises a TypeError under PHP 8, so a configuration carrying
+   * "metadata": "anything" would take down the save rather than being saved.
+   * A non-array value at either level is therefore replaced with an empty
+   * array, which is the only reading that lets the client still be sent.
+   *
+   * @param array $cfg The cfg being marshalled.
+   * @return array The same cfg with metadata.Oa4mpClient guaranteed an array.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function normalizeCfgMetadataContainer($cfg) {
+    if(!isset($cfg['metadata']) || !is_array($cfg['metadata'])) {
+      $cfg['metadata'] = array();
+    }
+
+    if(!isset($cfg['metadata']['Oa4mpClient']) || !is_array($cfg['metadata']['Oa4mpClient'])) {
+      $cfg['metadata']['Oa4mpClient'] = array();
+    }
+
+    return $cfg;
+  }
+
+  /**
+   * Record the capability contract version this cfg was marshalled against.
+   *
+   * Every cfg the plugin sends carries the version, so the set of cfgs stored
+   * on the OA4MP servers is a census of which contract versions are actually
+   * deployed. That census cannot be reconstructed after the fact -- a cfg
+   * written without the stamp never acquires one -- which is why the stamp
+   * ships ahead of anything that reads it.
+   *
+   * It sits at metadata.Oa4mpClient.contract_version, not under
+   * tokens.identity.qdl.args: the QDL args are the capabilities a tier's QDL
+   * has to implement, and the version is a fact about the cfg rather than a
+   * capability the QDL must understand. The namespace already exists and
+   * already round-trips -- the named-configuration branch writes
+   * metadata.Oa4mpClient.Oa4mpClientCoNamedConfig into it -- and cfg_schema.json
+   * permits it through its top-level additionalProperties.
+   *
+   * The write is unconditional and overwrites. Operator-authored JSON that
+   * happens to set the same key does not get a say, and because this runs
+   * AFTER the named configuration has been merged, it cannot collide with that
+   * merge: array_merge_recursive() merges rather than overwrites, so a stamp
+   * written before the merge would leave an array of two values behind where a
+   * scalar version belongs.
+   *
+   * @param array $cfg The cfg being marshalled.
+   * @return array The same cfg carrying the contract version.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function stampCfgContractVersion($cfg) {
+    $cfg = $this->normalizeCfgMetadataContainer($cfg);
+
+    $cfg['metadata']['Oa4mpClient']['contract_version'] = $this->cfgContractVersion();
+
+    return $cfg;
+  }
+
+  /**
+   * Keys a persisted claim or constraint row carries that are never candidates
+   * for a cfg: the surrogate keys, the foreign keys, the timestamps, and the
+   * contained constraint association.
+   *
+   * This is not the denylist the claim loop used to run on. That list decided
+   * what was emitted, so a column added to either table reached the OA4MP
+   * server the day it was added; the contract decides that now. This list only
+   * decides which withheld keys are worth a signal, and every name on it is
+   * structural -- present on every row, carrying nothing a cfg could express.
+   * A new column is on none of them, so it is withheld AND reported.
+   *
+   * @return array Key names that never carry a capability.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function cfgNonEmittedRowKeys() {
+    return array(
+      'id',
+      'client_id',
+      'claim_id',
+      'created',
+      'modified',
+      'Oa4mpClientClaimConstraint',
+    );
+  }
+
+  /**
+   * The values one row contributes to a cfg, in the order the contract
+   * declares them.
+   *
+   * Three rules, in this order, and all three are also the comparator's:
+   *
+   *  - A field the contract does not declare is never copied. That is the
+   *    allowlist: adding a column to cm_oa4mp_client_claims or to
+   *    cm_oa4mp_client_claim_constraints does not by itself put anything on
+   *    the wire, and neither does adding a key to the QDL args block or to
+   *    the DynamoDB module configuration the marshaller builds by hand.
+   *  - An empty value is no value, and is omitted. Unchanged from the whole
+   *    -row copy this replaced, and deliberately still empty() -- empty('0')
+   *    is true, so a string-zero value is omitted here exactly as it was
+   *    before, and normalizeClaimForComparison() asks the identical question.
+   *    A mapping therefore need not carry every declared field; the contract
+   *    fixes which fields may appear and in what order, not that they all do.
+   *    $dropEmpty turns this rule off for the row shapes it does not describe;
+   *    see below.
+   *  - An enumerated field may only carry a value the contract declares.
+   *
+   * A value withheld by the last rule, and any value under a key the contract
+   * does not declare that the first two rules would otherwise have emitted,
+   * appends its FIELD NAME to $withheld. Never its value: this model's rows
+   * can carry DynamoDB credentials, and the signal built from $withheld is
+   * logged.
+   *
+   * $dropEmpty exists because "an empty value is no value" is a rule about a
+   * CLAIM row, not about every row a cfg is built from. A claim mapping omits
+   * an empty field and the comparator omits it on both sides, so the two
+   * agree. The QDL args block and the DynamoDB module configuration are
+   * different: the marshaller has always emitted partition_key_template,
+   * partition_key_claim_name and all five module keys unconditionally, null
+   * values included, and the unmarshaller reads two of them back without an
+   * isset() guard. Dropping an empty one here would change what an existing
+   * client sends. Those callers pass false, and express optionality by
+   * leaving the key off the row they hand in rather than by handing in an
+   * empty value -- which is exactly how the four conditional authorization
+   * args keep their conditionality.
+   *
+   * @param array $row One row -- a claim, a constraint, the QDL args block, or
+   *                   the DynamoDB module configuration.
+   * @param array $declared The field names the contract declares, in order.
+   * @param array &$withheld Collects the name of every field whose value was
+   *                         withheld. Names only, never values.
+   * @param array $synthesised Values the marshaller supplies rather than
+   *                           reading off the row, keyed by declared field name.
+   * @param boolean $dropEmpty Whether an empty value is omitted. True for the
+   *                           claim and constraint rows; false for the rows
+   *                           whose keys are emitted unconditionally.
+   * @return array The values to emit, in contract order.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function marshallDeclaredRow($row, $declared, &$withheld, $synthesised = array(),
+                                       $dropEmpty = true) {
+    $marshalled = array();
+
+    foreach($declared as $field) {
+      if(array_key_exists($field, $synthesised)) {
+        $value = $synthesised[$field];
+      } elseif(array_key_exists($field, $row)) {
+        $value = $row[$field];
+      } else {
+        continue;
+      }
+
+      if($dropEmpty && empty($value)) {
+        continue;
+      }
+
+      if(!$this->cfgContractPermitsValue($field, $value)) {
+        $withheld[] = $field;
+        continue;
+      }
+
+      $marshalled[$field] = $value;
+    }
+
+    // Whatever the row carries beyond the declaration, tested with the same
+    // emptiness rule the copy above uses, so the two sides of "would this have
+    // been emitted" ask one question. On a claim row a key holding nothing was
+    // never going to reach the server, and reporting it withheld would make
+    // the signal noise; on a row whose keys are emitted unconditionally it
+    // WOULD have reached the server, so it is reported however empty it is.
+    foreach($row as $key => $value) {
+      if(in_array($key, $declared, true)
+         || in_array($key, $this->cfgNonEmittedRowKeys(), true)
+         || ($dropEmpty && empty($value))) {
+        continue;
+      }
+
+      $withheld[] = $key;
+    }
+
+    return $marshalled;
+  }
+
+  /**
    * Return a copy of $row with known secret-bearing field values replaced
    * by a redaction sentinel.
    *
@@ -47,7 +432,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
    */
 
   private function redactSecrets($row) {
-    foreach($this->secretFieldNames() as $field) {
+    foreach($this->loggingSecretFieldNames() as $field) {
       if(isset($row[$field])) {
         $row[$field] = '[REDACTED]';
       }
@@ -61,28 +446,206 @@ class Oa4mpClientOa4mpServer extends AppModel {
    *
    * The single enforcement point for both redaction helpers: redactSecrets()
    * matches these as array keys, redactSecretsInLogText() matches them as JSON
-   * keys. Adding a secret-bearing field to either shape only requires adding
-   * its name here.
+   * keys.
+   *
+   * The list is a union of two halves that are maintained differently, and the
+   * split is the point:
+   *
+   *  - The cfg-side half is DERIVED from cfg_contract.json's secret_bearing
+   *    flag, not written here. A credential-carrying capability therefore
+   *    cannot be declared without being redacted; declaring it is the whole
+   *    edit. See cfgContractSecretNames().
+   *  - The other half is literal, because no name in it is a cfg capability
+   *    the contract could declare: the plugin's own column names, the
+   *    credentials the OA4MP server returns in a response, and the LDAP bind
+   *    credential only a pre-QDLv3 cfg carries. The contract declares only
+   *    what the plugin emits INTO a cfg, so widening it to cover them would
+   *    misstate what it is. See uncontractedSecretFieldNames().
+   *
+   * An empty cfg-side derivation raises rather than quietly leaving the union
+   * as the literals alone. The contract declares two secret-bearing keys, so
+   * deriving none means the reader or the document is broken -- and without
+   * the raise, that disarmed state looks exactly like a healthy one, which is
+   * the failure shape documented in
+   * docs/solutions/integration-issues/oa4mp-gitleaks-secret-scan-usedefault-trap-2026-08-22.md.
+   *
+   * The raise never reaches a caller: both redaction helpers go through
+   * loggingSecretFieldNames(), which catches it, logs it, and falls back. In
+   * production the defect therefore surfaces as that logged line rather than
+   * as an aborted client save or an unredacted log.
    *
    * @return array Field and JSON key names treated as secret.
+   * @throws RuntimeException If the contract cannot be read, or declares no
+   *                          secret-bearing capability at all.
    */
 
   private function secretFieldNames() {
+    $cfgNames = $this->cfgContractSecretNames();
+
+    if(empty($cfgNames)) {
+      throw new RuntimeException("Oa4mpClient cfg capability contract at "
+                                 . $this->cfgContractPath() . " declares no secret-bearing"
+                                 . " capability, so the cfg-side half of the log-redaction"
+                                 . " list derived from it is empty. The contract declares the"
+                                 . " two AWS credential keys; deriving none is a defect, not a"
+                                 . " cfg vocabulary that carries no credentials");
+    }
+
+    return array_values(array_unique(array_merge($cfgNames,
+                                                 $this->uncontractedSecretFieldNames())));
+  }
+
+  /**
+   * The cfg-side secret names, read out of the capability contract.
+   *
+   * Every capability group is scanned, not just the DynamoDB one: what makes a
+   * name belong here is the secret_bearing flag, so a credential declared in
+   * some future group is redacted the day it is declared, with no edit in this
+   * file. A missing flag is a malformed entry and never an implied false; the
+   * contract's own entry_fields note says so, and defaulting it here would
+   * silently drop a credential out of the redaction list.
+   *
+   * Unlike cfgContractNames(), a RETIRED entry is kept. The plugin no longer
+   * emits it, but a cfg written before the retirement is still stored on an
+   * OA4MP server and is still logged when it is read back, so its credential
+   * still has to be masked. Redaction wants every name a cfg may CARRY; the
+   * allowlist wants only the names the plugin may WRITE.
+   *
+   * @return array Secret-bearing names the contract declares, deduplicated.
+   * @throws RuntimeException If the contract cannot be read, or carries an
+   *                          entry with no secret_bearing flag.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function cfgContractSecretNames() {
+    $contract = $this->cfgContract();
+
+    $names = array();
+
+    foreach($contract['capabilities'] as $group => $declaration) {
+      if(empty($declaration['entries'])) {
+        continue;
+      }
+
+      foreach($declaration['entries'] as $entry) {
+        if(!isset($entry['name']) || !array_key_exists('secret_bearing', $entry)) {
+          throw new RuntimeException("Oa4mpClient cfg capability contract carries a malformed "
+                                     . $group . " entry: every entry names itself and states"
+                                     . " secret_bearing, which must not default to false");
+        }
+
+        if($entry['secret_bearing'] !== true) {
+          continue;
+        }
+
+        $names[] = $entry['name'];
+      }
+    }
+
+    return array_values(array_unique($names));
+  }
+
+  /**
+   * The secret names that have no cfg counterpart, and so are not derivable
+   * from the capability contract.
+   *
+   * Deliberately literal, and deliberately small. No vocabulary here has a cfg
+   * capability the contract could declare: the first is how the plugin's own
+   * table names these columns, the second is what the OA4MP server puts in a
+   * RESPONSE, and the third is the LDAP bind credential a cfg written before
+   * QDLv3 carries -- a shape the plugin stopped emitting and therefore has
+   * nothing to declare, but still READS BACK and logs. The contract declares
+   * what the plugin emits into a cfg and nothing else, so none of the three
+   * belongs in it.
+   *
+   * Every name is matched as a whole JSON key ("name": "value") or a whole
+   * array key, so password does not reach bind_password's value or a
+   * neighbouring password_expires_at; see redactSecretsInLogText().
+   *
+   * @return array Secret names with no cfg counterpart.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function uncontractedSecretFieldNames() {
     return array(
       // Oa4mpClientDynamoConfig column names, as the plugin persists them.
+      // The cfg spells the same two credentials access_key_id and
+      // secret_access_key; those come from the contract.
       'aws_access_key_id',
       'aws_secret_access_key',
-      // The same two credentials as they are named inside a marshalled cfg's
-      // DynamoDB module; see oa4mpMarshallCfgQdl(), which copies them across.
-      // A cfg travels in the request body of a create and an edit, so the
-      // plugin's own field names are not enough to cover a logged request.
-      'access_key_id',
-      'secret_access_key',
       // Credentials the OA4MP server issues and returns in a response body:
       // the client's own secret, and the token that authorizes managing the
       // client at the registration endpoint.
       'client_secret',
       'registration_access_token',
+      // The LDAP bind credential, under both names a legacy cfg spells it: the
+      // deprecated syntax puts it in claims.sourceConfig[].ldap.password and
+      // the QDLv2 syntax in tokens.identity.qdl[0].args.bind_password, and the
+      // unmarshaller carries the first spelling forward as the plugin's own
+      // Oa4mpClientCoLdapConfig.password column. None of the three is a cfg
+      // capability the contract declares: the plugin no longer EMITS an LDAP
+      // block at all, so there is nothing for it to declare -- but a client
+      // whose cfg was written before QDLv3 still carries one, and reading that
+      // client back logs it. Literal for exactly the reason the aws_* column
+      // names are: a name with no cfg-contract counterpart.
+      'password',
+      'bind_password',
+    );
+  }
+
+  /**
+   * The redaction list as the logging helpers must have it: never raising.
+   *
+   * secretFieldNames() raises on a contract it cannot read or trust, which is
+   * right for a defect detector and wrong here. Both callers are about to log
+   * a body that carries credentials, so an exception would either abort a
+   * client save or leave the text unredacted -- reintroducing the leak fixed
+   * in 7.0.0-rc6. On any failure the full literal list is used instead,
+   * cfg-side names included, and the failure is logged rather than swallowed.
+   *
+   * The two cfg-side names are repeated in fallbackSecretFieldNames() rather
+   * than derived, on purpose: the fallback exists precisely for the case where
+   * the derivation is unavailable.
+   *
+   * @return array Field and JSON key names to mask.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function loggingSecretFieldNames() {
+    try {
+      return $this->secretFieldNames();
+    } catch(Throwable $e) {
+      // Throwable, not Exception: a malformed document can fail in ways that
+      // are Errors rather than Exceptions, and nothing about a broken contract
+      // may stop this line from being masked.
+      $this->log("Oa4mpClient could not derive the cfg-side log-redaction names from the"
+                 . " capability contract; falling back to the literal list so this line is"
+                 . " still redacted: " . $e->getMessage());
+
+      return $this->fallbackSecretFieldNames();
+    }
+  }
+
+  /**
+   * The redaction list used when the contract cannot be consulted.
+   *
+   * The cfg-side names are literal here and only here. This list is what
+   * secretFieldNames() returned before the contract existed, so an unreadable
+   * contract degrades to the redaction the plugin has always performed.
+   *
+   * @return array Every secret name, literal.
+   * @since COmanage Registry 4.5.1
+   */
+
+  private function fallbackSecretFieldNames() {
+    return array_merge(
+      array(
+        // The two credentials as a cfg spells them; normally derived from
+        // cfg_contract.json's secret_bearing flag.
+        'access_key_id',
+        'secret_access_key',
+      ),
+      $this->uncontractedSecretFieldNames()
     );
   }
 
@@ -107,7 +670,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
    */
 
   private function redactSecretsInLogText($text) {
-    foreach($this->secretFieldNames() as $field) {
+    foreach($this->loggingSecretFieldNames() as $field) {
       // Match "field": "value" and replace only the value, leaving the
       // surrounding JSON intact. The value pattern tolerates escaped
       // characters so a backslash inside a secret cannot end the match early.
@@ -187,22 +750,56 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
   private function normalizeClaimForComparison($claim, $clientIdentifier, $side) {
     $normalized = array();
-    $normalized['claim_name'] = $claim['claim_name'];
-    $normalized['source_model'] = $claim['source_model'];
-    $normalized['source_model_claim_value_field'] = !empty($claim['source_model_claim_value_field']) ? $claim['source_model_claim_value_field'] : null;
-    $normalized['claim_value_selection'] = !empty($claim['claim_value_selection']) ? $claim['claim_value_selection'] : null;
-    $normalized['claim_value_json_format'] = !empty($claim['claim_value_json_format']) ? $claim['claim_value_json_format'] : null;
-    $normalized['claim_multiple_value_serialization'] = !empty($claim['claim_multiple_value_serialization']) ? $claim['claim_multiple_value_serialization'] : null;
-    $normalized['claim_value_string_serialization_delimiter'] = !empty($claim['claim_value_string_serialization_delimiter']) ? $claim['claim_value_string_serialization_delimiter'] : null;
+
+    // The fields the cfg capability contract declares a claim mapping may
+    // carry, minus the constraint list, which is normalized separately below.
+    // Reading the same declaration the marshaller writes from is the whole
+    // point: this file has shipped writer-versus-comparator drift three times,
+    // every one of them a hand-copied field list that quietly stopped matching
+    // what actually went over the wire.
+    foreach($this->cfgContractNames('claim_mapping_fields') as $field) {
+      if($field === self::CFG_CONSTRAINTS_FIELD) {
+        continue;
+      }
+
+      // empty(), never ??, and then the contract's own value rule -- both are
+      // marshallDeclaredRow()'s, in that order. empty('0') is true while
+      // '0' ?? null is not, and a string '0' diverging across this exact
+      // boundary is the most recent live incident in this code.
+      $value = !empty($claim[$field]) ? $claim[$field] : null;
+
+      $normalized[$field] = ($value !== null && $this->cfgContractPermitsValue($field, $value))
+                          ? $value
+                          : null;
+    }
 
     $constraints = array();
     if(!empty($claim['Oa4mpClientClaimConstraint'])) {
       foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
         if(!empty($constraint['constraint_field']) && !empty($constraint['constraint_value'])) {
-          $constraints[] = array(
-            'constraint_field' => $constraint['constraint_field'] ?? null,
-            'constraint_value' => $constraint['constraint_value'] ?? null
-          );
+          if(!$this->cfgContractPermitsValue('constraint_field', $constraint['constraint_field'])) {
+            // The marshaller withholds a constraint_field value the contract
+            // does not declare, which leaves that constraint half-populated
+            // and so unemitted. Both sides have to reach the same conclusion,
+            // or the client reports out of sync with nothing able to fix it.
+            // The field name only, as below: never the value.
+            $this->log("Oa4mpClientClaim: dropping constraint with an undeclared"
+                       . " constraint_field from the " . $side . "-side comparison"
+                       . " (client=" . var_export($clientIdentifier, true)
+                       . ", constraint_field=" . var_export($constraint['constraint_field'], true) . ")");
+            continue;
+          }
+
+          // Built from the contract for the same reason the mapping above is:
+          // a constraint field added to the declaration is emitted by the
+          // marshaller, so it has to be compared here or the round trip
+          // reports in sync whatever that field holds.
+          $normalizedConstraint = array();
+          foreach($this->cfgContractNames('claim_constraint_fields') as $field) {
+            $normalizedConstraint[$field] = !empty($constraint[$field]) ? $constraint[$field] : null;
+          }
+
+          $constraints[] = $normalizedConstraint;
         } elseif(!empty($constraint['constraint_field']) || !empty($constraint['constraint_value'])) {
           // Dropping the constraint takes it out of the comparison, so this is
           // the only place that state stays visible. Log the client and the
@@ -549,32 +1146,26 @@ class Oa4mpClientOa4mpServer extends AppModel {
         return false;
       }
 
-      // Normalize empty values to null before comparing optional fields.
-      $curSortKey = !empty($curDynamo['sort_key'])
-                    ? $curDynamo['sort_key']
-                    : null;
-      $oa4mpSortKey = !empty($oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key'])
-                      ? $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key']
-                      : null;
-      if($curSortKey !== $oa4mpSortKey) {
-        $this->log("Oa4mpClientDynamoConfig sort_key is out of sync"
-                   . " (plugin=" . var_export($curSortKey, true)
-                   . ", oa4mp=" . var_export($oa4mpSortKey, true) . ")");
-        return false;
-      }
-
-      $curSortKeyTemplate = !empty($curDynamo['sort_key_template'])
-                            ? $curDynamo['sort_key_template']
-                            : null;
-      $oa4mpSortKeyTemplate = !empty($oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key_template'])
-                              ? $oa4mpServerData['Oa4mpClientDynamoConfig']['sort_key_template']
-                              : null;
-      if($curSortKeyTemplate !== $oa4mpSortKeyTemplate) {
-        $this->log("Oa4mpClientDynamoConfig sort_key_template is out of sync");
-        $this->log("  plugin: " . var_export($curSortKeyTemplate, true));
-        $this->log("  oa4mp:  " . var_export($oa4mpSortKeyTemplate, true));
-        return false;
-      }
+      // sort_key and sort_key_template are deliberately NOT compared.
+      //
+      // cfg_contract.json's qdl_args group omits both names, so the plugin
+      // never writes either into a cfg -- and the marshaller never has. They
+      // are nonetheless editable columns: View/Oa4mpClientCoAdminClients/
+      // fields.inc offers both on the admin client's default DynamoDB
+      // configuration, and Oa4mpClientCoOidcClientsController copies that row
+      // into a new client's Oa4mpClientDynamoConfig. Comparing them therefore
+      // put the plugin's populated value up against the OA4MP server's
+      // permanent null: an operator who filled either field got a client that
+      // reported out of sync on every verify pass and that no edit could
+      // repair, because the repair the comparison implies -- send the value --
+      // is one the contract says is never sent.
+      //
+      // This is the fourth appearance of the writer-versus-comparator
+      // asymmetry this file has shipped. The rule the rest of this function
+      // now follows is that a name the contract does not declare is compared
+      // by nothing, so the removal is the fix; adding the names to the
+      // contract and starting to emit them would be a capability change, which
+      // no tier's QDL has been prepared for.
     }
 
     // Compare claim mappings.
@@ -692,6 +1283,18 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // Check that the current client data is synchronized with the
     // server and capture any extra keys from the OA4MP server response.
     $verifyResult = $this->oa4mpVerifyClient($adminClient, $curData, true);
+
+    // An internal failure is not a tampering verdict. When the comparison did
+    // not happen at all -- an unreadable cfg capability contract, a cfg the
+    // unmarshaller cannot read -- nothing was found to differ, so report the
+    // generic edit error rather than 2. Controllers map 2 to "This client has
+    // been modified outside of the Registry. Please email help@cilogon.org for
+    // assistance.", which would send the operator and support after client
+    // tampering when the real cause is a broken deployment of this plugin.
+    if(!empty($verifyResult['error'])) {
+      return 0;
+    }
+
     if(!$verifyResult['synchronized']) {
       return 2;
     }
@@ -850,23 +1453,57 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $cfg['tokens']['access']['type'] = 'access';
     }
 
+    // The names the contract declares for tokens.identity.qdl.args, in
+    // declaration order. Every one of the three places this function writes
+    // into that block -- the authorization args below, the DynamoDB args after
+    // the named-configuration branch, and the claim mappings at the end --
+    // goes through it, so a ninth arg is emitted only once it is declared,
+    // and is withheld and named in the signal until it is. Before this, the
+    // contract declared these eight names and nothing read the declaration:
+    // they were literal assignments, and a new one reached every tier with no
+    // signal and a conformance run that still passed.
+    $declaredQdlArgs = $this->cfgContractNames('qdl_args');
+
+    // Field names whose values this pass withheld. Names only, never values.
+    // Accumulated across every block below and reported once, at the end.
+    $withheldFields = array();
+
     // Client authorization configuration. Note that client authorization configuration is
     // orthogonal to using a named configuration. That is, a client can
     // use a named configuration and still have a client authorization configuration.
+    //
+    // Each of the four args is CONDITIONAL: it is emitted only when the
+    // authorization row carries the value it names. The conditionality lives
+    // in whether the key is put on the row below, never in an empty value
+    // reaching marshallDeclaredRow(), which is why that call passes
+    // $dropEmpty false and still emits exactly the keys it always did.
+    $authzArgs = array();
+
     if(!empty($data['Oa4mpClientAuthorization']) && $data['Oa4mpClientAuthorization']['require_active']) {
-      $cfg['tokens']['identity']['qdl']['args']['require_active_status'] = $data['Oa4mpClientAuthorization']['require_active'];
+      $authzArgs['require_active_status'] = $data['Oa4mpClientAuthorization']['require_active'];
     }
 
     if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_co_group_id'])) {
-      $cfg['tokens']['identity']['qdl']['args']['authorization_group_id'] = $data['Oa4mpClientAuthorization']['authz_co_group_id'];
+      $authzArgs['authorization_group_id'] = $data['Oa4mpClientAuthorization']['authz_co_group_id'];
     }
 
     if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_group_redirect_url'])) {
-      $cfg['tokens']['identity']['qdl']['args']['authorization_group_redirect_url'] = $data['Oa4mpClientAuthorization']['authz_group_redirect_url'];
+      $authzArgs['authorization_group_redirect_url'] = $data['Oa4mpClientAuthorization']['authz_group_redirect_url'];
     }
 
     if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['require_active_redirect_url'])) {
-      $cfg['tokens']['identity']['qdl']['args']['require_active_redirect_url'] = $data['Oa4mpClientAuthorization']['require_active_redirect_url'];
+      $authzArgs['require_active_redirect_url'] = $data['Oa4mpClientAuthorization']['require_active_redirect_url'];
+    }
+
+    $authzArgs = $this->marshallDeclaredRow($authzArgs, $declaredQdlArgs, $withheldFields,
+                                            array(), false);
+
+    // Only when something survived. A client with no authorization row has
+    // never carried an args key at all, and the named-configuration branch
+    // below array_merge_recursive()s this cfg, so creating an empty args array
+    // here would put one into every named-configuration cfg.
+    if(!empty($authzArgs)) {
+      $cfg['tokens']['identity']['qdl']['args'] = $authzArgs;
     }
 
     // If using a named configuration then just add the cfg for that
@@ -879,6 +1516,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
           break;
         }
       }
+
+      // The stored JSON is operator-authored and unvalidated, so the metadata
+      // container it may or may not carry is made an array before anything
+      // writes into it. Without this a configuration carrying a scalar
+      // metadata value raises a TypeError on the very next line.
+      $namedCfg = $this->normalizeCfgMetadataContainer($namedCfg);
 
       // Add metadata with URL to the named configuration if not already present.
       if($namedCfg['metadata']['Oa4mpClient']['Oa4mpClientCoNamedConfig'] ?? true) {
@@ -893,6 +1536,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
 
       $cfg = array_merge_recursive($cfg, $namedCfg);
+
+      // After the merge, never before it: see stampCfgContractVersion().
+      $cfg = $this->stampCfgContractVersion($cfg);
 
       return $cfg;
     }
@@ -934,65 +1580,141 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $dynamoConfig = $this->resolveDynamoConfig($data);
 
     // Add the Dynamo module configuration.
+    //
+    // Built as a row and routed through the contract's
+    // dynamo_module_config_keys group rather than assigned key by key. The
+    // five keys are emitted unconditionally, null values included -- that is
+    // what every stored cfg carries and what the unmarshaller reads back
+    // without a guard -- so $dropEmpty is false and the plugin's own reads of
+    // $dynamoConfig are left exactly as they were. What changes is that a
+    // sixth key added here is withheld and named unless the contract declares
+    // it, instead of reaching every tier silently.
+    $dynamoModuleConfigRow = array();
+    $dynamoModuleConfigRow['region'] = $dynamoConfig['aws_region'];
+    $dynamoModuleConfigRow['access_key_id'] = $dynamoConfig['aws_access_key_id'];
+    $dynamoModuleConfigRow['secret_access_key'] = $dynamoConfig['aws_secret_access_key'];
+    $dynamoModuleConfigRow['table_name'] = $dynamoConfig['table_name'];
+    $dynamoModuleConfigRow['partition_key'] = $dynamoConfig['partition_key'];
 
-    $dynamoModuleConfig = array();
-    $dynamoModuleConfig['region'] = $dynamoConfig['aws_region'];
-    $dynamoModuleConfig['access_key_id'] = $dynamoConfig['aws_access_key_id'];
-    $dynamoModuleConfig['secret_access_key'] = $dynamoConfig['aws_secret_access_key'];
-    $dynamoModuleConfig['table_name'] = $dynamoConfig['table_name'];
-    $dynamoModuleConfig['partition_key'] = $dynamoConfig['partition_key'];
+    $dynamoModuleConfig = $this->marshallDeclaredRow($dynamoModuleConfigRow,
+                                                     $this->cfgContractNames('dynamo_module_config_keys'),
+                                                     $withheldFields,
+                                                     array(),
+                                                     false);
 
-    $qdl['args']['dynamo_module_config'] = $dynamoModuleConfig;
+    // The module configuration and the partition key pattern and claim name,
+    // through the same declaration. The contract declares them in exactly this
+    // order, after the four authorization args and before claim_mappings, so
+    // the emitted key order is the order this block has always produced.
+    $qdlArgsRow = array();
+    $qdlArgsRow['dynamo_module_config'] = $dynamoModuleConfig;
+    $qdlArgsRow['partition_key_template'] = $dynamoConfig['partition_key_template'];
+    $qdlArgsRow['partition_key_claim_name'] = $dynamoConfig['partition_key_claim_name'];
 
-    // Add the partition key pattern and claim name.
-    $qdl['args']['partition_key_template'] = $dynamoConfig['partition_key_template'];
-    $qdl['args']['partition_key_claim_name'] = $dynamoConfig['partition_key_claim_name'];
+    $qdl['args'] = array_merge($qdl['args'],
+                               $this->marshallDeclaredRow($qdlArgsRow,
+                                                          $declaredQdlArgs,
+                                                          $withheldFields,
+                                                          array(),
+                                                          false));
 
     // Add the claims configurations.
+    //
+    // Every key a claim mapping may carry, every key a constraint may carry,
+    // and every value an enumerated one of those may hold, is declared in
+    // cfg_contract.json. Nothing else reaches the OA4MP server. Building each
+    // mapping from that declaration is the point: this loop used to copy the
+    // claim row whole and unset the handful of keys it knew the names of, so a
+    // column added to cm_oa4mp_client_claims was on the wire the day it was
+    // added, with no QDL on any tier prepared to read it.
+    //
+    // The declaration also fixes the ORDER, which is the seven claim columns in
+    // Config/Schema/schema.xml order with the synthesised claim_constraints
+    // list last -- the order a mapping has always carried, now stated once
+    // rather than inherited from the order Containable happened to read.
+    $declaredClaimFields = $this->cfgContractNames('claim_mapping_fields');
+    $declaredConstraintFields = $this->cfgContractNames('claim_constraint_fields');
+
     $claimMappings = array();
     foreach($data['Oa4mpClientClaim'] as $claim) {
-      $mapping = $claim;
+      // Add the claim constraints. Built before the mapping so the mapping can
+      // carry them in the position the contract declares them in.
+      $claimConstraints = array();
 
-      // Add the claim constraints.
-      foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
-        $constraintMapping = $constraint;
+      // The same emptiness test normalizeClaimForComparison() applies to this
+      // association: both sides have to ask one question about whether a claim
+      // has constraints at all.
+      if(!empty($claim['Oa4mpClientClaimConstraint'])) {
+        foreach($claim['Oa4mpClientClaimConstraint'] as $constraint) {
+          $constraintMapping = $this->marshallDeclaredRow($constraint,
+                                                          $declaredConstraintFields,
+                                                          $withheldFields);
 
-        // Clear the fields that are not needed in the mapping sent to the server.
-        unset($constraintMapping['id']);
-        unset($constraintMapping['claim_id']);
-        unset($constraintMapping['created']);
-        unset($constraintMapping['modified']);
-
-        // Only emit a constraint when BOTH fields are populated. A constraint with
-        // only a field or only a value is meaningless to the OA4MP server's QDL.
-        // Defense-in-depth: Oa4mpClientClaimConstraint validates both fields as
-        // notBlank, so persisted rows shouldn't reach here half-populated, but the
-        // guard keeps malformed constraints from being serialized to the server
-        // even if validation is ever bypassed (raw SQL inserts, future code).
-        if(!empty($constraintMapping['constraint_field']) && !empty($constraintMapping['constraint_value'])) {
-          $mapping['claim_constraints'][] = $constraintMapping;
+          // Only emit a constraint when BOTH fields are populated. A constraint
+          // with only a field or only a value is meaningless to the OA4MP
+          // server's QDL. Defense-in-depth: Oa4mpClientClaimConstraint validates
+          // both fields as notBlank, so persisted rows shouldn't reach here
+          // half-populated, but the guard keeps malformed constraints from being
+          // serialized to the server even if validation is ever bypassed (raw
+          // SQL inserts, future code). A constraint whose constraint_field value
+          // the contract does not declare arrives here already missing that
+          // field, so this same guard drops it.
+          if(!empty($constraintMapping['constraint_field'])
+             && !empty($constraintMapping['constraint_value'])) {
+            $claimConstraints[] = $constraintMapping;
+          }
         }
       }
 
-      // Clear the fields that are not needed in the mapping sent to the server.
-      unset($mapping['id']);
-      unset($mapping['client_id']);
-      unset($mapping['created']);
-      unset($mapping['modified']);
-      unset($mapping['Oa4mpClientClaimConstraint']);
-
-      // Unset any fields that are empty.
-      foreach($mapping as $key => $value) {
-        if(empty($value)) {
-          unset($mapping[$key]);
-        }
-      }
-
-      $claimMappings[] = $mapping;
+      $claimMappings[] = $this->marshallDeclaredRow(
+        $claim,
+        $declaredClaimFields,
+        $withheldFields,
+        array(self::CFG_CONSTRAINTS_FIELD => $claimConstraints));
     }
 
-    $qdl['args']['claim_mappings'] = $claimMappings;
+    // The claim mappings through the same declaration as everything else in
+    // the args block. claim_mappings is a declared qdl_args entry and the
+    // contract declares it LAST, so routing it here rather than assigning it
+    // puts it in the position it has always occupied while making it as
+    // undeclarable-by-accident as its seven neighbours. $dropEmpty is false
+    // for the same reason it is false above: a client with no claims has
+    // always sent an empty claim_mappings list, not an absent key.
+    $qdl['args'] = array_merge($qdl['args'],
+                               $this->marshallDeclaredRow(
+                                 array('claim_mappings' => $claimMappings),
+                                 $declaredQdlArgs,
+                                 $withheldFields,
+                                 array(),
+                                 false));
+
+    // One line per marshalling pass, always. A line emitted only when
+    // something was withheld would make "nothing was withheld" and "this code
+    // never ran" the same observation; emitting it every pass makes silence
+    // the distinct third state, which is what a CI gate needs in order to fail
+    // on the signal rather than on its absence. The count is of VALUES, and
+    // the names appended after it are the distinct FIELDS those values sat
+    // under, so two claims withholding the same column read as two values and
+    // one name. Names are appended only when the count is non-zero, and the
+    // values themselves never are.
+    //
+    // It sits here, after every block that writes into the args, rather than
+    // after the claim loop: the args block and the DynamoDB module
+    // configuration are marshalled through the contract too, so a value
+    // withheld from either has to reach this count. Exactly one line per pass
+    // is the property the CI gate reads, so there is one call, not one per
+    // block.
+    $withheldNames = array_values(array_unique($withheldFields));
+    sort($withheldNames);
+
+    $this->log(self::CFG_WITHHELD_SIGNAL . " version "
+               . var_export($this->cfgContractVersion(), true) . ": "
+               . count($withheldFields) . " values withheld from the cfg"
+               . (empty($withheldNames) ? "" : ": " . implode(', ', $withheldNames)));
+
     $cfg['tokens']['identity']['qdl'] = $qdl;
+
+    $cfg = $this->stampCfgContractVersion($cfg);
 
     return $cfg;
   }
@@ -1133,7 +1855,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
             $content[$key] = $value;
           }
         }
-        $this->log("Merged extra keys into content for OA4MP server: " . print_r($extraKeys, true));
+        // Masked JSON, not print_r, for the same reason the capture site is:
+        // print_r output is not JSON-shaped and the redactor cannot see into it.
+        $this->log("Merged extra keys into content for OA4MP server: "
+                   . $this->redactSecretsInLogText(json_encode($extraKeys)));
       }
     }
 
@@ -1226,6 +1951,17 @@ class Oa4mpClientOa4mpServer extends AppModel {
       'response_types',
       // Read-only keys from OA4MP server that should not be sent back.
       'registration_access_token',
+      // The client's own credential. A client-read response (RFC 7592) carries
+      // Deliberately NOT listed: client_secret. An RFC 7592 client-read
+      // response carries it, so it lands in the extras blob and is echoed
+      // back on the next edit. Dropping it from the echo would be the
+      // tidier shape, but whether the OA4MP server preserves an existing
+      // secret when an update omits it, or treats the omission as a
+      // rotation, cannot be established from this repository -- and a
+      // silent rotation on every edit is far worse than a secret riding a
+      // blob. The leak this had to close was the logging, and the dumps
+      // that carried it are masked. Revisit only with evidence from a real
+      // server about how it treats an omitted secret.
       'client_secret_expires_at',
       'client_id_issued_at',
       // The server builds this from its own endpoint and the client_id. It
@@ -1319,7 +2055,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
       if(!empty($extraKeys)) {
         $oa4mpClient['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] = json_encode($extraKeys);
-        $this->log("Captured extra keys from OA4MP server: " . print_r($extraKeys, true));
+        // Masked JSON, not print_r: see the catch at the end of this method.
+        // The extras blob is whatever the server returned outside $knownKeys,
+        // so it is exactly the place an unmodelled credential arrives.
+        $this->log("Captured extra keys from OA4MP server: "
+                   . $this->redactSecretsInLogText(json_encode($extraKeys)));
       }
 
       // Unmarshall the cfg object, if any.
@@ -1331,13 +2071,22 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
   
       $cfg = $oa4mpObject['cfg'];
-      $this->log("Cast JSON cfg from OA4MP server to " . print_r($cfg, true));
+      // The cfg is the half of the server object that carries the DynamoDB
+      // module's access_key_id and secret_access_key, so it goes to the log as
+      // masked JSON like every other credential-bearing structure here. A
+      // print_r rendering is not JSON-shaped and the redactor cannot see into
+      // it; see the catch at the end of this method.
+      $this->log("Cast JSON cfg from OA4MP server to "
+                 . $this->redactSecretsInLogText(json_encode($cfg)));
 
       // Try cfg format 3 first.
       $configs = $this->oa4mpUnMarshallCfgQdlv3($cfg);
 
       if(!empty($configs)) {
-        $this->log("Unmarshalled cfg QDLv3 syntax to " . print_r($configs, true));
+        // Same reason: the QDLv3 unmarshalling carries the same two AWS
+        // credentials forward under the plugin's own aws_* column names.
+        $this->log("Unmarshalled cfg QDLv3 syntax to "
+                   . $this->redactSecretsInLogText(json_encode($configs)));
         $oa4mpClient = array_merge($oa4mpClient, $configs);
           
         return $oa4mpClient;
@@ -1351,7 +2100,15 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $ldapConfigs = $this->oa4mpUnMarshallCfgQdlv2($cfg);
 
       if(!empty($ldapConfigs)) {
-        $this->log("Unmarshalled cfg QDL syntax to " . print_r($ldapConfigs, true));
+        // Masked JSON, not print_r, for the same reason as the QDLv3 site
+        // above: a QDLv2 cfg carries the LDAP bind credential in
+        // args.bind_password, and this unmarshalling carries it forward under
+        // the plugin's own password column name. redactSecretsInLogText()
+        // matches a JSON-shaped "key": "value" pair, so a print_r rendering
+        // walks straight past it and the bind password lands in the log in the
+        // clear.
+        $this->log("Unmarshalled cfg QDL syntax to "
+                   . $this->redactSecretsInLogText(json_encode($ldapConfigs)));
         foreach($ldapConfigs as $ldapConfig) {
           if(empty($ldapConfig['Oa4mpClientCoSearchAttribute'])) {
             continue;
@@ -1376,7 +2133,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $ldapConfigs = $this->oa4mpUnMarshallCfgDeprecated($cfg);
 
       if(!empty($ldapConfigs)) {
-        $this->log("Unmarshalled deprecated cfg to " . print_r($ldapConfigs, true));
+        // Same again: the deprecated syntax spells the bind credential
+        // ldap.password, and it reaches this structure unchanged.
+        $this->log("Unmarshalled deprecated cfg to "
+                   . $this->redactSecretsInLogText(json_encode($ldapConfigs)));
         foreach($ldapConfigs as $ldapConfig) {
           if(empty($ldapConfig['Oa4mpClientCoSearchAttribute'])) {
             continue;
@@ -1417,7 +2177,15 @@ class Oa4mpClientOa4mpServer extends AppModel {
       return $oa4mpClient;
 
     } catch(Exception $e) {
-      $this->log("oa4mpObject: " . print_r($oa4mpObject, true));
+      // JSON and masked, never print_r. redactSecretsInLogText() matches a
+      // JSON-shaped "key": "value" pair, so a print_r rendering of this object
+      // walks straight past it and lands in the log carrying the server's
+      // client_secret, its registration_access_token and the cfg's AWS
+      // access_key_id and secret_access_key in the clear. Those logs are not
+      // private: the live-server tier writes them to a GitHub Actions log on a
+      // public repository. Every other body-logging site in this model renders
+      // JSON through the redactor for exactly this reason.
+      $this->log("oa4mpObject: " . $this->redactSecretsInLogText(json_encode($oa4mpObject)));
       throw new LogicException(_txt('pl.oa4mp_client_co_oidc_client.er.unmarshall') . ': ' . $e->getMessage());
     }
   }
@@ -1912,12 +2680,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key_template'] = $qdlArgs['partition_key_template'];
       $oa4mpClient['Oa4mpClientDynamoConfig']['partition_key_claim_name'] = $qdlArgs['partition_key_claim_name'];
 
-      if(!empty($qdlArgs['sort_key_template'])) {
-        $oa4mpClient['Oa4mpClientDynamoConfig']['sort_key_template'] = $qdlArgs['sort_key_template'];
-      }
-      if(!empty($qdlArgs['sort_key'])) {
-        $oa4mpClient['Oa4mpClientDynamoConfig']['sort_key'] = $qdlArgs['sort_key'];
-      }
+      // No sort_key or sort_key_template read-back. cfg_contract.json's
+      // qdl_args group declares neither name, so no cfg the plugin writes
+      // carries either; reading them back could only ever produce null, and
+      // the comparison that consumed that null reported an operator-populated
+      // sort key permanently out of sync. See the matching note in
+      // isClientDataSynchronized().
 
       if(!empty($qdlArgs['dynamo_module_config'])) {
         $dynamoModuleConfig = $qdlArgs['dynamo_module_config'];
@@ -1935,38 +2703,45 @@ class Oa4mpClientOa4mpServer extends AppModel {
         $claimMappings = array();
 
         foreach($qdlClaimMappings as $qdlClaimMapping) {
+          // Read back exactly the fields the contract declares a mapping may
+          // carry, from the same group the marshaller emits from. Two
+          // hand-written lists were free to drift apart, and did: a field the
+          // marshaller emitted and this loop did not read was dropped on the
+          // way back and never compared, so the round trip reported "in sync"
+          // whatever that field held.
           $claimMapping = array();
-          $claimMapping['claim_name'] = $qdlClaimMapping['claim_name'];
-          $claimMapping['source_model'] = $qdlClaimMapping['source_model'];
 
-          if(!empty($qdlClaimMapping['source_model_claim_value_field'])) {
-            $claimMapping['source_model_claim_value_field'] = $qdlClaimMapping['source_model_claim_value_field'];
+          foreach($this->cfgContractNames('claim_mapping_fields') as $field) {
+            if($field === self::CFG_CONSTRAINTS_FIELD) {
+              // Republished below under the association key the comparator
+              // reads, not under its cfg name.
+              continue;
+            }
+
+            // empty(), matching the marshaller: a field it omitted for being
+            // empty is absent here, and one it emitted is present.
+            if(empty($qdlClaimMapping[$field])) {
+              continue;
+            }
+
+            $claimMapping[$field] = $qdlClaimMapping[$field];
           }
 
-          if(!empty($qdlClaimMapping['claim_value_selection'])) {
-            $claimMapping['claim_value_selection'] = $qdlClaimMapping['claim_value_selection'];
-          }
-
-          if(!empty($qdlClaimMapping['claim_value_json_format'])) {
-            $claimMapping['claim_value_json_format'] = $qdlClaimMapping['claim_value_json_format'];
-          }
-
-          if(!empty($qdlClaimMapping['claim_multiple_value_serialization'])) {
-            $claimMapping['claim_multiple_value_serialization'] = $qdlClaimMapping['claim_multiple_value_serialization'];
-          }
-
-          if(!empty($qdlClaimMapping['claim_value_string_serialization_delimiter'])) {
-            $claimMapping['claim_value_string_serialization_delimiter'] = $qdlClaimMapping['claim_value_string_serialization_delimiter'];
-          }
-
-          if(!empty($qdlClaimMapping['claim_constraints'])) {
-            $qdlClaimConstraints = $qdlClaimMapping['claim_constraints'];
+          if(!empty($qdlClaimMapping[self::CFG_CONSTRAINTS_FIELD])) {
+            $qdlClaimConstraints = $qdlClaimMapping[self::CFG_CONSTRAINTS_FIELD];
             $claimConstraints = array();
-          
+
             foreach($qdlClaimConstraints as $qdlClaimConstraint) {
               $claimConstraint = array();
-              $claimConstraint['constraint_field'] = $qdlClaimConstraint['constraint_field'];
-              $claimConstraint['constraint_value'] = $qdlClaimConstraint['constraint_value'];
+
+              foreach($this->cfgContractNames('claim_constraint_fields') as $field) {
+                if(empty($qdlClaimConstraint[$field])) {
+                  continue;
+                }
+
+                $claimConstraint[$field] = $qdlClaimConstraint[$field];
+              }
+
               $claimConstraints[] = $claimConstraint;
             }
             $claimMapping['Oa4mpClientClaimConstraint'] = $claimConstraints;
@@ -1988,14 +2763,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @param  Array $adminClient admin client
    * @param  Array $curClient current client
    * @param  Boolean $returnExtras if true, return array with sync status and extra keys
-   * @return Mixed Boolean if $returnExtras is false, otherwise array with 'synchronized'
-   *               and 'oa4mp_server_extra' keys
+   * @return Mixed Boolean if $returnExtras is false, otherwise array with
+   *               'synchronized', 'oa4mp_server_extra' and 'error' keys. See
+   *               compareToServerObject() for what 'error' distinguishes.
    */
 
   function oa4mpVerifyClient($adminClient, $curClient, $returnExtras = false) {
-    $synchronized = False;
-    $oa4mpServerExtra = null;
-
     $http = new HttpSocket();
 
     $request = $this->oa4mpInitializeRequest($adminClient);
@@ -2021,30 +2794,85 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $oa4mpObject = json_decode($response->body(), true);
 
+    $comparison = $this->compareToServerObject($adminClient, $curClient, $oa4mpObject);
+
+    // Return based on whether extras were requested.
+    if($returnExtras) {
+      return $comparison;
+    }
+
+    return $comparison['synchronized'];
+  }
+
+  /**
+   * Compare a client against the OA4MP server's representation of it, given
+   * that representation rather than fetching it.
+   *
+   * Split out of oa4mpVerifyClient() so that the failure path below is
+   * reachable without a socket. oa4mpVerifyClient() constructs its own
+   * HttpSocket, and the hermetic test tier must never make an HTTP request, so
+   * before this split the only way to exercise the catch was against a live
+   * server -- which is why the misleading failure it produced was never
+   * covered.
+   *
+   * The 'error' key is what the catch exists to report. An exception here
+   * means the comparison did not happen: the cfg capability contract is
+   * unreadable or malformed, the cfg is a shape the unmarshaller cannot read,
+   * a TypeError fired mid-parse. None of that is evidence the client was
+   * changed outside the Registry, and a caller that reads a failed comparison
+   * as a mismatch tells the operator the client was tampered with. See
+   * oa4mpEditClient(), which maps the two outcomes to different return codes.
+   *
+   * @since COmanage Registry 4.5.1
+   * @param  Array $adminClient admin client
+   * @param  Array $curClient current client
+   * @param  Mixed $oa4mpObject decoded OA4MP server representation of the client
+   * @return Array with keys 'synchronized' (Boolean), 'oa4mp_server_extra'
+   *               (Mixed) and 'error' (Boolean: the comparison did not run).
+   */
+
+  protected function compareToServerObject($adminClient, $curClient, $oa4mpObject) {
+    $comparison = array(
+      'synchronized' => false,
+      'oa4mp_server_extra' => null,
+      'error' => false
+    );
+
     try {
       // Unmarshall the Oa4mp server representation of the client
       // and compare it to the current client to detect if the client
       // has been changed outside of this plugin.
       $oa4mpServerData = $this->oa4mpUnMarshallContent($oa4mpObject, $adminClient);
-      $synchronized = $this->isClientDataSynchronized($curClient, $oa4mpServerData);
+      $comparison['synchronized'] = $this->isClientDataSynchronized($curClient, $oa4mpServerData);
 
       // Capture any extra keys from the OA4MP server response.
       if(!empty($oa4mpServerData['Oa4mpClientCoOidcClient']['oa4mp_server_extra'])) {
-        $oa4mpServerExtra = $oa4mpServerData['Oa4mpClientCoOidcClient']['oa4mp_server_extra'];
+        $comparison['oa4mp_server_extra'] =
+          $oa4mpServerData['Oa4mpClientCoOidcClient']['oa4mp_server_extra'];
       }
     }
     catch(Exception $e) {
-      $this->log("Caught exception during unmarshall of Oa4mp server object: " . $e->getMessage());
+      // Name the exception, where it was raised, and what it said. A catch
+      // that logs only getMessage() hands the next operator an interpretation
+      // with no evidence behind it; that is exactly the failure recorded in
+      // docs/solutions/logic-errors/oa4mp-cfg-unmarshall-swallowed-typeerror-2026-05-12.md,
+      // and the same shape is already applied in oa4mpUnMarshallCfgQdlv2().
+      $comparison['error'] = true;
+      $this->log("Caught exception during unmarshall of Oa4mp server object: "
+                 . get_class($e) . " at " . $e->getFile() . ":" . $e->getLine()
+                 . " - " . $e->getMessage());
+    }
+    catch(TypeError $e) {
+      // Error does not extend Exception under PHP 8, so without this a
+      // TypeError raised mid-parse leaves the request as an uncaught 500
+      // rather than a reported internal failure. Same message shape, on
+      // purpose: what the log needs is the identity, not the hierarchy.
+      $comparison['error'] = true;
+      $this->log("Caught error during unmarshall of Oa4mp server object: "
+                 . get_class($e) . " at " . $e->getFile() . ":" . $e->getLine()
+                 . " - " . $e->getMessage());
     }
 
-    // Return based on whether extras were requested.
-    if($returnExtras) {
-      return array(
-        'synchronized' => $synchronized,
-        'oa4mp_server_extra' => $oa4mpServerExtra
-      );
-    }
-
-    return $synchronized;
+    return $comparison;
   }
 }

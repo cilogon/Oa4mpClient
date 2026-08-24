@@ -12,6 +12,14 @@
       removed or updated.
 - [ ] Every changed expected cfg value in `Test/Case/Model/` names the
       behaviour change it reflects; a re-recorded value is not a fix.
+- [ ] **If this pull request changes what the plugin may emit into a cfg** --
+      introducing `cfg_contract.json`, adding or retiring an entry, or raising
+      `contract_version` -- it records the `bin/qdl-conformance.php` result for
+      `us-east-2-dev`: the verdict and the tier name, not pasted output. It also
+      names the QDL change that satisfies it. See AGENTS.md, "Testing &
+      Verification", for the command and where the QDL lives. Without a checkout
+      of the configuration repository, ask a maintainer who has one to run the
+      check rather than attesting to it here.
 
 <!--
 Reviewer expectation: a bug-fix pull request without a regression test is asked

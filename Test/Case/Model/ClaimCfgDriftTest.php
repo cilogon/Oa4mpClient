@@ -10,16 +10,19 @@
  *    declares (Oa4mpClaimRows::declaredRows()) or named by an explicit
  *    exemption (Oa4mpClaimRows::declaredExemptions()).
  *
- *  - Half B, comparator whitelist drift. oa4mpMarshallCfgQdl() copies the whole
- *    claim row ($mapping = $claim) and only strips a fixed set of keys, so it
- *    emits every claim column there is. oa4mpUnMarshallCfgQdlv3() and both
- *    claim normalizations in isClientDataSynchronized() are fixed whitelists.
- *    A column added to the claim table is therefore emitted, dropped on the way
- *    back, and never compared -- the round trip reports "in sync" whatever the
- *    new field does. This half makes that silent. The two normalizations now
- *    delegate to one shared helper on the model, so the derivation follows that
- *    call out of each loop; it still keeps the two sides apart, and asserts
- *    they resolve to the same list rather than assuming it.
+ *  - Half B, comparator whitelist drift. Three sites decide what a claim
+ *    field is: oa4mpMarshallCfgQdl() writes the mapping, oa4mpUnMarshallCfgQdlv3()
+ *    reads it back, and both claim normalizations in isClientDataSynchronized()
+ *    compare it. They used to be three hand-written lists over a marshaller
+ *    that copied the whole claim row and stripped a fixed set of keys, so a
+ *    column added to the claim table was emitted, dropped on the way back, and
+ *    never compared -- the round trip reported "in sync" whatever the new field
+ *    held. All three now derive their field list from cfg_contract.json, which
+ *    is what makes them incapable of drifting apart rather than merely watched
+ *    for it, so this half checks the derivation itself: that every field the
+ *    contract declares emittable is reachable by all three, that all three
+ *    resolve it out of the same declared capability group, and that a site
+ *    which goes back to a list of its own is reported.
  *
  *  - Half C, row-set correspondence. Half A trusts declaredRows() to say what
  *    the matrix pins, and that list is hand-written next to 46 test methods in
@@ -31,11 +34,12 @@
  *    them against declaredRows() in both directions.
  *
  * The load-bearing constraint is that nothing here declares the field set. The
- * emitted set is read out of Config/Schema/schema.xml minus the keys the
- * marshaller's own unset() block names; the three comparator lists are read out
- * of Model/Oa4mpClientOa4mpServer.php. A hand-maintained copy of either would be
- * updated by the same person who adds the column, so the check would never fire
- * -- worse than useless, because it would report green.
+ * emitted set is read out of cfg_contract.json, the document the marshaller
+ * itself reads; the three comparator lists are located in
+ * Model/Oa4mpClientOa4mpServer.php and resolved through that same document. A
+ * hand-maintained copy of either would be updated by the same person who adds
+ * the capability, so the check would never fire -- worse than useless, because
+ * it would report green.
  *
  * The same reasoning drives how Half A finds the offered options. It does not
  * look for a named widget: it starts from the option lists the view builds
@@ -71,14 +75,31 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
   private $viewSource = null;
   private $contractSource = null;
 
+  /**
+   * The capability contract, read raw. Not comment-stripped: it is JSON, which
+   * has no comments, and the declaration itself is the derivation source.
+   */
+  private $contractDocument = null;
+
   /** A field name no shipping source uses, for the positive controls. */
   const PROBE = 'zzz_drift_probe';
+
+  /**
+   * The capability group that declares what a claim mapping may carry.
+   *
+   * Named here rather than derived because it is a name and not a set: the
+   * model looks the same group up by the same string, and
+   * ContractDeclarationTest asserts cfg_contract.json declares it. What is
+   * derived is everything the group contains.
+   */
+  const CLAIM_FIELD_GROUP = 'claim_mapping_fields';
 
   public function setUp() {
     $this->schemaSource = null;
     $this->modelSource = null;
     $this->viewSource = null;
     $this->contractSource = null;
+    $this->contractDocument = null;
 
     $this->schemaSource = $this->stripComments(
       $this->source('Config' . DS . 'Schema' . DS . 'schema.xml'));
@@ -88,6 +109,7 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
       $this->source('View' . DS . 'Oa4mpClientClaims' . DS . 'fields.inc'));
     $this->contractSource = $this->stripComments(
       $this->source('Test' . DS . 'Case' . DS . 'Model' . DS . 'ClaimCfgContractTest.php'));
+    $this->contractDocument = $this->source('cfg_contract.json');
   }
 
   // ------------------------------------------------------------------
@@ -95,69 +117,207 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
   // ------------------------------------------------------------------
 
   /**
-   * Every claim column the marshaller emits must be read back by the QDLv3
-   * unmarshaller and by both claim normalizations in the sync comparator. A
-   * field missing from any one of the three is named in the failure.
+   * Every claim field the contract declares emittable must be read back by the
+   * QDLv3 unmarshaller and by both claim normalizations in the sync
+   * comparator. A field missing from any one of the three is named in the
+   * failure.
    */
   public function testEveryEmittedClaimFieldReachesAllThreeComparatorLists() {
-    $report = $this->comparatorDriftReport($this->schemaSource, $this->modelSource);
+    $report = $this->comparatorDriftReport($this->modelSource, $this->contractDocument);
 
     $this->assertEqual('', $report,
-      'a claim column the marshaller emits but a comparator cannot see is'
-      . ' round-tripped as "in sync" no matter what it holds; add it to the'
-      . ' unmarshaller and to both normalizations in isClientDataSynchronized()');
+      'a claim field the marshaller emits but a comparator cannot see is'
+      . ' round-tripped as "in sync" no matter what it holds; point the'
+      . ' unmarshaller and both normalizations in isClientDataSynchronized()'
+      . ' at the capability group the marshaller emits from');
 
-    // The two comparator lists are checked separately above, and they are now
-    // provably one list: both normalizations hand their claim row to the same
-    // shared helper, so the derivation resolves both to that helper's
-    // subscripts. Two sides applying the same rules is the property this half
-    // wanted all along -- two hand-maintained copies were free to drift apart
-    // and the comparison then asked two different questions -- so assert the
-    // sharing here rather than leave it to be re-read out of the model.
-    $lists = array_values($this->comparatorFieldLists($this->modelSource));
-    $this->assertEqual(2, count($lists),
-      'the comparator normalizes two claim lists, the plugin side and the'
-      . ' OA4MP server side');
+    // The reader lists are checked separately above, and they are now provably
+    // one list with the writer's: every site resolves its claim fields out of
+    // the same declared capability groups, so "do the writer and the
+    // comparator agree" has one answer by construction rather than by
+    // discipline. Assert the sharing here rather than leave it to be re-read
+    // out of the model: four sites happening to agree today is not the
+    // property, one source is.
+    $sites = $this->claimFieldSites($this->modelSource);
 
-    sort($lists[0]);
-    sort($lists[1]);
-    $this->assertEqual($lists[0], $lists[1],
-      'the plugin-side and OA4MP-side normalizations must read exactly the same'
-      . ' claim fields; a field one side reads and the other does not means the'
-      . ' comparison is between two different questions');
+    $this->assertEqual(4, count($sites),
+      'the sites are the marshaller, the QDLv3 unmarshaller, and the two claim'
+      . ' normalizations in isClientDataSynchronized(); found '
+      . implode(', ', array_keys($sites)));
+
+    $groupSets = array();
+    foreach ($sites as $label => $site) {
+      $this->assertTrue(in_array(self::CLAIM_FIELD_GROUP, $site['groups'], true),
+        $label . ' must resolve its claim fields out of the contract\'s '
+        . self::CLAIM_FIELD_GROUP . ' group; found '
+        . var_export($site['groups'], true));
+
+      $groups = $site['groups'];
+      sort($groups);
+      $groupSets[] = implode(',', $groups);
+    }
+
+    $this->assertEqual(1, count(array_unique($groupSets)),
+      'every site must read the same declared capability groups, or the writer'
+      . ' and the comparator are once again asking different questions: '
+      . var_export($groupSets, true));
   }
 
   /**
-   * The positive control for Half B, injected into the derivation source.
+   * The positive control for Half B, injected into the derivation source: a
+   * site that stops reading the contract and keeps a list of its own must come
+   * back as drift, with the fields it can no longer see named.
    *
-   * A column added to the claim table in schema.xml -- the same edit a
-   * claims-tab feature makes -- must show up as emitted and uncovered, in all
-   * three comparator lists, with the field named. If this control ever passes
-   * while the schema is unperturbed, the derivation has gone stale and the
-   * green above means nothing.
+   * This is the perturbation that matters now. The old control added a column
+   * to schema.xml, because the marshaller emitted every column there was; the
+   * marshaller emits what the contract declares now, so the way this seam
+   * reopens is a site quietly reverting to a list of its own -- which is
+   * exactly how all three sites were written before, and how each of the three
+   * shipped drift incidents began.
    */
-  public function testComparatorDriftIsDetectedWhenTheSchemaGainsAColumn() {
-    $perturbed = $this->schemaWithExtraClaimColumn($this->schemaSource, self::PROBE);
-    $this->assertFalse($perturbed === $this->schemaSource,
-      'the control must actually alter the schema text it perturbs');
+  public function testComparatorDriftIsDetectedWhenASiteStopsReadingTheContract() {
+    $perturbed = $this->modelWithHandWrittenClaimList($this->modelSource,
+      'normalizeClaimForComparison');
+    $this->assertFalse($perturbed === $this->modelSource,
+      'the control must actually alter the model text it perturbs');
+    $this->assertFalse(
+      strpos($this->functionBody($perturbed, 'normalizeClaimForComparison'),
+             self::CLAIM_FIELD_GROUP) !== false,
+      'the perturbed normalization no longer reads the contract group');
 
-    // The derivation itself has to see the new column, not just the report.
-    $emitted = $this->emittedClaimFields($perturbed, $this->modelSource);
-    $this->assertTrue(in_array(self::PROBE, $emitted, true),
-      'a column added to the claim table is emitted by the marshaller, which'
-      . ' copies the row whole and strips only the keys it names');
+    $report = $this->comparatorDriftReport($perturbed, $this->contractDocument);
 
-    $report = $this->comparatorDriftReport($perturbed, $this->modelSource);
-    $this->assertContains(self::PROBE, $report,
-      'the drift report must name the uncovered field');
-    $this->assertEqual(3, substr_count($report, self::PROBE),
-      'the uncovered field must be reported against each of the three'
-      . ' comparator field lists');
+    $this->assertContains('source_model', $report,
+      'a field the perturbed site can no longer see must be named');
+    $this->assertContains('normalization', $report,
+      'the failure must name the site that stopped reading the contract');
 
     // And the unperturbed tree stays clean, so the control is the difference.
     $this->assertEqual('',
-      $this->comparatorDriftReport($this->schemaSource, $this->modelSource),
+      $this->comparatorDriftReport($this->modelSource, $this->contractDocument),
       'the control, not a pre-existing gap, is what turned the report red');
+  }
+
+  /**
+   * The second positive control, injected into the other derivation source:
+   * the emitted field set really is read out of cfg_contract.json.
+   *
+   * A field added to the declaration must appear in the emitted set. If it
+   * does not, the derivation is reading a copy of the vocabulary kept
+   * somewhere else -- in which case the green above is a statement about that
+   * copy and about nothing the plugin does.
+   */
+  public function testTheEmittedFieldSetIsReadOutOfTheContractDocument() {
+    $this->assertFalse(
+      in_array(self::PROBE, $this->emittedClaimFields($this->contractDocument), true),
+      'the probe is a field no contract declares, or the control below cannot'
+      . ' tell a derivation from a coincidence');
+
+    $perturbed = $this->contractWithExtraClaimField($this->contractDocument, self::PROBE);
+    $this->assertFalse($perturbed === $this->contractDocument,
+      'the control must actually alter the contract document it perturbs');
+
+    $this->assertTrue(in_array(self::PROBE, $this->emittedClaimFields($perturbed), true),
+      'a claim-mapping field added to the contract is emitted by the'
+      . ' marshaller, so the derivation must see it the moment it is declared');
+
+    // A retired entry is NOT emitted, so it is not held against the readers.
+    // Retirement is how a capability stops being emitted while staying
+    // interpretable in cfgs already stored; a derivation that ignored
+    // retired_in would demand read-back of something no longer written.
+    $retired = $this->contractWithExtraClaimField($this->contractDocument, self::PROBE, 2);
+    $this->assertFalse(in_array(self::PROBE, $this->emittedClaimFields($retired), true),
+      'a retired entry stays in the document but is not emitted, so it is not'
+      . ' part of the set the readers are checked against');
+  }
+
+  /**
+   * The third positive control, and the one that keeps the rebuilt derivation
+   * honest: a column added to the claim table is still drift-checked now that
+   * the emitted set is read out of the contract instead of out of schema.xml.
+   *
+   * This is the drift the schema-perturbing control used to catch, and it is
+   * the reason that control existed: a column added to the claim table was
+   * emitted, dropped on the way back, and never compared, so the round trip
+   * reported "in sync" whatever the new field held. The path such a column
+   * travels now runs through two documents rather than one, so it is walked
+   * here end to end:
+   *
+   *  - added to schema.xml alone it is emitted by nothing, because the
+   *    marshaller emits what the contract declares. That mismatch belongs to
+   *    ContractDeclarationTest, whose scenario 3 diffs the contract's
+   *    column-backed fields against the claim table in schema.xml order; it is
+   *    not re-asserted here.
+   *  - declared, as adding the column requires, it joins the emitted set --
+   *    and every site resolves the same capability group, so all three read it
+   *    back without being edited. That is the rebuild working: the seam is
+   *    closed by construction rather than watched.
+   *  - and the moment one site keeps a list of its own, the NEW COLUMN is what
+   *    this half's report names, which is the failure the old control caught.
+   *
+   * Both perturbations go into the DERIVATION SOURCES -- the schema text and
+   * the contract document -- and not into the report's inputs, following the
+   * convention this file's header sets out.
+   */
+  public function testAColumnAddedToTheClaimTableIsStillDriftChecked() {
+    $perturbedSchema = $this->schemaWithExtraClaimColumn($this->schemaSource, self::PROBE);
+    $this->assertFalse($perturbedSchema === $this->schemaSource,
+      'the control must actually alter the schema text it perturbs');
+    $this->assertTrue(in_array(self::PROBE, $this->claimColumns($perturbedSchema), true),
+      'and the schema derivation must see the new column, or everything below'
+      . ' is about a column nothing added');
+
+    // Step one: the schema on its own. The emitted set is the contract's now,
+    // so a column no entry declares is written by nothing, and this half stays
+    // quiet rather than holding the readers to a field never emitted.
+    $this->assertFalse(
+      in_array(self::PROBE, $this->emittedClaimFields($this->contractDocument), true),
+      'the new column is not emitted while the contract does not declare it');
+    $this->assertEqual('',
+      $this->comparatorDriftReport($this->modelSource, $this->contractDocument),
+      'so nothing in this half is red yet');
+
+    // Step two: declared, as adding the column requires. It is emitted now,
+    // and every site resolves the group it was declared in, so all three read
+    // it back with no edit of their own.
+    $declared = $this->contractWithExtraClaimField($this->contractDocument, self::PROBE);
+    $this->assertFalse($declared === $this->contractDocument,
+      'the control must actually alter the contract document it perturbs');
+    $this->assertTrue(in_array(self::PROBE, $this->emittedClaimFields($declared), true),
+      'a declared claim-mapping field is emitted by the marshaller');
+    $this->assertEqual('',
+      $this->comparatorDriftReport($this->modelSource, $declared),
+      'and is read back by all three sites the moment it is declared, because'
+      . ' all three resolve the same capability group');
+
+    // Step three: the drift itself. One site back on a list of its own -- the
+    // shape all three had the three times this seam shipped open -- and the
+    // new column is what the report names.
+    $perturbedModel = $this->modelWithHandWrittenClaimList($this->modelSource,
+      'normalizeClaimForComparison');
+    $this->assertFalse($perturbedModel === $this->modelSource,
+      'the control must actually alter the model text it perturbs');
+
+    $report = $this->comparatorDriftReport($perturbedModel, $declared);
+    $this->assertContains(self::PROBE, $report,
+      'a claim column the marshaller emits and a comparator cannot see is'
+      . ' round-tripped as "in sync" whatever it holds; the column has to be'
+      . ' named');
+    $this->assertContains('normalization', $report,
+      'and the site that can no longer see it has to be named with it');
+
+    // The declaration, not the model perturbation on its own, is what put the
+    // new column in the report: the same site on the same hand-written list
+    // says nothing about a field no contract declares.
+    $this->assertFalse(
+      strpos($this->comparatorDriftReport($perturbedModel, $this->contractDocument),
+             self::PROBE) !== false,
+      'a field the contract does not declare is not emitted, so no reader is'
+      . ' held to it even when the reader has stopped reading the contract');
+
+    $this->assertEqual('',
+      $this->comparatorDriftReport($this->modelSource, $this->contractDocument),
+      'and the unperturbed tree stays clean, so the controls are the difference');
   }
 
   // ------------------------------------------------------------------
@@ -471,20 +631,21 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
   // ------------------------------------------------------------------
 
   /**
-   * Fields present in the emitted set and absent from a comparator list, one
-   * per line, naming both. Empty string when there is no drift.
+   * Fields present in the emitted set and absent from a reader's list, one per
+   * line, naming both. Empty string when there is no drift.
    */
-  private function comparatorDriftReport($schema, $model) {
-    $emitted = $this->emittedClaimFields($schema, $model);
+  private function comparatorDriftReport($model, $contract) {
+    $emitted = $this->emittedClaimFields($contract);
     $this->assertNotEmpty($emitted, 'the marshaller emits at least one claim field');
 
-    $lists = $this->comparatorFieldLists($model);
-    $lists['oa4mpUnMarshallCfgQdlv3()'] = $this->unmarshallerFields($model);
-
     $lines = array();
-    foreach ($emitted as $field) {
-      foreach ($lists as $label => $fields) {
-        if (!in_array($field, $fields, true)) {
+    foreach ($this->claimFieldSites($model, $contract) as $label => $site) {
+      if ($site['role'] !== 'reader') {
+        continue;
+      }
+
+      foreach ($emitted as $field) {
+        if (!in_array($field, $site['fields'], true)) {
           $lines[] = $field . ' is emitted by oa4mpMarshallCfgQdl() but never read by ' . $label;
         }
       }
@@ -494,138 +655,154 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
   }
 
   /**
-   * The claim fields the marshaller sends to the server: every column the claim
-   * table declares, minus the keys the marshaller's own unset() block strips.
-   * Both halves of that come from source, neither from a list kept here.
-   */
-  private function emittedClaimFields($schema, $model) {
-    $columns = $this->claimColumns($schema);
-    $stripped = $this->marshallerStrippedKeys($model);
-
-    return array_values(array_diff($columns, $stripped));
-  }
-
-  /**
-   * The columns Config/Schema/schema.xml declares for the claim table.
+   * The claim fields the marshaller sends to the server: every entry the
+   * contract's claim-mapping group declares, minus the retired ones and minus
+   * the one field the marshaller synthesises rather than reading off a column.
    *
-   * The table is declared twice with identical field sets; tolerate the repeat,
-   * but refuse to guess if the two ever disagree.
+   * The synthesised field is excluded because it is the one entry that does
+   * not travel under its own name: the comparator reads a claim's constraints
+   * out of the Oa4mpClientClaimConstraint association, not out of a
+   * claim_constraints key, so holding the readers to that name would report
+   * drift that is not there. The contract marks it column_backed false, which
+   * is how this derivation identifies it without naming it.
    */
-  private function claimColumns($schema) {
-    $found = preg_match_all('~<table\s+name="oa4mp_client_claims"\s*>(.*?)</table>~s',
-      $schema, $tables);
-    $this->assertNotEmpty($found,
-      'the claim table is declared in schema.xml; the emitted field set is'
-      . ' derived from that declaration and cannot be derived without it');
+  private function emittedClaimFields($contract) {
+    $fields = array();
 
-    $sets = array();
-    foreach ($tables[1] as $block) {
-      preg_match_all('~<field\s+name="([^"]+)"~', $block, $fields);
-      $sets[] = $fields[1];
-    }
-
-    foreach ($sets as $set) {
-      if ($set !== $sets[0]) {
-        $this->fail('the cm_oa4mp_client_claims declarations in schema.xml disagree: '
-          . implode(',', $sets[0]) . ' vs ' . implode(',', $set));
+    foreach ($this->contractEntries($contract, self::CLAIM_FIELD_GROUP) as $entry) {
+      if (!array_key_exists('retired_in', $entry)) {
+        $this->fail('a ' . self::CLAIM_FIELD_GROUP . ' entry states no retired_in.'
+          . ' A missing retired_in is a malformed entry and never an implied'
+          . ' null, so the emitted set cannot be derived from this document.');
       }
+
+      if ($entry['retired_in'] !== null) {
+        continue;
+      }
+
+      if (isset($entry['column_backed']) && $entry['column_backed'] === false) {
+        continue;
+      }
+
+      $fields[] = $entry['name'];
     }
 
-    $this->assertNotEmpty($sets[0], 'the claim table declares columns');
+    return $fields;
+  }
 
-    return $sets[0];
+  /** The entries one capability group declares, or a failure saying why not. */
+  private function contractEntries($contract, $group) {
+    $decoded = json_decode($contract, true);
+
+    if (!is_array($decoded)) {
+      $this->fail('cfg_contract.json does not parse (' . json_last_error_msg()
+        . '), so nothing here can be derived from it.');
+    }
+
+    if (empty($decoded['capabilities'][$group]['entries'])) {
+      $this->fail('cfg_contract.json declares no ' . $group . ' entries. Every'
+        . ' field list this half checks is resolved out of that group, and the'
+        . ' model looks it up by the same name.');
+    }
+
+    return $decoded['capabilities'][$group]['entries'];
   }
 
   /**
-   * The keys oa4mpMarshallCfgQdl() strips from the copied claim row.
+   * Every site in the model that decides what a claim field is, keyed by a
+   * label a failure can name, each carrying:
    *
-   * Derived by finding the claim loop, then the whole-row copy inside it, then
-   * the unset() calls on whatever variable that copy went into. Deriving it
-   * this way also asserts the premise: if the marshaller stops copying the row
-   * whole, this fails rather than reporting a stale emitted set as green.
+   *   role    'writer' for the marshaller, 'reader' for the three that have to
+   *           keep up with it
+   *   groups  the capability groups the site resolves its names out of
+   *   fields  the claim field names the site can actually see, which is those
+   *           groups' declared names plus whatever the site still reads by
+   *           literal subscript
+   *
+   * Each site is located by what it does and not by its name: the marshaller
+   * by the claim loop it builds mappings in, the unmarshaller by the QDL
+   * argument it reads mappings out of, and the two normalizations by the
+   * association key they read claims out of. A site renamed is still found; a
+   * site that stops doing the thing is a loud failure rather than a quiet
+   * subtraction from what this half covers.
    */
-  private function marshallerStrippedKeys($model) {
-    $body = $this->functionBody($model, 'oa4mpMarshallCfgQdl');
-    $this->assertNotEmpty($body,
+  private function claimFieldSites($model, $contract = null) {
+    if ($contract === null) {
+      $contract = $this->contractDocument;
+    }
+
+    $sites = array();
+
+    // The writer.
+    $marshaller = $this->functionBody($model, 'oa4mpMarshallCfgQdl');
+    $this->assertNotEmpty($marshaller,
       'oa4mpMarshallCfgQdl() is where a claim row becomes an emitted mapping;'
-      . ' the emitted field set cannot be derived without it');
+      . ' the emitted field set cannot be checked against it without it');
 
-    $loop = $this->foreachLoop($body, '$data[\'Oa4mpClientClaim\']');
-    $this->assertNotEmpty($loop,
-      'oa4mpMarshallCfgQdl() loops over $data[\'Oa4mpClientClaim\'] to build the'
-      . ' claim mappings; the drift check locates the emitted set by that loop');
-
-    if (!preg_match('~\$(\w+)\s*=\s*\$' . $loop['var'] . '\s*;~', $loop['body'], $copy)) {
-      $this->fail('oa4mpMarshallCfgQdl() no longer copies the claim row whole'
-        . ' ($mapping = $claim). The emitted set is derived from that copy minus'
-        . ' the unset() keys, so this derivation is now stale and must be redone'
-        . ' against whatever the marshaller does instead.');
+    $claimLoop = $this->foreachLoop($marshaller, '$data[\'Oa4mpClientClaim\']');
+    if (empty($claimLoop)) {
+      $this->fail('oa4mpMarshallCfgQdl() no longer loops over'
+        . ' $data[\'Oa4mpClientClaim\'] to build the claim mappings, so the'
+        . ' writer cannot be located. This derivation is stale; redo it against'
+        . ' whatever the marshaller does instead, before trusting this check.');
     }
 
-    $keys = array();
-    preg_match_all('~unset\s*\(\s*\$' . $copy[1] . '\[\'([^\']+)\'\]\s*\)~',
-      $loop['body'], $unsets);
-    foreach ($unsets[1] as $key) {
-      $keys[] = $key;
+    // The allowlist is resolved once, ahead of the loop, and consumed inside
+    // it, so the whole function body is where the resolution is looked for --
+    // but only the groups the CLAIM loop actually consumes count as the
+    // writer's claim vocabulary. See claimGroupsResolvedIn().
+    $writerGroups = $this->claimGroupsResolvedIn($marshaller, $claimLoop['body']);
+
+    if (empty($writerGroups)) {
+      $this->fail('oa4mpMarshallCfgQdl() no longer resolves the claim mapping'
+        . ' field names out of a capability group the claim loop consumes, so'
+        . ' the writer\'s vocabulary cannot be located. This derivation is'
+        . ' stale; redo it against whatever the marshaller does instead.');
     }
 
-    $this->assertNotEmpty($keys,
-      'the marshaller strips the surrogate and timestamp keys from the copied'
-      . ' claim row; finding none means the derivation missed the block');
+    $sites['oa4mpMarshallCfgQdl()'] = $this->claimFieldSite('writer',
+      $writerGroups,
+      $this->subscriptKeys($claimLoop['body'], $claimLoop['var']),
+      $contract);
 
-    return $keys;
-  }
-
-  /** The claim fields oa4mpUnMarshallCfgQdlv3() reads back off the wire. */
-  private function unmarshallerFields($model) {
-    $body = $this->functionBody($model, 'oa4mpUnMarshallCfgQdlv3');
-    $this->assertNotEmpty($body,
+    // The QDLv3 read-back.
+    $unmarshaller = $this->functionBody($model, 'oa4mpUnMarshallCfgQdlv3');
+    $this->assertNotEmpty($unmarshaller,
       'oa4mpUnMarshallCfgQdlv3() is the QDLv3 read-back path; its field list is'
       . ' one of the three the emitted set is checked against');
 
-    if (!preg_match('~\$(\w+)\s*=\s*\$\w+\[\'claim_mappings\'\]~', $body, $m)) {
+    if (!preg_match('~\$(\w+)\s*=\s*\$\w+\[\'claim_mappings\'\]~', $unmarshaller, $m)) {
       $this->fail('oa4mpUnMarshallCfgQdlv3() no longer reads the claim mappings'
         . ' out of the claim_mappings QDL argument, so its field list cannot be'
         . ' located; redo this derivation against the new shape.');
     }
 
-    $loop = $this->foreachLoop($body, '$' . $m[1]);
-    $this->assertNotEmpty($loop,
-      'oa4mpUnMarshallCfgQdlv3() loops over the claim mappings; that loop is'
-      . ' where its whitelist lives');
+    $mappingLoop = $this->foreachLoop($unmarshaller, '$' . $m[1]);
+    if (empty($mappingLoop)) {
+      $this->fail('oa4mpUnMarshallCfgQdlv3() reads the claim mappings into $'
+        . $m[1] . ' but never loops over them; the read-back list is located by'
+        . ' that loop. Redo this derivation before trusting this check.');
+    }
 
-    return $this->subscriptKeys($loop['body'], $loop['var']);
-  }
+    $sites['oa4mpUnMarshallCfgQdlv3()'] = $this->claimFieldSite('reader',
+      $this->contractGroupsRead($mappingLoop['body']),
+      $this->subscriptKeys($mappingLoop['body'], $mappingLoop['var']),
+      $contract);
 
-  /**
-   * The claim fields each normalization in isClientDataSynchronized() reads,
-   * keyed by the claim list it normalizes. There are two -- the plugin side and
-   * the OA4MP server side -- and both are located from the association key they
-   * read the claims out of, not from their own names.
-   *
-   * Neither loop reads the claim row itself any more: both hand it to one
-   * shared private helper on the model, and the whitelist lives there. So the
-   * derivation follows that call out of the loop and reads the subscripts from
-   * the helper's body. It still reads whatever the loop reads directly, so a
-   * side that goes back to normalizing inline is derived the same way.
-   *
-   * The two entries are kept even though both now resolve to the same helper.
-   * They are what makes the sharing checkable rather than assumed -- see
-   * testEveryEmittedClaimFieldReachesAllThreeComparatorLists(), which asserts
-   * the two lists are the same list -- and they are what keeps each side
-   * checked on its own the day one of them stops delegating.
-   */
-  private function comparatorFieldLists($model) {
-    $body = $this->functionBody($model, 'isClientDataSynchronized');
-    $this->assertNotEmpty($body,
+    // The two normalizations. Both hand their claim row to one shared helper
+    // on the model, so the derivation follows that call out of each loop; it
+    // still keeps the two sides apart, which is what keeps each one checked on
+    // its own the day one of them stops delegating.
+    $comparator = $this->functionBody($model, 'isClientDataSynchronized');
+    $this->assertNotEmpty($comparator,
       'isClientDataSynchronized() is the sync comparator; two of the three'
       . ' field lists the emitted set is checked against live in it');
 
-    preg_match_all('~\$(\w+)\s*=\s*\$\w+\[\'Oa4mpClientClaim\'\]~', $body, $m);
+    preg_match_all('~\$(\w+)\s*=\s*\$\w+\[\'Oa4mpClientClaim\'\]~', $comparator, $m);
 
-    $lists = array();
+    $normalizations = 0;
     foreach ($m[1] as $listVar) {
-      $loop = $this->foreachLoop($body, '$' . $listVar);
+      $loop = $this->foreachLoop($comparator, '$' . $listVar);
       if (empty($loop)) {
         $this->fail('isClientDataSynchronized() reads claims into $' . $listVar
           . ' but never normalizes them in a foreach loop; the drift check'
@@ -633,35 +810,115 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
       }
 
       $label = 'the ' . $listVar . ' normalization in isClientDataSynchronized()';
+      $groups = $this->contractGroupsRead($loop['body']);
       $fields = $this->subscriptKeys($loop['body'], $loop['var']);
 
       $helper = $this->normalizationHelper($loop['body'], $loop['var']);
       if ($helper !== '') {
         $label .= ', via ' . $helper . '(),';
-        $fields = array_values(array_unique(
-          array_merge($fields, $this->helperClaimFields($model, $helper))));
+        $body = $this->helperBody($model, $helper, $loop['var']);
+        $groups = array_merge($groups, $this->contractGroupsRead($body['body']));
+        $fields = array_merge($fields, $this->subscriptKeys($body['body'], $body['param']));
       }
 
-      if (empty($fields)) {
+      if (empty($groups) && empty($fields)) {
         $this->fail('the ' . $listVar . ' normalization in'
           . ' isClientDataSynchronized() neither reads claim fields off $'
-          . $loop['var'] . ' itself nor hands it to a $this->...() helper this'
-          . ' derivation can follow, so its whitelist cannot be located. The'
-          . ' derivation is stale; redo it against whatever the normalization'
-          . ' does now, before trusting this check.');
+          . $loop['var'] . ' itself, nor resolves them out of the capability'
+          . ' contract, nor hands the row to a $this->...() helper this'
+          . ' derivation can follow. Its whitelist cannot be located; the'
+          . ' derivation is stale, so redo it before trusting this check.');
       }
 
-      $lists[$label] = $fields;
+      $normalizations++;
+      $sites[$label] = $this->claimFieldSite('reader',
+        array_values(array_unique($groups)), $fields, $contract);
     }
 
-    if (count($lists) !== 2) {
+    if ($normalizations !== 2) {
       $this->fail('expected the two claim normalizations in'
         . ' isClientDataSynchronized() (plugin side and OA4MP server side), found '
-        . count($lists) . '. The derivation is stale; redo it before trusting'
+        . $normalizations . '. The derivation is stale; redo it before trusting'
         . ' this check.');
     }
 
-    return $lists;
+    return $sites;
+  }
+
+  /**
+   * One site's record: the names its capability groups declare, plus whatever
+   * it still reads by literal subscript.
+   *
+   * Both halves are kept on purpose. A site reading the contract sees every
+   * name that group declares, and a site that goes back to reading fields by
+   * name is still derived the same way -- which is what lets the control below
+   * report drift instead of reporting that the derivation broke.
+   */
+  private function claimFieldSite($role, $groups, $literalFields, $contract) {
+    $fields = $literalFields;
+
+    foreach ($groups as $group) {
+      foreach ($this->contractEntries($contract, $group) as $entry) {
+        if (isset($entry['name'])) {
+          $fields[] = $entry['name'];
+        }
+      }
+    }
+
+    return array(
+      'role' => $role,
+      'groups' => array_values(array_unique($groups)),
+      'fields' => array_values(array_unique($fields)),
+    );
+  }
+
+  /** The capability groups a stretch of model source resolves names out of. */
+  private function contractGroupsRead($source) {
+    preg_match_all('~cfgContractNames\s*\(\s*\'([^\']+)\'\s*\)~', $source, $m);
+
+    return array_values(array_unique($m[1]));
+  }
+
+  /**
+   * The capability groups the marshaller resolves its CLAIM vocabulary out of.
+   *
+   * Not every cfgContractNames() call in oa4mpMarshallCfgQdl() names a claim
+   * group. The marshaller builds the whole cfg out of the contract now, so it
+   * also resolves qdl_args and dynamo_module_config_keys -- groups that
+   * describe the QDL args block and the DynamoDB module configuration, and
+   * that have no counterpart in a reader which only ever sees claims.
+   * Scanning the whole function body would report those as groups the readers
+   * fail to share, which would redden the sharing assertion on a marshaller
+   * that became MORE contract-driven rather than less. That is the wrong
+   * direction for this gate to point.
+   *
+   * A group counts as the writer's claim vocabulary when the CLAIM LOOP
+   * consumes it: either resolved inline inside the loop, or resolved into a
+   * variable ahead of the loop that the loop then references. Anything
+   * resolved for the args block lands in a variable the claim loop never
+   * mentions, so it is not picked up -- and a marshaller that started
+   * resolving claim fields somewhere new would still be followed, because the
+   * derivation follows the loop rather than a list of group names kept here.
+   *
+   * @param string $marshaller The oa4mpMarshallCfgQdl() body.
+   * @param string $loopBody The body of its claim loop.
+   * @return array Group names, deduplicated.
+   */
+  private function claimGroupsResolvedIn($marshaller, $loopBody) {
+    // Resolved inline, inside the loop.
+    $groups = $this->contractGroupsRead($loopBody);
+
+    // Resolved into a variable ahead of the loop and referenced by it.
+    preg_match_all('~\$(\w+)\s*=\s*\$this->cfgContractNames\s*\(\s*\'([^\']+)\'\s*\)~',
+                   $marshaller, $assignments, PREG_SET_ORDER);
+
+    foreach ($assignments as $assignment) {
+      if (preg_match('~\$' . preg_quote($assignment[1], '~') . '\b~', $loopBody)) {
+        $groups[] = $assignment[2];
+      }
+    }
+
+    return array_values(array_unique($groups));
   }
 
   /**
@@ -688,11 +945,11 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
   }
 
   /**
-   * The claim fields a shared normalization helper reads off the row it is
-   * handed, located by the helper's own first parameter rather than by the
+   * A shared normalization helper's body and the name of the parameter it
+   * takes the claim row in, located by the declaration rather than by the
    * caller's variable name.
    */
-  private function helperClaimFields($model, $helper) {
+  private function helperBody($model, $helper, $loopVar) {
     $at = strpos($model, 'function ' . $helper . '(');
     if ($at === false) {
       $this->fail('the claim normalizations in isClientDataSynchronized() hand'
@@ -708,28 +965,120 @@ class ClaimCfgDriftTest extends Oa4mpTestCase {
         . ' derivation is stale; redo it.');
     }
 
-    $body = $this->functionBody($model, $helper);
-    $fields = ($body === '') ? array() : $this->subscriptKeys($body, $param[1]);
-
-    if (empty($fields)) {
-      $this->fail($helper . '() reads no field off $' . $param[1] . ', so it is'
-        . ' not where the normalization whitelist lives any more. The'
-        . ' derivation is stale; redo it against whatever reads the claim row'
-        . ' now, before trusting this check.');
-    }
-
-    return $fields;
+    return array(
+      'param' => $param[1],
+      'body' => $this->functionBody($model, $helper),
+    );
   }
 
-  /** Add a column to the claim table wherever schema.xml declares it. */
-  private function schemaWithExtraClaimColumn($schema, $column) {
-    $probeField = '<field name="' . $column . '" type="C" size="32" />';
+  /**
+   * Give a capability group one more claim-mapping entry, as a contract raising
+   * its version would.
+   *
+   * @param string $contract The contract document text.
+   * @param string $field The entry's name.
+   * @param mixed $retiredIn The version it stopped being emitted at, or null.
+   * @return string
+   */
+  private function contractWithExtraClaimField($contract, $field, $retiredIn = null) {
+    $entry = '{ "name": "' . $field . '", "introduced_in": 1, "retired_in": '
+           . ($retiredIn === null ? 'null' : (int)$retiredIn)
+           . ', "secret_bearing": false, "column_backed": true },';
 
-    return preg_replace_callback('~(<table\s+name="oa4mp_client_claims"\s*>)(.*?)(</table>)~s',
-      function($m) use ($probeField) {
-        return $m[1] . $m[2] . '        ' . $probeField . "\n    " . $m[3];
+    $group = strpos($contract, '"' . self::CLAIM_FIELD_GROUP . '"');
+    if ($group === false) {
+      return $contract;
+    }
+
+    $entries = strpos($contract, '"entries": [', $group);
+    if ($entries === false) {
+      return $contract;
+    }
+
+    $at = $entries + strlen('"entries": [');
+
+    return substr($contract, 0, $at) . "\n        " . $entry . substr($contract, $at);
+  }
+
+  /**
+   * Take one site back to a field list of its own, which is how all three
+   * readers were written before the contract existed.
+   */
+  private function modelWithHandWrittenClaimList($model, $function) {
+    $body = $this->functionBody($model, $function);
+    if ($body === '') {
+      return $model;
+    }
+
+    $perturbed = str_replace(
+      '$this->cfgContractNames(\'' . self::CLAIM_FIELD_GROUP . '\')',
+      'array(\'claim_name\')',
+      $body);
+
+    return str_replace($body, $perturbed, $model);
+  }
+
+  /**
+   * Give the claim table one more column, as a schema change adding a claim
+   * field would.
+   *
+   * Every declaration of the table gets it. schema.xml declares the table once
+   * per schema version, claimColumns() refuses to guess when the declarations
+   * disagree, and a real change adds the column to each of them; a control
+   * that touched one would be perturbing the derivation into a failure about
+   * the schema rather than about the column.
+   *
+   * @param string $schema The schema text, comment-stripped.
+   * @param string $column The column name to add.
+   * @return string
+   */
+  private function schemaWithExtraClaimColumn($schema, $column) {
+    $field = '<field name="' . $column . '" type="C" size="64" />';
+    $anchor = '<field name="created" type="T" />';
+
+    return preg_replace_callback(
+      '~<table\s+name="oa4mp_client_claims"\s*>.*?</table>~s',
+      function ($block) use ($field, $anchor) {
+        return str_replace($anchor, $field . "\n        " . $anchor, $block[0]);
       },
       $schema);
+  }
+
+  /**
+   * The columns Config/Schema/schema.xml declares for the claim table.
+   *
+   * Half A reads this to know which columns the claims tab may offer options
+   * for. Half B no longer derives the emitted set from it -- the contract says
+   * what is emitted now -- but ContractDeclarationTest checks the contract's
+   * claim-mapping fields against these same columns, so the schema is still
+   * where the correspondence is anchored.
+   *
+   * The table is declared twice with identical field sets; tolerate the repeat,
+   * but refuse to guess if the two ever disagree.
+   */
+  private function claimColumns($schema) {
+    $found = preg_match_all('~<table\s+name="oa4mp_client_claims"\s*>(.*?)</table>~s',
+      $schema, $tables);
+    $this->assertNotEmpty($found,
+      'the claim table is declared in schema.xml; the enumerated columns Half A'
+      . ' covers are derived from that declaration');
+
+    $sets = array();
+    foreach ($tables[1] as $block) {
+      preg_match_all('~<field\s+name="([^"]+)"~', $block, $fields);
+      $sets[] = $fields[1];
+    }
+
+    foreach ($sets as $set) {
+      if ($set !== $sets[0]) {
+        $this->fail('the cm_oa4mp_client_claims declarations in schema.xml disagree: '
+          . implode(',', $sets[0]) . ' vs ' . implode(',', $set));
+      }
+    }
+
+    $this->assertNotEmpty($sets[0], 'the claim table declares columns');
+
+    return $sets[0];
   }
 
   // ------------------------------------------------------------------

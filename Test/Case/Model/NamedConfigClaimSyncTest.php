@@ -16,6 +16,14 @@
  * matched on the outbound side by oa4mpMarshallCfgQdl(), which returns the
  * stored named configuration and never runs the claim loop.
  *
+ * The outbound branch now adds one thing to what it returns: the capability
+ * contract version, stamped at metadata.Oa4mpClient.contract_version so that
+ * a named-configuration cfg is counted in the deployment census like any
+ * other. It is a fact ABOUT the cfg and not a claim inside it, the comparator
+ * never reads the cfg's metadata, and the branch still returns before the
+ * claim loop -- so the exemption characterized here is unchanged, and the
+ * claims remain inert. See Test/Case/Model/ContractVersionStampTest.php.
+ *
  * WHAT THIS TEST ASSERTS IS A KNOWN DEFECT, DELIBERATELY FROZEN.
  *
  * The claims tab is completely ungated for named-configuration clients, so a
