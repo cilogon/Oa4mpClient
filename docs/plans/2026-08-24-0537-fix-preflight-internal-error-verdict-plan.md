@@ -13,7 +13,7 @@ execution: code
 
 ## Goal Capsule
 
-- **Objective:** A plugin-internal failure never tells a user their OIDC client was modified outside the Registry, on any path.
+- **Objective:** A failure the sync comparison itself reports never tells a user their OIDC client was modified outside the Registry, on any of the thirteen pre-flight guards.
 - **Means:** Surface the internal-error signal the sync check already computes, and route the thirteen controller pre-flight guards on it (KTD1).
 - **Product authority:** The repository owner.
 - **Open blockers:** None.
@@ -45,7 +45,7 @@ The signal already exists. `compareToServerObject()` returns an `error` key, and
 
 **The message**
 
-- R3. A failure to complete the check produces a message distinct from `er.bad_client`, saying the plugin could not verify the client rather than that the client was modified. It lives in `Lib/lang.php`.
+- R3. A failure to complete the check produces a message distinct from `er.bad_client`, saying the plugin could not verify the client rather than that the client was modified. It lives in `Lib/lang.php`. It directs the user to support the way `er.bad_client` does, so the internal-error path keeps a resolution route. The string is fixed: no interpolated exception text, class name, filesystem path, line number, or fragment of the server's response. Diagnostic detail stays in the model's existing log entry.
 - R4. A real mismatch keeps `er.bad_client` unchanged, including its wording.
 
 **The guards**
@@ -53,6 +53,7 @@ The signal already exists. `compareToServerObject()` returns an `error` key, and
 - R5. Each of the thirteen pre-flight guards distinguishes the two cases and flashes the matching message.
 - R6. Each guard's existing redirect target is preserved. Targets are chosen per action and are not uniform -- the claims index redirects to the OIDC client list rather than to itself, because it re-verifies on every request and would loop.
 - R7. A guard that cannot complete its check does not silently proceed as though the client were in sync.
+- R8. A guard taking the internal-error branch logs the client identifier and the guarded action before redirecting, so a deployment-wide failure (every client) is distinguishable from repeated internal errors on one client.
 
 ### Key Decisions
 
@@ -63,12 +64,13 @@ The signal already exists. `compareToServerObject()` returns an `error` key, and
 
 - AE1. **Covers R5, R6.** Given `cfg_contract.json` is unreadable, when a user opens a client's claims tab, then the flash says the plugin could not verify the client, and the redirect target is unchanged.
 - AE2. **Covers R4.** Given a client genuinely differs from its server representation, when a user opens any guarded page, then the flash is still `er.bad_client`.
-- AE3. **Covers R2.** Given the caller uses the two-argument form, when the check cannot complete, then the caller can still tell that case from a mismatch.
+- AE3. **Covers R2.** Given `oa4mpVerifyClient()` is called in its two-argument (bare) form, when the check cannot complete, then its return value is distinguishable from both `true` and `false` under a strict comparison. Verified at the model tier by U1, not by U3 -- U3 removes the last production caller of that form.
 - AE4. **Covers R7.** Given the check cannot complete, when a guard runs, then the page is not rendered as though the client were in sync.
 
 ### Scope Boundaries
 
 - The write path is already fixed and is not revisited.
+- Failures that occur before `compareToServerObject()` is reached -- an unreachable OA4MP server, a non-JSON or undecodable response body -- still produce `synchronized => false` with no `error`, and so still reach `er.bad_client`. Widening the internal-error signal to cover transport and decode failures is a separate concern.
 - No change to what the sync comparison actually compares.
 - No change to `er.bad_client`'s wording.
 - The other gaps recorded in the contract plan's Scope Boundaries -- named configurations, `cfg_schema.json` drift, the LDAP redaction vocabulary -- are separate.
@@ -97,13 +99,13 @@ The signal already exists. `compareToServerObject()` returns an `error` key, and
 
 ### Key Technical Decisions
 
-- KTD1. **Add an `error` key to the array form and give the bare form a third state.** The array form already carries `error` from `compareToServerObject()`; surfacing it is a pass-through. The bare form returns a boolean today, so it needs a representation for "could not check" that a caller cannot mistake for either boolean -- returning null is the smallest such change and is what `Oa4mpClientClaimsController::index` will test against. Governs R1, R2.
-- KTD2. **Convert the bare call site to the array form instead of teaching callers about null.** Only one site uses it. Converting it means the third state has exactly one consumer shape rather than two, and the bare form's null return becomes defensive rather than load-bearing. Governs R2.
+- KTD1. **Add an `error` key to the array form and give the bare form a third state.** The array form already carries `error` from `compareToServerObject()`; surfacing it is a pass-through. The bare form returns a boolean today, so it needs a representation for "could not check" that a caller cannot mistake for either boolean -- returning null is the smallest such change. After U3 converts the last production caller to the array form, that third state is defensive rather than load-bearing: it has no production consumer, and its only coverage is U1's model-tier test. Because null is falsy in PHP, the contract is `true|false|null` and any bare-form caller must test `=== null` before boolean handling; U1 asserts that strictly. Governs R1, R2.
+- KTD2. **Convert the bare call site to the array form instead of teaching callers about null.** The bare form has one production consumer -- `Oa4mpClientClaimsController::index` -- plus three live-tier test assertions at `Test/Case/LiveServer/LiveClientLifecycleTest.php:178`, `:202` and `:222`, each currently wrapped in `assertTrue()`. Converting the production site means the third state has exactly one consumer shape rather than two, and the bare form's null return becomes defensive rather than load-bearing. U1 must assert those three live-tier calls distinguish null from false rather than relying on `assertTrue()`. Governs R2.
 - KTD3. **Derive each redirect target from the site it replaces, never from a shared default.** The targets are not uniform and the reasoning is written into per-site comments. A shared default would silently change where five or more actions send the user, and at least one -- the claims index -- would loop. Governs R6.
 
 ### Assumptions
 
-- No caller outside `Controller/` consumes `oa4mpVerifyClient()`. Confirm by search before changing the signature's contract; the search in the originating review was grep-only over `*.php` and `*.inc`.
+- Callers outside `Controller/` do exist and must keep working unchanged. They are: `oa4mpEditClient()` at `Model/Oa4mpClientOa4mpServer.php:1285` (array form, already branches on `error` -- this is the write-path fix this plan declares out of scope); `Test/Case/LiveServer/LiveClientLifecycleTest.php:178`, `:202`, `:222` (bare form); and the hermetic harness `Test/lib/Oa4mpClaimsControllerHarness.php:107`. U1 must leave each of them working. Confirm the list is still complete by search before changing the signature's contract; the search in the originating review was grep-only over `*.php` and `*.inc`.
 
 ### Sequencing
 
@@ -122,36 +124,41 @@ U1, then U2 and U3 in either order, then U4.
   - `Model/Oa4mpClientOa4mpServer.php` -- pass `compareToServerObject()`'s `error` through `oa4mpVerifyClient()`'s array return; give the bare form a distinct third state.
   - `Lib/lang.php` -- add the internal-error string near `er.bad_client:525`.
   - `Test/Case/Model/UnmarshallFailureDiagnosticsTest.php` -- extend; it already drives the broken-contract path.
-- Approach: The array form is a pass-through. Do not change what the comparison compares. Word the new string so it tells the user the plugin could not complete a check, not that anything is wrong with their client, and keep it ASCII.
+- Approach: The array form is a pass-through. Do not change what the comparison compares. Word the new string so it tells the user the plugin could not complete a check, not that anything is wrong with their client, and keep it ASCII. Keep it a fixed sentence -- no interpolated exception, path, or server-response detail; the diagnostic material stays in the model's existing log entry, which already redacts secrets.
 - Test scenarios:
   1. A broken contract yields a result whose error is set and whose synchronized is false.
   2. A genuine mismatch yields a result whose error is unset and whose synchronized is false.
   3. An in-sync client yields synchronized true and no error.
-  4. The bare form returns its third state when the check cannot complete, and a plain boolean otherwise.
+  4. The bare form returns its third state when the check cannot complete, and a plain boolean otherwise; a strict `=== null` distinguishes it from `false`, and a loose truthiness check does not (covers AE3).
 - Verification: `Test/run.sh` passes with the floor raised.
 
 ### U2. Route the twelve array-form guards
 
 - Goal: Twelve pre-flight guards flash the matching message and keep their redirect targets.
-- Requirements: R5, R6, R7.
+- Requirements: R5, R6, R7, R8.
 - Dependencies: U1.
-- Files: the twelve sites listed in Sources, excluding `Oa4mpClientClaimsController::index:537`.
-- Approach: At each site, branch on the error key before the synchronized check. Read that site's existing redirect target out of the code you are replacing and keep it; do not introduce a shared helper that picks one. Leave each site's existing comment about why its target was chosen.
+- Files:
+  - the twelve sites listed in Sources, excluding `Oa4mpClientClaimsController::index:537`.
+  - `Test/lib/Oa4mpClaimsControllerHarness.php` -- `Oa4mpHarnessOa4mpServer` currently returns `array('synchronized' => ..., 'oa4mp_server_extra' => ...)` with no `error` key and no knob to set one, so no controller-level test can drive a guard down the broken-contract branch. Give it a `$verifyError = false` property, include `'error' => $this->verifyError` in its array return, and have the bare-form branch return the third state when it is set.
+- Approach: At each site, branch on the error key before the synchronized check. Read that site's existing redirect target out of the code you are replacing and keep it; do not introduce a shared helper that picks one. Leave each site's existing comment about why its target was chosen. On the internal-error branch, log the client identifier and the guarded action before redirecting (R8).
 - Test scenarios:
   1. For a representative guard, a broken contract flashes the internal-error message and redirects to that site's existing target (covers AE1).
   2. For the same guard, a genuine mismatch still flashes `er.bad_client` (covers AE2).
   3. A source scan asserts no guard flashes `er.bad_client` without first testing the error key, so a site added later cannot regress silently.
+  4. The internal-error branch logs the client identifier and the guarded action (covers R8).
 - Verification: `Test/run.sh` passes; every site's redirect target is unchanged from its pre-change value.
 
 ### U3. Convert the bare-form guard
 
 - Goal: The last guard reads the same signal as the other twelve.
-- Requirements: R2, R5, R6.
+- Requirements: R2, R5, R6, R8.
 - Dependencies: U1.
-- Files: `Controller/Oa4mpClientClaimsController.php` -- the `index` guard at `:537`.
-- Approach: Switch it to the array form and branch as U2 does. Keep its redirect to the OIDC client list; its own comment records that redirecting to its own index would loop.
+- Files:
+  - `Controller/Oa4mpClientClaimsController.php` -- the `index` guard at `:537`.
+  - `Test/lib/Oa4mpClaimsControllerHarness.php` -- the same `$verifyError` knob U2 adds, if U2 has not already landed it.
+- Approach: Switch it to the array form and branch as U2 does, logging the client identifier and action on the internal-error branch (R8). Keep its redirect to the OIDC client list; its own comment records that redirecting to its own index would loop.
 - Test scenarios:
-  1. A broken contract on the claims index flashes the internal-error message and does not loop (covers AE3, AE4).
+  1. A broken contract on the claims index flashes the internal-error message and does not loop (covers AE4).
   2. A genuine mismatch there still flashes `er.bad_client`.
 - Verification: `Test/run.sh` passes.
 
@@ -177,6 +184,8 @@ U1, then U2 and U3 in either order, then U4.
 | Syntax | `php -l <file>` | every changed PHP file | Clean parse |
 | Secret scan | gitleaks, via the `secret-scan` CI job | all units | No finding |
 
+`min_tests_run` in `Test/run.sh` (currently 240) is raised once, at the end of U3, to the suite's new real count -- not per unit -- and its explanatory comment is updated in the same edit. Raising it in U1 and not again after U2 and U3 add tests leaves `ClaimsControllerHarnessTest::testRunShRequiresAPlausibleTestCount` red on a check unrelated to this fix.
+
 Prove the new branch red before accepting it green, per `Test/README.md:234-237`.
 
 Behaviour that synchronizes OIDC clients cannot be verified from this repository alone. Before release, confirm manually in a running Registry that a client which genuinely differs still reports as modified outside the Registry, so the fix has not swallowed the real case.
@@ -191,3 +200,12 @@ Behaviour that synchronizes OIDC clients cannot be verified from this repository
 - `Test/run.sh` passes with the floor raised, and every changed PHP file passes `php -l`.
 - The learning in `docs/solutions/` names the general shape, not only this instance.
 - Work is recorded against the branch while unmerged; the upstream pull request is cited only once it exists, owner-qualified.
+
+---
+
+## Deferred / Open Questions
+
+### From 2026-08-24 review
+
+- **Per-site evidence for all thirteen guards.** U2 tests one representative guard and adds a source scan that only forbids flashing `er.bad_client` without first testing the error key. That scan does not prove each guard flashes the *new* message on the internal-error branch, nor that each redirect target survived unchanged -- so eleven guards can be changed incorrectly with the suite still green, and the Definition of Done's per-site claims rest on inspection rather than evidence. Open question: require a thirteen-row verification matrix (internal-error branch, genuine-mismatch branch, pre-change redirect target) as a gate, or accept representative coverage plus the scan. Raised only by the cross-model reviewers (Codex).
+- **Redirect versus read-only render on a failed check.** After this plan ships, an unreadable `cfg_contract.json` still bounces every user off every claims tab, callback list and scope page for every client; only the wording changes. The Problem Frame names the bouncing itself as part of the harm, and R7 forecloses the alternative -- rendering the page read-only with a warning banner -- without weighing it. Open question: record a Key Decision for redirect-over-degraded-render with its reasoning, or reopen the choice.

@@ -227,13 +227,21 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # Half B, whose two checks became three when the emitted field set moved from
 # schema.xml to cfg_contract.json.
 #
+# Raised from 240 to 248 for the pre-flight internal-error verdict work, which
+# added nine tests (245 -> 252): seven in
+# Test/Case/Controller/PreflightVerdictTest.php, which covers both verdict
+# branches at the two harness-drivable guards and locks the whole set of
+# thirteen by source scan, and two in UnmarshallFailureDiagnosticsTest for the
+# bare verify form's third state. The floor sits a few below the real count on
+# purpose, per the slack rule below.
+#
 # These numbers are hand-maintained and have drifted once already: the floor
 # was raised from 143 to 155 while this comment went on citing the 146 tests it
 # was originally derived from. ClaimsControllerHarnessTest::
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=240
+min_tests_run=248
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

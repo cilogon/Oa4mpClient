@@ -175,8 +175,12 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
       'a confidential client is issued a secret');
 
     $current = $this->currentData($data, $result['clientId']);
-    $this->assertTrue($this->server()->oa4mpVerifyClient($this->adminClient, $current),
-      'the freshly created client must read back in sync');
+    // Strict on purpose. The bare form is three-state (true | false | null,
+    // null meaning the comparison could not run), and null is falsy, so
+    // assertTrue() would pass a failed check off as a genuine desync.
+    $this->assertTrue($this->server()->oa4mpVerifyClient($this->adminClient, $current) === true,
+      'the freshly created client must read back in sync, and the check must'
+      . ' have actually run');
 
     $this->assertTrue($this->deleteClient($result['clientId']),
       'the client must delete cleanly');
@@ -199,8 +203,9 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
       'a public client is not issued a secret');
 
     $current = $this->currentData($data, $result['clientId']);
-    $this->assertTrue($this->server()->oa4mpVerifyClient($this->adminClient, $current),
-      'the public client must read back in sync');
+    $this->assertTrue($this->server()->oa4mpVerifyClient($this->adminClient, $current) === true,
+      'the public client must read back in sync, and the check must have'
+      . ' actually run');
   }
 
   /**
@@ -219,7 +224,8 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
     $this->assertEqual(1, $this->server()->oa4mpEditClient($this->adminClient, $current, $edited),
       'the edit must be accepted (2 means the server drifted from the plugin)');
 
-    $this->assertTrue($this->server()->oa4mpVerifyClient($this->adminClient, $edited),
-      'the edited client must read back in sync');
+    $this->assertTrue($this->server()->oa4mpVerifyClient($this->adminClient, $edited) === true,
+      'the edited client must read back in sync, and the check must have'
+      . ' actually run');
   }
 }
