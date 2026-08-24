@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 7.0.0-rc7 (2026-08-24)
 
 - Read a client back correctly when the OA4MP server answers in ISO-8859-1 and
   the client carries an accented character, rather than reporting it as
@@ -24,6 +24,8 @@
 - Stamp every client configuration the plugin sends with the version of that
   declaration it was built from, so a stored configuration can be read back
   against the vocabulary that produced it.
+- Stop writing the LDAP bind password into the Registry log when reading back
+  a client whose configuration is still in the QDLv2 or deprecated format.
 
 ## 7.0.0-rc6 (2026-08-23)
 
