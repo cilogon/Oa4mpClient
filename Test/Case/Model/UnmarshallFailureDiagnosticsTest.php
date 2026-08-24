@@ -18,10 +18,13 @@
  * a GitHub Actions log on a PUBLIC repository, where the workflow's own secret
  * masking does not apply because the values come from the server rather than
  * from `secrets.*`. The same defect sat on the two extras-blob dumps, which
- * mattered more than it looks: client_secret was absent from the $knownKeys
- * list, so an RFC 7592 client-read response carrying it put the client's own
- * credential into the extras blob -- logged in the clear, persisted to
- * oa4mp_server_extra, and logged again on every edit that merged it back.
+ * mattered more than it looks: an RFC 7592 client-read response carries
+ * client_secret, and the plugin does not name it in $knownKeys, so the
+ * client's own credential rides the extras blob -- and was logged in the
+ * clear on capture and again on every edit that merged it back. It still
+ * rides the blob, deliberately: see
+ * testTheClientSecretRidesTheExtrasBlobButNeverALogLine for why dropping it
+ * is not obviously safe. Masking is what closes the leak.
  *
  * The second is a misleading failure. That same raise reached
  * oa4mpVerifyClient()'s catch, which logged only getMessage() and left the
@@ -357,19 +360,24 @@ class UnmarshallFailureDiagnosticsTest extends Oa4mpTestCase {
   }
 
   /**
-   * The client's own credential is never captured as an extra in the first
-   * place.
+   * The client's own credential still rides the extras blob, and every log
+   * line that carries it is masked.
    *
-   * Masking the log lines is not enough on its own: an uncaptured key is not
-   * persisted to oa4mp_server_extra and not echoed back to the server on the
-   * next edit either. An RFC 7592 client-read response carries client_secret,
-   * so before it was named in $knownKeys the plugin was storing the client's
-   * secret in a blob meant for configuration it cannot model.
+   * Naming client_secret in $knownKeys would keep it out of the blob
+   * entirely, which is the tidier shape. It is deliberately not named:
+   * an RFC 7592 update that omits the secret may be read by the server as
+   * a rotation rather than as "unchanged", and that cannot be settled from
+   * this repository. A silent rotation on every client edit is a worse
+   * failure than a secret riding a blob it should not be in, so the echo
+   * stays and the masking is what closes the leak.
+   *
+   * This test pins that choice from both sides, so a later change that
+   * drops the secret from the blob has to come here and say why.
    *
    * at_lifetime is the positive control: it keeps this from passing simply
-   * because nothing is captured any more.
+   * because nothing is captured at all.
    */
-  public function testTheClientSecretIsNeverCapturedAsAnExtra() {
+  public function testTheClientSecretRidesTheExtrasBlobButNeverALogLine() {
     $probe = new Oa4mpUnmarshallFailureProbe();
 
     $unmarshalled = $probe->oa4mpUnMarshallContent($this->serverObject(),
@@ -381,11 +389,12 @@ class UnmarshallFailureDiagnosticsTest extends Oa4mpTestCase {
 
     $this->assertTrue(array_key_exists('at_lifetime', $extras),
       'at_lifetime is not modelled by the plugin and must still be captured');
-    $this->assertFalse(array_key_exists('client_secret', $extras),
-      'client_secret is the client\'s own credential and must never be stored in'
-      . ' the unmodelled-keys blob, nor sent back to the server from it');
+    $this->assertTrue(array_key_exists('client_secret', $extras),
+      'client_secret is still captured, because omitting it from an update'
+      . ' may read to the server as a rotation rather than as unchanged');
     $this->assertNoLineCarries($probe, self::CLIENT_SECRET,
-      'an uncaptured client_secret reaches no log line at all');
+      'so every line that carries the blob must be masked; that masking is'
+      . ' what closes the leak, not dropping the key');
   }
 
   // ------------------------------------------------------------------

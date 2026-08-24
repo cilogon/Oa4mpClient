@@ -455,11 +455,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
    *    flag, not written here. A credential-carrying capability therefore
    *    cannot be declared without being redacted; declaring it is the whole
    *    edit. See cfgContractSecretNames().
-   *  - The other half is literal, because those names never appear in a cfg:
-   *    the plugin's own column names and the credentials the OA4MP server
-   *    returns in a response. The contract declares only what the plugin emits
-   *    INTO a cfg, so widening it to cover them would misstate what it is.
-   *    See uncontractedSecretFieldNames().
+   *  - The other half is literal, because no name in it is a cfg capability
+   *    the contract could declare: the plugin's own column names, the
+   *    credentials the OA4MP server returns in a response, and the LDAP bind
+   *    credential only a pre-QDLv3 cfg carries. The contract declares only
+   *    what the plugin emits INTO a cfg, so widening it to cover them would
+   *    misstate what it is. See uncontractedSecretFieldNames().
    *
    * An empty cfg-side derivation raises rather than quietly leaving the union
    * as the literals alone. The contract declares two secret-bearing keys, so
@@ -548,11 +549,18 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * The secret names that have no cfg counterpart, and so are not derivable
    * from the capability contract.
    *
-   * Deliberately literal, and deliberately small. Neither vocabulary here ever
-   * appears inside a cfg: the first is how the plugin's own table names these
-   * columns, the second is what the OA4MP server puts in a RESPONSE. The
-   * contract declares what the plugin emits into a cfg and nothing else, so
-   * neither belongs in it.
+   * Deliberately literal, and deliberately small. No vocabulary here has a cfg
+   * capability the contract could declare: the first is how the plugin's own
+   * table names these columns, the second is what the OA4MP server puts in a
+   * RESPONSE, and the third is the LDAP bind credential a cfg written before
+   * QDLv3 carries -- a shape the plugin stopped emitting and therefore has
+   * nothing to declare, but still READS BACK and logs. The contract declares
+   * what the plugin emits into a cfg and nothing else, so none of the three
+   * belongs in it.
+   *
+   * Every name is matched as a whole JSON key ("name": "value") or a whole
+   * array key, so password does not reach bind_password's value or a
+   * neighbouring password_expires_at; see redactSecretsInLogText().
    *
    * @return array Secret names with no cfg counterpart.
    * @since COmanage Registry 4.5.1
@@ -570,6 +578,18 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // client at the registration endpoint.
       'client_secret',
       'registration_access_token',
+      // The LDAP bind credential, under both names a legacy cfg spells it: the
+      // deprecated syntax puts it in claims.sourceConfig[].ldap.password and
+      // the QDLv2 syntax in tokens.identity.qdl[0].args.bind_password, and the
+      // unmarshaller carries the first spelling forward as the plugin's own
+      // Oa4mpClientCoLdapConfig.password column. None of the three is a cfg
+      // capability the contract declares: the plugin no longer EMITS an LDAP
+      // block at all, so there is nothing for it to declare -- but a client
+      // whose cfg was written before QDLv3 still carries one, and reading that
+      // client back logs it. Literal for exactly the reason the aws_* column
+      // names are: a name with no cfg-contract counterpart.
+      'password',
+      'bind_password',
     );
   }
 
@@ -1932,11 +1952,16 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // Read-only keys from OA4MP server that should not be sent back.
       'registration_access_token',
       // The client's own credential. A client-read response (RFC 7592) carries
-      // it, and without this entry it fell into the extras blob: logged in the
-      // clear, persisted to oa4mp_server_extra, and echoed back to the server
-      // on every subsequent edit. The plugin models the secret elsewhere and
-      // has no business round-tripping it through an unmodelled-keys blob.
-      'client_secret',
+      // Deliberately NOT listed: client_secret. An RFC 7592 client-read
+      // response carries it, so it lands in the extras blob and is echoed
+      // back on the next edit. Dropping it from the echo would be the
+      // tidier shape, but whether the OA4MP server preserves an existing
+      // secret when an update omits it, or treats the omission as a
+      // rotation, cannot be established from this repository -- and a
+      // silent rotation on every edit is far worse than a secret riding a
+      // blob. The leak this had to close was the logging, and the dumps
+      // that carried it are masked. Revisit only with evidence from a real
+      // server about how it treats an omitted secret.
       'client_secret_expires_at',
       'client_id_issued_at',
       // The server builds this from its own endpoint and the client_id. It
@@ -2075,7 +2100,15 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $ldapConfigs = $this->oa4mpUnMarshallCfgQdlv2($cfg);
 
       if(!empty($ldapConfigs)) {
-        $this->log("Unmarshalled cfg QDL syntax to " . print_r($ldapConfigs, true));
+        // Masked JSON, not print_r, for the same reason as the QDLv3 site
+        // above: a QDLv2 cfg carries the LDAP bind credential in
+        // args.bind_password, and this unmarshalling carries it forward under
+        // the plugin's own password column name. redactSecretsInLogText()
+        // matches a JSON-shaped "key": "value" pair, so a print_r rendering
+        // walks straight past it and the bind password lands in the log in the
+        // clear.
+        $this->log("Unmarshalled cfg QDL syntax to "
+                   . $this->redactSecretsInLogText(json_encode($ldapConfigs)));
         foreach($ldapConfigs as $ldapConfig) {
           if(empty($ldapConfig['Oa4mpClientCoSearchAttribute'])) {
             continue;
@@ -2100,7 +2133,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
       $ldapConfigs = $this->oa4mpUnMarshallCfgDeprecated($cfg);
 
       if(!empty($ldapConfigs)) {
-        $this->log("Unmarshalled deprecated cfg to " . print_r($ldapConfigs, true));
+        // Same again: the deprecated syntax spells the bind credential
+        // ldap.password, and it reaches this structure unchanged.
+        $this->log("Unmarshalled deprecated cfg to "
+                   . $this->redactSecretsInLogText(json_encode($ldapConfigs)));
         foreach($ldapConfigs as $ldapConfig) {
           if(empty($ldapConfig['Oa4mpClientCoSearchAttribute'])) {
             continue;

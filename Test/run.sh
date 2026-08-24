@@ -189,6 +189,16 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # with no QDL at that path, and a QDL with no declaration block -- plus one
 # that no content read from the private QDL reaches that report at all.
 #
+# The 240 is 235 plus the five methods added to
+# Test/Case/Model/ContractRedactionTest.php for the legacy-cfg LDAP bind
+# password: two that drive oa4mpUnMarshallContent() down the QDLv2 and the
+# deprecated branch and assert no logged line carries the credential, one that
+# pins both spellings (password, bind_password) into the literal residue and
+# through it into the fallback list, one substring-safety control proving
+# neither name over-matches a neighbouring key such as password_expires_at,
+# and one source scan holding oa4mpUnMarshallContent() free of print_r()
+# dumps, which the redactor cannot see into.
+#
 # The 204 is 203 plus the one method added to ClaimCfgDriftTest's Half B, which
 # walks a column added to the claim table through the path such a column takes
 # now that the emitted field set is read out of cfg_contract.json rather than
@@ -223,7 +233,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=235
+min_tests_run=240
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
