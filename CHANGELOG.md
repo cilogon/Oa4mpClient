@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Read a client back correctly when the OA4MP server answers in ISO-8859-1 and
+  the client carries an accented character, rather than reporting it as
+  modified outside the Registry. The plugin's handling for that encoding was
+  present but discarded by an unconditional re-decode below it.
+
 - Say that the Registry could not verify a client, rather than that the client
   was modified outside the Registry, when the synchronization check itself
   could not run -- so a deployment fault no longer presents as client

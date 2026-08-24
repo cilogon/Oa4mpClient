@@ -227,6 +227,11 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # Half B, whose two checks became three when the emitted field set moved from
 # schema.xml to cfg_contract.json.
 #
+# Raised from 248 to 253 for the response-encoding decode fix, which added five
+# in Test/Case/Model/ServerResponseDecodingTest.php (252 -> 257): the Latin-1
+# regression, the ASCII control that explains why the defect hid, and the
+# UTF-8 / no-Content-Type / undecodable-body paths.
+#
 # Raised from 240 to 248 for the pre-flight internal-error verdict work, which
 # added nine tests (245 -> 252): seven in
 # Test/Case/Controller/PreflightVerdictTest.php, which covers both verdict
@@ -241,7 +246,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=248
+min_tests_run=253
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
