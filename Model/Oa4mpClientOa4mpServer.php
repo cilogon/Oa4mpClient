@@ -2787,19 +2787,48 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $this->log("OA4MP Server response is " . $this->redactSecretsInLogText(print_r($response, true)));
 
-    $contentType = $response->getHeader('Content-Type');
-
-    if(str_contains($contentType, 'ISO-8859-1')) {
-      $oa4mpObject = json_decode(mb_convert_encoding($response->body(), 'UTF-8', 'ISO-8859-1'), true);
-    } else {
-      $oa4mpObject = json_decode($response->body(), true);
-    }
-
-    $oa4mpObject = json_decode($response->body(), true);
+    $oa4mpObject = $this->decodeServerResponse($response);
 
     $comparison = $this->compareToServerObject($adminClient, $curClient, $oa4mpObject);
 
     return $this->verdictFromComparison($comparison, $returnExtras);
+  }
+
+  /**
+   * Decode the OA4MP server's representation of a client from its response,
+   * honouring the character encoding the response declares.
+   *
+   * The server may answer in ISO-8859-1. json_decode() requires UTF-8 and
+   * returns null on anything else, so a Latin-1 body carrying a non-ASCII byte
+   * -- an accented character in a client name or comment -- decodes to null
+   * unless it is transcoded first. A null here is not distinguishable, further
+   * down, from a client that genuinely differs.
+   *
+   * Split out of oa4mpVerifyClient() for the same reason
+   * compareToServerObject() was: everything around it in that method
+   * constructs an HttpSocket and reaches a real server, so the hermetic tier
+   * could not otherwise observe which branch a given response selects. That
+   * is not incidental -- an unconditional re-decode sat below this branch from
+   * 2026-01-13 until 2026-08-24 and silently discarded the transcoded value,
+   * and no test could see it. See
+   * docs/solutions/logic-errors/oa4mp-verify-response-encoding-discarded-2026-08-24.md.
+   *
+   * @since COmanage Registry 4.5.1
+   * @param  Object $response HttpSocketResponse from the OA4MP server
+   * @return Mixed The decoded representation, or null when the body is not
+   *               decodable as JSON.
+   */
+
+  protected function decodeServerResponse($response) {
+    // getHeader() returns false for a header the response does not carry;
+    // cast so the match below is always given a string.
+    $contentType = (string)$response->getHeader('Content-Type');
+
+    if(str_contains($contentType, 'ISO-8859-1')) {
+      return json_decode(mb_convert_encoding($response->body(), 'UTF-8', 'ISO-8859-1'), true);
+    }
+
+    return json_decode($response->body(), true);
   }
 
   /**
