@@ -173,6 +173,13 @@ incapable of failing, so it reports success forever. Any gate whose disarmed
 state is indistinguishable from its passing state needs a test asserting the
 gate itself is armed.
 
+A single test is a check too, so it has its own disarmed states: data that
+exercises no branch, a fixture built by the same machinery the test is meant to
+survive, an assertion loose enough to admit the defect. Whether the check is a
+merge gate or one test method, its passing output is the same either way, so
+neither a green run nor the check's own text establishes that it could ever
+fail.
+
 Guarding the empty case does not guard the partial case. A check that refuses to
 report success when it verified *nothing* still reports success when it verified
 half, because zero is the one shortfall most tools notice for free and every
@@ -188,3 +195,12 @@ A gate is subject to the same discipline, in both directions: show it goes red
 when the thing it watches is broken, and show that the gate it replaces or
 supplements would have stayed green on that same input. Without the second half
 the new gate has not been shown to add anything.
+
+The proof and a careful reading catch different failures, so neither substitutes
+for the other. Executing the test against the broken behavior is the only thing
+that exposes a test whose data or setup means it could not fail — its assertions
+read as correct, because they are. Reading the assertions is the only thing that
+exposes a test that would pass a wrong implementation nobody has written yet,
+because the proof only ever runs against the one wrong implementation that
+actually existed. A structural check that locks a shape across many call sites
+depends on the second kind of scrutiny more than on the first.
