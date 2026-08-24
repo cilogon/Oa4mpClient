@@ -91,6 +91,16 @@ class Oa4mpHarnessOa4mpServer {
   /** @var mixed oa4mp_server_extra oa4mpVerifyClient() reports with extras. */
   public $verifyExtra = null;
 
+  /**
+   * @var boolean Whether the synchronization comparison could not run at all.
+   *              The real model reports this as the array form's 'error' key
+   *              and as null from the bare form; without a knob for it here no
+   *              controller-level test can drive a guard down the internal
+   *              -error branch, which is the branch that must NOT tell the
+   *              user their client was modified outside the Registry.
+   */
+  public $verifyError = false;
+
   /** @var array One entry per call, in order. */
   public $calls = array();
 
@@ -113,8 +123,15 @@ class Oa4mpHarnessOa4mpServer {
     if ($returnExtras) {
       return array(
         'synchronized' => $this->verifySynchronized,
-        'oa4mp_server_extra' => $this->verifyExtra
+        'oa4mp_server_extra' => $this->verifyExtra,
+        'error' => $this->verifyError
       );
+    }
+
+    // Mirrors the model's three-state bare form: null when the comparison did
+    // not run, a plain boolean otherwise.
+    if ($this->verifyError) {
+      return null;
     }
 
     return $this->verifySynchronized;
@@ -149,6 +166,20 @@ class Oa4mpClaimsControllerHarness extends Oa4mpClientClaimsController {
 
   /** @var boolean Whether the last driven action ended in a redirect. */
   public $harnessStopped = false;
+
+  /**
+   * @var array Every message log() was handed, in order. Controller::log()
+   *            writes to a file the suite cannot read back, and the guards'
+   *            internal-error branch is required to leave a record naming the
+   *            client, so capture it here instead.
+   */
+  public $harnessLogged = array();
+
+  public function log($msg, $type = LOG_ERR, $scope = null) {
+    $this->harnessLogged[] = (string)$msg;
+
+    return true;
+  }
 
   /**
    * Build a harness wired to one OIDC client.

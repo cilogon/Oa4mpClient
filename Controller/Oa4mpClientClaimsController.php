@@ -177,8 +177,25 @@ class Oa4mpClientClaimsController extends StandardController {
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
     $verifyResult = $oa4mpServer->oa4mpVerifyClient($admin, $client, true);
-    if(!$verifyResult['synchronized']) {
-      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+
+    // 'error' means the comparison did not run -- an unreadable or malformed
+    // cfg_contract.json, a shape the unmarshaller cannot read. That is not
+    // evidence the client was changed outside the Registry, so test it first
+    // and say what actually happened. The redirect below is unchanged either
+    // way: a check that could not run must not fall through as though the
+    // client were in sync.
+    $verifyFailed = !empty($verifyResult['error']);
+    if($verifyFailed || !$verifyResult['synchronized']) {
+      if($verifyFailed) {
+        $this->log("Oa4mpClient: the synchronization check for OIDC client "
+                   . ($client['Oa4mpClientCoOidcClient']['oa4mp_identifier'] ?? '?')
+                   . " did not complete in " . $this->name . "::" . $this->action);
+      }
+
+      $this->Flash->set(_txt($verifyFailed
+                             ? 'pl.oa4mp_client_co_oidc_client.er.verify_failed'
+                             : 'pl.oa4mp_client_co_oidc_client.er.bad_client'),
+                        array('key' => 'error'));
 
       // Name the plugin and the controller. Without them Router::url resolves
       // the target relative to the current request, which lands back on this
@@ -432,8 +449,25 @@ class Oa4mpClientClaimsController extends StandardController {
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
     $verifyResult = $oa4mpServer->oa4mpVerifyClient($admin, $client, true);
-    if(!$verifyResult['synchronized']) {
-      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+
+    // 'error' means the comparison did not run -- an unreadable or malformed
+    // cfg_contract.json, a shape the unmarshaller cannot read. That is not
+    // evidence the client was changed outside the Registry, so test it first
+    // and say what actually happened. The redirect below is unchanged either
+    // way: a check that could not run must not fall through as though the
+    // client were in sync.
+    $verifyFailed = !empty($verifyResult['error']);
+    if($verifyFailed || !$verifyResult['synchronized']) {
+      if($verifyFailed) {
+        $this->log("Oa4mpClient: the synchronization check for OIDC client "
+                   . ($client['Oa4mpClientCoOidcClient']['oa4mp_identifier'] ?? '?')
+                   . " did not complete in " . $this->name . "::" . $this->action);
+      }
+
+      $this->Flash->set(_txt($verifyFailed
+                             ? 'pl.oa4mp_client_co_oidc_client.er.verify_failed'
+                             : 'pl.oa4mp_client_co_oidc_client.er.bad_client'),
+                        array('key' => 'error'));
 
       // Name the plugin and the controller. Without them Router::url resolves
       // the target relative to the current request, which lands back on this
@@ -534,9 +568,30 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
-    $synchronized = $oa4mpServer->oa4mpVerifyClient($admin, $client);
-    if(!$synchronized) {
-      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+    // The array form, as at every other guard. This action used the bare
+    // two-argument form, which reduced "the comparison did not run" to the
+    // same false a real mismatch produces; reading the same signal as the
+    // other twelve is what lets it tell the two apart.
+    $verifyResult = $oa4mpServer->oa4mpVerifyClient($admin, $client, true);
+
+    // 'error' means the comparison did not run -- an unreadable or malformed
+    // cfg_contract.json, a shape the unmarshaller cannot read. That is not
+    // evidence the client was changed outside the Registry, so test it first
+    // and say what actually happened. The redirect below is unchanged either
+    // way: a check that could not run must not fall through as though the
+    // client were in sync.
+    $verifyFailed = !empty($verifyResult['error']);
+    if($verifyFailed || !$verifyResult['synchronized']) {
+      if($verifyFailed) {
+        $this->log("Oa4mpClient: the synchronization check for OIDC client "
+                   . ($client['Oa4mpClientCoOidcClient']['oa4mp_identifier'] ?? '?')
+                   . " did not complete in " . $this->name . "::" . $this->action);
+      }
+
+      $this->Flash->set(_txt($verifyFailed
+                             ? 'pl.oa4mp_client_co_oidc_client.er.verify_failed'
+                             : 'pl.oa4mp_client_co_oidc_client.er.bad_client'),
+                        array('key' => 'error'));
 
       // As in add() and edit(): name the plugin and the controller so the
       // target does not resolve relative to this request. Here it also has to
