@@ -109,6 +109,17 @@ class Oa4mpUnmarshallFailureProbe extends Oa4mpClientOa4mpServer {
     return $this->compareToServerObject($adminClient, $curClient, $oa4mpObject);
   }
 
+  /**
+   * verdictFromComparison() is protected; the bare-form tests need it by name.
+   *
+   * This is the whole of what oa4mpVerifyClient() does with a comparison, and
+   * it is the only part of that method the hermetic tier can reach: everything
+   * above it constructs an HttpSocket.
+   */
+  public function verdictWith($comparison, $returnExtras = false) {
+    return $this->verdictFromComparison($comparison, $returnExtras);
+  }
+
   /** Every logged line that carries $needle. */
   public function linesCarrying($needle) {
     $lines = array();
@@ -509,5 +520,81 @@ class UnmarshallFailureDiagnosticsTest extends Oa4mpTestCase {
       $this->currentClient(), $this->currentClient()),
       'a comparison that ran and found a difference still reports the client'
       . ' out of sync');
+  }
+
+  /**
+   * The bare (two-argument) form distinguishes a failed check from a mismatch.
+   *
+   * oa4mpVerifyClient()'s array form has carried the internal-error signal
+   * since the cfg contract work. The bare form returned a plain boolean, so
+   * "the comparison says no" and "the comparison did not run" arrived at the
+   * caller as the same false -- the conflation this whole change exists to
+   * remove, just one layer lower than the guards.
+   *
+   * The three states are asserted with === on purpose. null is falsy in PHP,
+   * so a loose check cannot see the difference; that is the failure mode a
+   * future caller of this form would hit, and it is what the strict assertion
+   * below pins. The failing comparison is the one the real
+   * compareToServerObject() produced against a missing contract, never a
+   * hand-built array.
+   */
+  public function testTheBareFormReportsAThirdStateWhenTheCheckCouldNotRun() {
+    $broken = $this->probeWithNoContract();
+    $failed = $broken->compareWith($this->adminClient(), $this->currentClient(),
+      $this->serverObject());
+
+    $this->assertTrue($failed['error'], 'the comparison did not run');
+
+    $probe = new Oa4mpUnmarshallFailureProbe();
+
+    $this->assertTrue($probe->verdictWith($failed) === null,
+      'a comparison that could not run reduces to null, which is neither'
+      . ' boolean and so cannot be read as a mismatch');
+
+    // A genuine mismatch. Same false verdict, no error, and the bare form
+    // still says false -- the distinction is the point, not a downgrade.
+    $mismatch = array(
+      'synchronized' => false,
+      'oa4mp_server_extra' => null,
+      'error' => false
+    );
+
+    $this->assertTrue($probe->verdictWith($mismatch) === false,
+      'a comparison that ran and found a difference is still a plain false');
+
+    $synced = array(
+      'synchronized' => true,
+      'oa4mp_server_extra' => null,
+      'error' => false
+    );
+
+    $this->assertTrue($probe->verdictWith($synced) === true,
+      'an in-sync client is still a plain true');
+
+    // The half a loose check cannot see: null and false are both falsy, so a
+    // caller that writes if(!$verdict) treats the failed check as a mismatch.
+    // Any future bare-form caller has to test === null first.
+    $this->assertTrue(!$probe->verdictWith($failed) && !$probe->verdictWith($mismatch),
+      'both falsy, which is why a strict null test is the contract');
+
+    // The array form is unchanged by the split: it still hands back the
+    // comparison itself.
+    $this->assertEqual($failed, $probe->verdictWith($failed, true),
+      'the array form returns the comparison unreduced');
+  }
+
+  /**
+   * The comparison an in-sync client produces carries no error.
+   *
+   * The control for the two failure assertions above: without it, a change
+   * that set 'error' unconditionally would still pass them.
+   */
+  public function testAHealthyComparisonReportsNoInternalError() {
+    $clean = new Oa4mpUnmarshallFailureProbe();
+    $comparison = $clean->compareWith($this->adminClient(), $this->currentClient(),
+      $this->serverObject());
+
+    $this->assertFalse($comparison['error'],
+      'a comparison that ran reports no internal error, whatever its verdict');
   }
 }

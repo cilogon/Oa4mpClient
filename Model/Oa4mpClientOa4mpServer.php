@@ -2763,9 +2763,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @param  Array $adminClient admin client
    * @param  Array $curClient current client
    * @param  Boolean $returnExtras if true, return array with sync status and extra keys
-   * @return Mixed Boolean if $returnExtras is false, otherwise array with
-   *               'synchronized', 'oa4mp_server_extra' and 'error' keys. See
-   *               compareToServerObject() for what 'error' distinguishes.
+   * @return Mixed If $returnExtras is false, Boolean true or false when the
+   *               comparison ran, and null when it did not (the three-state
+   *               bare form: test === null before any boolean handling).
+   *               Otherwise array with 'synchronized', 'oa4mp_server_extra'
+   *               and 'error' keys. See compareToServerObject() for what
+   *               'error' distinguishes.
    */
 
   function oa4mpVerifyClient($adminClient, $curClient, $returnExtras = false) {
@@ -2796,9 +2799,44 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $comparison = $this->compareToServerObject($adminClient, $curClient, $oa4mpObject);
 
-    // Return based on whether extras were requested.
+    return $this->verdictFromComparison($comparison, $returnExtras);
+  }
+
+  /**
+   * Reduce a comparison to what oa4mpVerifyClient() returns for the requested
+   * form.
+   *
+   * Split out for the same reason compareToServerObject() was: everything
+   * above it in oa4mpVerifyClient() constructs an HttpSocket and reaches a
+   * real server, so the hermetic tier cannot otherwise observe which of the
+   * three bare-form values a given comparison produces.
+   *
+   * @since COmanage Registry 4.5.1
+   * @param  Array $comparison as returned by compareToServerObject()
+   * @param  Boolean $returnExtras if true, the caller asked for the array form
+   * @return Mixed The comparison itself when $returnExtras; otherwise true or
+   *               false when the comparison ran, and null when it did not.
+   */
+
+  protected function verdictFromComparison($comparison, $returnExtras) {
     if($returnExtras) {
       return $comparison;
+    }
+
+    // The bare form's third state. A caller that did not ask for the detailed
+    // result still has to be able to tell "the comparison says no" from "the
+    // comparison did not run", so the failure case returns something that is
+    // neither boolean. null is the smallest such value, and because it is
+    // falsy a caller that never tests for it fails closed -- it takes the
+    // not-synchronized branch rather than rendering the page as though the
+    // client were in sync. A caller that wants the distinction must test
+    // === null before any boolean handling.
+    //
+    // No production caller uses this form: Oa4mpClientClaimsController::index
+    // was converted to the array form in the same work that added this. The
+    // state is defensive, and its coverage lives in the model tier.
+    if(!empty($comparison['error'])) {
+      return null;
     }
 
     return $comparison['synchronized'];

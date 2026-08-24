@@ -533,5 +533,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.er.unmarshall'      => 'Error unmarshalling OIDC client object from Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.unmarshall.cfg'  => 'Error unmarshalling cfg object from Oa4mp server',
   'pl.oa4mp_client_co_oidc_client.er.valid_domain'    => 'Private-use URI schemes require a valid domain',
+  // Distinct from er.bad_client on purpose: this one means the Registry could
+  // not complete its check, not that anything is wrong with the client. It is
+  // a fixed sentence -- no exception text, path or server response is
+  // interpolated into it; that detail belongs in the log.
+  'pl.oa4mp_client_co_oidc_client.er.verify_failed'   => 'The Registry could not verify this client with the OAuth2 server. Please try again, and email help@cilogon.org if the problem persists.',
   'pl.oa4mp_client_co_oidc_client.er.wildcards'       => 'Wildcards are not allowed in callback URLs',
 );
