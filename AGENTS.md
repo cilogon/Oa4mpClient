@@ -65,6 +65,8 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
   when implementing or debugging in documented areas.
 - `docs/plans/` and `docs/brainstorms/`: planning and requirements artifacts for
   in-progress and completed work.
+- `docs/runbooks/`: operator procedures tied to a deploy, where a step has to be
+  taken by hand and at a particular moment.
 - `CHANGELOG.md`: release notes.
 - `CONCEPTS.md`: shared domain vocabulary (entities, named processes,
   status concepts) with project-specific meaning — relevant when

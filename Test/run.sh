@@ -110,14 +110,30 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # of its own is `$total === 0`.
 #
 # The floor sits a few tests below the suite's current size: the hermetic tier
-# runs 238 tests today, so 235 leaves three tests of headroom. That way
+# runs 289 tests today, so 286 leaves three tests of headroom. That way
 # consolidating a case or two never forces an edit here, while any loss of four
 # or more goes red -- that is every test file in the tree except the two
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
-# The 238 is 234 plus the four methods added when the cfg capability contract
-# gained readers for the last two groups nothing was reading.
+# The 289 is 257 plus the 32 methods added when the client-read began asking the
+# server for its newest representation: 15 in
+# Test/Case/Model/ServerRequestQueryTest.php, covering which query each request
+# kind carries and which kind each of the four senders asks for; 12 in
+# Test/Case/Model/NewerRepresentationRoundTripTest.php, covering what the newer
+# representation captures, hands back, and drops, and that the drift verdict
+# does not move; and 5 in Test/Case/Model/CapturedKeySetLockTest.php, locking
+# exactly which keys reach the extras blob.
+#
+# The 257 is where the suite stood immediately before that work. The paragraphs
+# below derive an older chain and are kept because each still explains the
+# methods it names; they no longer sum forward to the current total, which is
+# why the count above is stated against 257 directly rather than threaded
+# through them.
+#
+# The 238 of that older chain is 234 plus four methods added when the cfg
+# capability contract gained readers for the last two groups nothing was
+# reading.
 #
 # Two are in Test/Case/Model/ContractAllowlistTest.php and close
 # tokens.identity.qdl.args and dynamo_module_config the way the claim mappings
@@ -246,7 +262,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=253
+min_tests_run=286
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

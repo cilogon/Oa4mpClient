@@ -96,6 +96,16 @@ class ClaimCfgFixtureHygieneTest extends Oa4mpTestCase {
   const CONST_PATTERN =
     '~const\s+(?P<name>[A-Z_]*(?:SECRET|ACCESS_KEY_ID|PASSWORD)[A-Z_]*)\s*='
     . '\s*(?P<q>[\'"])(?P<value>(?:(?!(?P=q)).)*)(?P=q)~';
+  // The JSON-member form of the same field, applied to .json files only. The
+  // two patterns above both key on `=>`, which is PHP syntax, so a
+  // credential-named member of a captured server response under Test/fixtures/
+  // was collected by neither -- the file was walked, scanned for credential
+  // SHAPES, and then skipped by the placeholder check entirely. Captured
+  // responses are exactly where an unredacted credential arrives, so the
+  // placeholder half has to read them too.
+  const JSON_PATTERN =
+    '~"(?P<name>[a-z_]*(?:secret|access_key_id|password)[a-z_]*)"\s*:'
+    . '\s*(?P<q>")(?P<value>(?:(?!(?P=q)).)*)(?P=q)~';
 
   /** Relative path => file contents, re-read for every test method. */
   private $sources = null;
@@ -301,7 +311,12 @@ class ClaimCfgFixtureHygieneTest extends Oa4mpTestCase {
       'planted' . DS . 'Double.php' =>
         "<?php\n\$a = array(\"" . $name . "\" => \"" . $value . "\");\n",
       'planted' . DS . 'Single.php' =>
-        "<?php\n\$a = array('" . $name . "' => '" . $value . "');\n"
+        "<?php\n\$a = array('" . $name . "' => '" . $value . "');\n",
+      // The JSON form. Without this arm a captured server response could carry
+      // an unredacted credential and reach neither the placeholder check nor
+      // this control, which is how two such fixtures were nearly committed.
+      'planted' . DS . 'response.json' =>
+        "{\n  \"" . $name . "\": \"" . $value . "\"\n}\n"
     );
 
     $found = array();
@@ -316,8 +331,9 @@ class ClaimCfgFixtureHygieneTest extends Oa4mpTestCase {
     sort($found);
     $this->assertEqual($expected, $found,
       'both quote styles, on the array-literal and the class-constant form, '
-      . 'must reach the placeholder check; a style that slips past it is a '
-      . 'credential-shaped field nothing in this file examines');
+      . 'and the JSON-member form must all reach the placeholder check; a '
+      . 'style that slips past it is a credential-shaped field nothing in '
+      . 'this file examines');
   }
 
   /**
@@ -448,7 +464,17 @@ class ClaimCfgFixtureHygieneTest extends Oa4mpTestCase {
       // included. Masking preserves line numbers so the report stays accurate.
       $code = $this->maskComments($contents);
 
-      foreach (array(self::FIELD_PATTERN, self::CONST_PATTERN) as $pattern) {
+      // The JSON form is applied only to JSON files. PHP sources legitimately
+      // contain JSON-shaped literals inside assertion strings -- a redaction
+      // test asserting on '"access_key_id":"[REDACTED]"' is not a credential
+      // field -- and collecting those would fail the placeholder check on text
+      // that is doing its job.
+      $patterns = array(self::FIELD_PATTERN, self::CONST_PATTERN);
+      if (substr($relative, -5) === '.json') {
+        $patterns[] = self::JSON_PATTERN;
+      }
+
+      foreach ($patterns as $pattern) {
         $hits = array();
         if (!preg_match_all($pattern, $code, $hits, PREG_OFFSET_CAPTURE)) {
           continue;
