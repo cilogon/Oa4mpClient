@@ -1,0 +1,97 @@
+{
+  "registration_client_uri": "https://oa4mp.example.org/oauth2/oidc-cm?client_id=cilogon:/client_id/00000000000000000000000000000000",
+  "client_id": "cilogon:/client_id/00000000000000000000000000000000",
+  "client_name": "Example Test Client",
+  "redirect_uris": [
+    "http://localhost:5173/api/auth/token",
+    "https://dev.example.org/api/auth/token",
+    "https://qa.example.org/api/auth/token",
+    "https://example.org/api/auth/token",
+    "https://staging.example.org/api/auth/token"
+  ],
+  "grant_types": [
+    "authorization_code",
+    "refresh_token"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "rt_lifetime": 1800,
+  "at_lifetime": 0,
+  "scope": [
+    "org.cilogon.userinfo",
+    "openid",
+    "profile",
+    "email"
+  ],
+  "client_uri": "https://example.org",
+  "strict_scopes": true,
+  "use_server_scopes": true,
+  "skip_server_scripts": false,
+  "proxy_claims_list": [],
+  "forward_scopes_to_proxy": false,
+  "proxy_request_scopes": [],
+  "is_service_client": false,
+  "service_client_users": [
+    "*"
+  ],
+  "extends_provisioners": false,
+  "ersatz_client": false,
+  "ersatz_inherit_id_token": true,
+  "client_id_issued_at": 1787601383,
+  "cfg": {
+    "metadata": {
+      "Oa4mpClient": {
+        "contract_version": 1
+      }
+    },
+    "tokens": {
+      "identity": {
+        "qdl": {
+          "args": {
+            "claim_mappings": [
+              {
+                "claim_constraints": [
+                  {
+                    "constraint_field": "owner",
+                    "constraint_value": "false"
+                  }
+                ],
+                "claim_multiple_value_serialization": "delimited_string",
+                "claim_name": "groups",
+                "claim_value_json_format": "string",
+                "claim_value_selection": "all",
+                "claim_value_string_serialization_delimiter": ",",
+                "source_model": "CoGroupMember",
+                "source_model_claim_value_field": "member"
+              }
+            ],
+            "dynamo_module_config": {
+              "access_key_id": "AKIAEXAMPLE",
+              "partition_key": "PartitionKey",
+              "region": "us-east-2",
+              "secret_access_key": "not-a-real-secret",
+              "table_name": "example_claims_table"
+            },
+            "partition_key_claim_name": "sub",
+            "partition_key_template": "identifier#oidcsub#%%CLAIM_VALUE%%"
+          },
+          "load": "COmanageRegistry/default/dynamodb_claims.qdl",
+          "xmd": {
+            "exec_phase": [
+              "post_auth",
+              "post_refresh",
+              "post_token",
+              "post_user_info"
+            ]
+          }
+        },
+        "type": "identity"
+      }
+    }
+  },
+  "contacts": [
+    "admin@example.org"
+  ],
+  "comment": "Created by COmanage Oa4mpClient Plugin: https://registry.example.org/registry/oa4mp_client/oa4mp_client_co_oidc_clients/index/co:1"
+}

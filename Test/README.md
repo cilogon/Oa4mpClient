@@ -94,13 +94,26 @@ retire unnoticed. `Test/Case/HarnessSelfTest.php` is the reference example.
 Most core-logic tests assert the marshalled cfg and database state directly and
 need no server. `Test/Stub/Oa4mpServerStub.php` and the captured response under
 `Test/fixtures/oa4mp-responses/` exist for tests that must simulate a server
-reply; **no test consumes them yet**, so treat the stub as the pattern to follow
-when the first such test is written rather than as covered ground.
+reply. `ServerRequestQueryTest`, `NewerRepresentationRoundTripTest` and
+`CapturedKeySetLockTest` consume them; follow those when a test needs a server
+response. Captured responses are scrubbed before they are committed --
+credentials to the declared placeholders, and contact addresses, client
+identifiers and hostnames to `example.org` equivalents -- while every key and
+value type is left exactly as the server sent it, because the key set is what
+the tests are about.
 
 ## Regression coverage status
 
 Locked with passing tests (`Test/Case/Model/`):
 
+- **client-read api_version** -- the read asks for the newest representation and
+  the other three request kinds do not; each sender asks for its own kind
+  (ServerRequestQueryTest).
+- **newer-representation round trip** -- `rt_grace_period` and its siblings are
+  captured and handed back on an update, dropped keys leave the stored set, and
+  the drift verdict does not move (NewerRepresentationRoundTripTest).
+- **captured key-set lock** -- the extras blob's key set cannot drift without a
+  human writing the new key down (CapturedKeySetLockTest).
 - **dynamo phantom-null** (#4) -- `resolveDynamoConfig` fallback (CfgMarshallingTest).
 - **public-client cfg-rejected** (#8) -- `oa4mpMarshallContent` emits no cfg for a
   public client (CfgMarshallingTest).

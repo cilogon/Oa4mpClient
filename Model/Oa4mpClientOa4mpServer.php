@@ -1248,11 +1248,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $http = new HttpSocket();
 
-    $request = $this->oa4mpInitializeRequest($adminClient);
-    $request['method'] = 'DELETE';
-
     $client_id = $oidcClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
-    $request['uri']['query'] = array('client_id' => $client_id);
+    $request = $this->oa4mpBuildRequest('delete', $adminClient, $client_id);
 
     $this->log("Request URI is " . print_r($request['uri'], true));
     $this->log("Request method is " . print_r($request['method'], true));
@@ -1310,10 +1307,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // the Oa4mp server.
     $http = new HttpSocket();
 
-    $request = $this->oa4mpInitializeRequest($adminClient);
-    $request['method'] = 'PUT';
     $client_id = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
-    $request['uri']['query'] = array('client_id' => $client_id);
+    $request = $this->oa4mpBuildRequest('update', $adminClient, $client_id);
 
     $body = $this->oa4mpMarshallContent($adminClient, $data);
 
@@ -1332,6 +1327,105 @@ class Oa4mpClientOa4mpServer extends AppModel {
     }
 
     return $ret;
+  }
+
+  /**
+   * Build the complete HttpSocket request for one kind of OA4MP server request.
+   *
+   * Pairs with oa4mpRequestQuery() and exists for the same hermetic-observability
+   * reason, one step further out. A query builder alone proves only what the
+   * builder returns; it cannot prove a call site actually assigns it, and an
+   * unwired-but-correct builder would pass. Every call site around this method
+   * constructs an HttpSocket and sends, so the assignment is unobservable unless
+   * the whole request is built somewhere a test can reach. Asserting the wiring
+   * with a source scan instead is the false-coverage shape recorded in
+   * docs/solutions/test-failures/oa4mp-green-run-does-not-prove-a-test-can-fail.md.
+   *
+   * Callers add a body where the request kind has one; everything else about the
+   * request is settled here.
+   *
+   * @since COmanage Registry 4.5.2
+   * @param  String $kind One of 'read', 'update', 'delete', 'create'.
+   * @param  Array $adminClient admin client
+   * @param  String $clientIdentifier The OA4MP client_id, or null for 'create'.
+   * @return Array array to be used with HttpSocket request() method.
+   * @throws InvalidArgumentException On an unrecognised request kind.
+   */
+
+  protected function oa4mpBuildRequest($kind, $adminClient, $clientIdentifier = null) {
+    $methods = array(
+      'read'   => 'GET',
+      'update' => 'PUT',
+      'delete' => 'DELETE',
+      'create' => 'POST'
+    );
+
+    if(!array_key_exists($kind, $methods)) {
+      throw new InvalidArgumentException("Unknown OA4MP request kind '" . $kind . "'");
+    }
+
+    $request = $this->oa4mpInitializeRequest($adminClient);
+    $request['method'] = $methods[$kind];
+
+    $query = $this->oa4mpRequestQuery($kind, $clientIdentifier);
+
+    // An empty query is left off the request entirely rather than assigned as an
+    // empty array, so the create request stays byte-for-byte what it is today
+    // instead of depending on how HttpSocket renders an empty query.
+    if(!empty($query)) {
+      $request['uri']['query'] = $query;
+    }
+
+    return $request;
+  }
+
+  /**
+   * Build the URI query for one kind of OA4MP server request.
+   *
+   * Split out for the same reason decodeServerResponse(), compareToServerObject()
+   * and verdictFromComparison() were: every call site around it constructs an
+   * HttpSocket and reaches a real server, so the hermetic tier could not
+   * otherwise observe which query a given request kind produces. Here that is
+   * not incidental -- the read query is the whole of this change, and the delete
+   * and update queries are the evidence that the change did NOT reach them.
+   * Asserting a source scan instead is the false-coverage shape recorded in
+   * docs/solutions/test-failures/oa4mp-green-run-does-not-prove-a-test-can-fail.md.
+   *
+   * Only the read query carries api_version. The server answers a client-read
+   * without it using an older representation that omits rt_grace_period and
+   * several sibling settings entirely, so those settings never reach the extras
+   * blob and are silently dropped from the next update. Asking for the newest
+   * representation is what makes them exist to be preserved.
+   *
+   * The update kind deliberately does NOT carry api_version. Whether the server
+   * requires it there to accept and retain those settings could not be
+   * established from this repository; the plan records that as assumption A1 and
+   * gates the production deploy on a live check. If A1 proves false, this method
+   * is the single place that changes.
+   *
+   * @since COmanage Registry 4.5.2
+   * @param  String $kind One of 'read', 'update', 'delete', 'create'.
+   * @param  String $clientIdentifier The OA4MP client_id, or null for 'create'.
+   * @return Array The query array to assign to $request['uri']['query'].
+   * @throws InvalidArgumentException On an unrecognised request kind.
+   */
+
+  protected function oa4mpRequestQuery($kind, $clientIdentifier = null) {
+    switch($kind) {
+      case 'read':
+        return array('client_id' => $clientIdentifier, 'api_version' => 'latest');
+      case 'update':
+      case 'delete':
+        return array('client_id' => $clientIdentifier);
+      case 'create':
+        // The create request carries no query at all. Returning the empty array
+        // rather than omitting the call keeps every request kind answerable from
+        // one observable place.
+        return array();
+      default:
+        throw new InvalidArgumentException("Unknown OA4MP request kind '"
+                                           . $kind . "'");
+    }
   }
 
   /**
@@ -1877,8 +1971,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     $http = new HttpSocket();
 
-    $request = $this->oa4mpInitializeRequest($adminClient);
-    $request['method'] = 'POST';
+    $request = $this->oa4mpBuildRequest('create', $adminClient);
 
     $body = $this->oa4mpMarshallContent($adminClient, $data);
 
@@ -2774,10 +2867,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
   function oa4mpVerifyClient($adminClient, $curClient, $returnExtras = false) {
     $http = new HttpSocket();
 
-    $request = $this->oa4mpInitializeRequest($adminClient);
-
     $client_id = $curClient['Oa4mpClientCoOidcClient']['oa4mp_identifier'];
-    $request['uri']['query'] = array('client_id' => $client_id);
+    $request = $this->oa4mpBuildRequest('read', $adminClient, $client_id);
 
     $this->log("OA4MP Server request URI is " . print_r($request['uri'], true));
     $this->log("OA4MP Server request method is " . print_r($request['method'], true));
