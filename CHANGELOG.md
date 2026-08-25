@@ -1,5 +1,14 @@
 # Changelog
 
+## 7.0.0-rc8 (2026-08-25)
+
+- Keep the refresh-token grace period, and the other settings the OA4MP server
+  holds for a client but the plugin does not model, when a client is edited.
+  The plugin asked the server for an older representation that did not report
+  those settings at all, so an edit sent the client back without them and the
+  server-side values were lost. Nothing in the Registry showed it; the loss
+  surfaced later as refresh-token behavior nobody had changed on purpose.
+
 ## 7.0.0-rc7 (2026-08-24)
 
 - Read a client back correctly when the OA4MP server answers in ISO-8859-1 and
