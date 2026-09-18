@@ -219,7 +219,19 @@ class Oa4mpClientCoOidcClient extends AppModel {
       'Oa4mpClientClaim' => array('Oa4mpClientClaimConstraint'),
       'Oa4mpClientCoLdapConfig' => array('Oa4mpClientCoSearchAttribute'),
       'Oa4mpClientCoNamedConfig',
-      'Oa4mpClientDynamoConfig',
+      // Nothing in the schema stops a client from carrying more than one
+      // configuration row, and clients migrated before the toClaim()
+      // duplicate-insert fix do. Without an order this hasOne returns an
+      // unspecified one of them, so the row read here could differ from the row
+      // a writer updated. Lowest id first is what every writer targets, and it
+      // is the row a keep-lowest-id dedup retains. The order sits here rather
+      // than on the association because an association-level order is carried
+      // into find('count'), where PostgreSQL rejects the column as missing from
+      // GROUP BY. See
+      // docs/solutions/logic-errors/oa4mp-toclaim-dynamo-config-duplicate-insert-2026-09-18.md.
+      'Oa4mpClientDynamoConfig' => array(
+        'order' => 'Oa4mpClientDynamoConfig.id ASC'
+      ),
     );
 
     $client = $this->find('first', $args);

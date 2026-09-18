@@ -256,6 +256,13 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
+# Raised from 292 to 297 for the toClaim() duplicate-insert fix, which added
+# four in Test/Case/Model/ClaimMigrationPersistenceTest.php (297 -> 301): two
+# migrations writing one configuration row, a migration updating an existing
+# row in place, the guard that the admin client default is never written
+# through, and a legacy-duplicate client where the row written and the row read
+# back must be the same one.
+#
 # Raised from 286 to 292 for the stale per-client DynamoDB configuration fix,
 # which added eight in Test/Case/Model/DynamoDefaultRotationTest.php
 # (289 -> 297): the rotated credential reaching the cfg and its unrefreshed
@@ -268,7 +275,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=292
+min_tests_run=297
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

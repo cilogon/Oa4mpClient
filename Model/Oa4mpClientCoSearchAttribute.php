@@ -649,9 +649,37 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
     $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->clear();
     $dynamoConfig['client_id'] = $clientId;
     unset($dynamoConfig['admin_id']);
-    unset($dynamoConfig['id']);
     unset($dynamoConfig['created']);
     unset($dynamoConfig['modified']);
+
+    // The id this arrives with is the admin client's DefaultDynamoConfig id --
+    // that is the row the controller read to get here. Saving with it would
+    // update the admin default, reconfiguring every client of that admin client
+    // from one client's migration, so it is dropped and replaced below by the
+    // client's own row id when the client has one.
+    //
+    // Without an id CakePHP treats the save as a new record and INSERTs
+    // (Model::getID() is empty, so exists() is false), which is one row per
+    // migrated search attribute on the same client, beside any row add()
+    // already created. See
+    // docs/solutions/logic-errors/oa4mp-admin-client-hasone-duplicate-insert-2026-06-30.md
+    // for the same mechanism on the admin-client edit form. Oa4mpClientDynamoConfig
+    // is a hasOne, so duplicates are worse than clutter: which one a later read
+    // returns is unspecified, and marshalling and the synchronization check act
+    // on whichever it gets.
+    unset($dynamoConfig['id']);
+
+    $args = array();
+    $args['conditions']['Oa4mpClientDynamoConfig.client_id'] = $clientId;
+    $args['contain'] = false;
+    // Lowest id first, so a client already carrying duplicates from before this
+    // fix updates the row an operator dedup would keep.
+    $args['order'] = 'Oa4mpClientDynamoConfig.id ASC';
+    $existing = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->find('first', $args);
+
+    if(!empty($existing['Oa4mpClientDynamoConfig']['id'])) {
+      $dynamoConfig['id'] = $existing['Oa4mpClientDynamoConfig']['id'];
+    }
 
     if(!$this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->save($dynamoConfig)) {
       $this->log("save failed for dynamoConfig " . print_r($dynamoConfig, true));
