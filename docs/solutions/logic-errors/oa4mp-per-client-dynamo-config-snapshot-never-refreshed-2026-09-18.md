@@ -158,4 +158,4 @@ now write the row twice in one request, from two different writers.
 - [oa4mp-comparator-marshaller-asymmetry-2026-08-22](./oa4mp-comparator-marshaller-asymmetry-2026-08-22.md)
   -- the symmetry this bug hid behind.
 
-Branch `fix/dynamo-config-refresh-from-admin-default`; merge pending.
+Landed in `cilogon/Oa4mpClient#25`.
