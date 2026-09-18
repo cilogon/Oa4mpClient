@@ -120,4 +120,93 @@ class Oa4mpClientDynamoConfig extends AppModel {
   public function validateAwsRegion($check) {
     return array_key_exists($check['aws_region'], AwsRegionEnum::$allAwsRegions);
   }
+
+  /**
+   * The configuration columns a per-client row copies from the admin client's
+   * default. Identity and bookkeeping columns (id, client_id, admin_id,
+   * created, modified) are deliberately absent: the per-client row keeps its
+   * own, and carrying the default's id into a save would update the default
+   * row instead of the client's.
+   *
+   * @since COmanage Registry 4.5.2
+   * @return Array Column names.
+   */
+
+  private function refreshableColumns() {
+    return array(
+      'aws_region',
+      'aws_access_key_id',
+      'aws_secret_access_key',
+      'table_name',
+      'partition_key',
+      'partition_key_template',
+      'partition_key_claim_name',
+      'sort_key',
+      'sort_key_template'
+    );
+  }
+
+  /**
+   * Compute the per-client configuration row refreshed from the admin client's
+   * DefaultDynamoConfig.
+   *
+   * Oa4mpClientCoOidcClientsController::add() copies the admin client's
+   * default into a per-client row when the client is created, and
+   * Oa4mpClientOa4mpServer::resolveDynamoConfig() prefers that row over the
+   * default. Nothing else ever wrote it, so a credential rotated on the admin
+   * client never reached an existing client's cfg: the snapshot taken at
+   * creation was marshalled forever. This is what brings the snapshot forward.
+   *
+   * Returns null -- meaning there is nothing to refresh -- in the two cases
+   * where writing a row would change behavior rather than preserve it:
+   *
+   * - The client has no real per-client row. CakePHP's Containable returns the
+   *   hasOne association as an array of null-valued fields rather than an
+   *   empty array, so aws_region is the test for a real row, the same test
+   *   resolveDynamoConfig() makes. Such a client already resolves to the admin
+   *   default on every marshall; creating a row for it would only reintroduce
+   *   the snapshot this method exists to correct. The id is required on top of
+   *   that test, which resolveDynamoConfig() has no reason to check: the
+   *   refreshed row is saved, and a save with no id inserts a second
+   *   configuration for the client rather than updating the one it has.
+   * - The admin client has no default configuration to copy. Overwriting a
+   *   populated per-client row with the phantom's nulls would empty the cfg.
+   * - The per-client row already holds the default's values. There is nothing
+   *   to bring forward, and saving it anyway would write the same row back on
+   *   every edit of every client.
+   *
+   * @since COmanage Registry 4.5.2
+   * @param Array $clientData Client data as read by
+   *              Oa4mpClientCoOidcClient::current(), carrying both
+   *              Oa4mpClientDynamoConfig and
+   *              Oa4mpClientCoAdminClient.DefaultDynamoConfig.
+   * @return Array|null The per-client row with the default's values, keeping
+   *                    its own id, or null when there is nothing to refresh.
+   */
+
+  public function refreshedFromAdminDefault($clientData) {
+    $perClient = $clientData['Oa4mpClientDynamoConfig'] ?? array();
+    $default = $clientData['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'] ?? array();
+
+    if(empty($perClient['aws_region']) || empty($perClient['id'])) {
+      return null;
+    }
+
+    if(empty($default['aws_region'])) {
+      return null;
+    }
+
+    $refreshed = $perClient;
+    $changed = false;
+
+    foreach($this->refreshableColumns() as $column) {
+      $refreshed[$column] = $default[$column] ?? null;
+
+      if($refreshed[$column] !== ($perClient[$column] ?? null)) {
+        $changed = true;
+      }
+    }
+
+    return $changed ? $refreshed : null;
+  }
 }

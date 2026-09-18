@@ -256,13 +256,19 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
+# Raised from 286 to 292 for the stale per-client DynamoDB configuration fix,
+# which added eight in Test/Case/Model/DynamoDefaultRotationTest.php
+# (289 -> 297): the rotated credential reaching the cfg and its unrefreshed
+# control, the in-place save, the three cases the refresh declines, the wiring
+# scan over the OIDC clients controller, and teardown completeness.
+#
 # These numbers are hand-maintained and have drifted once already: the floor
 # was raised from 143 to 155 while this comment went on citing the 146 tests it
 # was originally derived from. ClaimsControllerHarnessTest::
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=286
+min_tests_run=292
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

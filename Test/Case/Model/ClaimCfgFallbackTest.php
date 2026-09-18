@@ -52,6 +52,14 @@ class ClaimCfgFallbackTest extends Oa4mpTestCase {
   const AWS_ACCESS_KEY_ID = 'AKIAEXAMPLE';
   const AWS_SECRET_ACCESS_KEY = 'not-a-real-secret';
 
+  // The per-client row's credentials differ from the default's on purpose.
+  // They used to be the same values, which is what let the stale-snapshot bug
+  // hide: the positive control below asserted the per-client row wins while
+  // being unable to tell the two rows apart on the one field an operator
+  // actually rotates. See Test/Case/Model/DynamoDefaultRotationTest.php.
+  const PER_CLIENT_AWS_ACCESS_KEY_ID = 'AKIAEXAMPLEROTATED';
+  const PER_CLIENT_AWS_SECRET_ACCESS_KEY = 'not-a-real-rotated-secret';
+
   // Pinned so the emitted cfg does not depend on
   // COMANAGE_REGISTRY_OA4MP_QDL_CLAIM_DEFAULT or on the hard-coded fallback.
   const QDL_CLAIM_SOURCE = 'COmanageRegistry/test/dynamodb_claims.qdl';
@@ -148,8 +156,8 @@ class ClaimCfgFallbackTest extends Oa4mpTestCase {
   private function perClientConfig() {
     return array(
       'aws_region' => 'eu-west-1',
-      'aws_access_key_id' => self::AWS_ACCESS_KEY_ID,
-      'aws_secret_access_key' => self::AWS_SECRET_ACCESS_KEY,
+      'aws_access_key_id' => self::PER_CLIENT_AWS_ACCESS_KEY_ID,
+      'aws_secret_access_key' => self::PER_CLIENT_AWS_SECRET_ACCESS_KEY,
       'table_name' => 'per-client-registry',
       'partition_key' => 'uid',
       'partition_key_template' => '${uid}',

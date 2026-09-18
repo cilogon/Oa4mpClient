@@ -85,6 +85,15 @@ class ClaimCfgFixtureHygieneTest extends Oa4mpTestCase {
   const PLACEHOLDER_MARSHALLING_KEY_ID = 'AKIA';
   const PLACEHOLDER_MARSHALLING_SECRET = 'secret';
 
+  // The rotated forms, for fixtures that need a credential to CHANGE:
+  // Test/Case/Model/DynamoDefaultRotationTest.php seeds the admin client
+  // default with these and the client's own row with the two above, so a test
+  // reading the wrong row cannot pass. The key id is safe for the same reason
+  // PLACEHOLDER_ACCESS_KEY_ID is -- too short for KEY_ID_PATTERN, which needs
+  // sixteen characters after the prefix.
+  const PLACEHOLDER_ROTATED_ACCESS_KEY_ID = 'AKIAEXAMPLEROTATED';
+  const PLACEHOLDER_ROTATED_SECRET = 'not-a-real-rotated-secret';
+
   // Array-literal and class-constant forms of a credential-shaped field,
   // capturing the field name and the quoted value it holds. Either quote style
   // is accepted -- a single-quote-only pattern lets a double-quoted assignment
@@ -412,7 +421,9 @@ class ClaimCfgFixtureHygieneTest extends Oa4mpTestCase {
       self::PLACEHOLDER_KEY,
       self::PLACEHOLDER_PASSWORD,
       self::PLACEHOLDER_MARSHALLING_KEY_ID,
-      self::PLACEHOLDER_MARSHALLING_SECRET
+      self::PLACEHOLDER_MARSHALLING_SECRET,
+      self::PLACEHOLDER_ROTATED_ACCESS_KEY_ID,
+      self::PLACEHOLDER_ROTATED_SECRET
     );
   }
 
