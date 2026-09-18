@@ -412,6 +412,21 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       $newClient['Oa4mpClientCoEmailAddress'][0]['mail'] = $this->request->data['Oa4mpClientCoEmailAddress'][0]['mail'];
 
+      // The client's per-client Oa4mpClientDynamoConfig is a snapshot of the
+      // admin client's DefaultDynamoConfig taken when the client was created
+      // (see add()), and marshalling prefers it over the default. Bring it
+      // forward from the default so a credential rotated on the admin client
+      // reaches this client's cfg. Marshall with the refreshed values here,
+      // but persist them only after the server has accepted the edit below:
+      // writing them first would leave the plugin's copy ahead of the server's
+      // whenever the call fails, and every later edit would then report the
+      // client out of sync.
+      $refreshedDynamoConfig = $this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->refreshedFromAdminDefault($client);
+
+      if(!empty($refreshedDynamoConfig)) {
+        $newClient['Oa4mpClientDynamoConfig'] = $refreshedDynamoConfig;
+      }
+
       // Call out to oa4mp server.
       // Return value of 0 indicates an error saving the edit.
       // Return value of 2 indicates the plugin representation of the client
@@ -424,6 +439,29 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         // Set flash and fall through to the GET logic.
         $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
       } else {
+        // The server has accepted the refreshed configuration, so the plugin's
+        // copy is moved forward to match what was sent -- before the client
+        // save below, not after it. The client save can fail on its own
+        // validation (an invalid home URL, a malformed contact address), and
+        // that failure says nothing about what the server now holds. Leaving
+        // the refresh unpersisted in that case would put the plugin's copy
+        // behind the server's, and the synchronization check would report the
+        // client as modified outside the Registry from then on -- including on
+        // the next edit, which is gated by that same check, so the operator
+        // could not correct the form and recover.
+        //
+        // The row carries its own id, so this updates in place rather than
+        // inserting a second configuration row for the client.
+        if(!empty($refreshedDynamoConfig)) {
+          $this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->clear();
+
+          if(!$this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->save($refreshedDynamoConfig)) {
+            $this->log("Oa4mpClient: the OA4MP server accepted the refreshed Oa4mpClientDynamoConfig"
+                       . " for OIDC client " . $id . " but it could not be saved, so the plugin copy"
+                       . " is now behind the server copy");
+          }
+        }
+
         // Save the client.
         
         // For now we set proxy_limited to always be false.
