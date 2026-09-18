@@ -136,16 +136,14 @@ tracks the default.
   itself is locked by source scan rather than driven. A harness for that
   controller would turn the wiring test into a behavioral one.
 
-## Found alongside, not fixed here
+## Found alongside, fixed separately
 
-`Oa4mpClientCoSearchAttribute::toClaim()` saves its per-client configuration with
-`id` unset (`Model/Oa4mpClientCoSearchAttribute.php:649-656`), so it INSERTs
-rather than updating whenever the client already has a row -- which, since
-`add()` creates one for every client, is always. That is the duplicate-insert
-shape of the admin-client document below, in the one call site its fix never
-touched. It predates this change and is not reachable through the refresh (the
-refreshed row keeps its id), but an edit that triggers the legacy migration can
-now write the row twice in one request, from two different writers.
+`Oa4mpClientCoSearchAttribute::toClaim()` saved its per-client configuration with
+`id` unset, so it INSERTed rather than updating whenever the client already had a
+row -- the duplicate-insert shape of the admin-client document below, in the one
+call site its fix never touched. It predated this change, but it is what an edit
+triggering the legacy migration would have written beside the refreshed row. See
+[oa4mp-toclaim-dynamo-config-duplicate-insert-2026-09-18](./oa4mp-toclaim-dynamo-config-duplicate-insert-2026-09-18.md).
 
 ## Related Issues
 

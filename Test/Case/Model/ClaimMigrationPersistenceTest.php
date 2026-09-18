@@ -64,6 +64,7 @@ class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
         'claim_id IN (SELECT id FROM cm_oa4mp_client_claims WHERE client_id = ' . $clientId . ')',
       'cm_oa4mp_client_claims' => 'client_id = ' . $clientId,
       'cm_oa4mp_client_dynamo_configs' => 'client_id = ' . $clientId
+        . ' OR admin_id = ' . (int)$this->adminId
     ));
     $this->fx = null;
   }
@@ -148,6 +149,16 @@ class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
     }
   }
 
+  /** A second configuration, differing where an assertion can see it. */
+  private function rotatedDynamoConfig() {
+    return array('table_name' => 'oa4mp-rotated-table') + $this->validDynamoConfig();
+  }
+
+  private function dynamoConfigCount() {
+    return $this->fx->count('cm_oa4mp_client_dynamo_configs',
+      'client_id = ' . (int)$this->clientId);
+  }
+
   private function claimCount() {
     return $this->fx->count('cm_oa4mp_client_claims', 'client_id = ' . (int)$this->clientId);
   }
@@ -210,6 +221,128 @@ class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
     $this->assertEqual(0, (int)$this->fx->scalar(
       'SELECT COUNT(*) FROM cm_oa4mp_client_dynamo_configs WHERE client_id = '
       . (int)$this->clientId), 'the failing DynamoConfig save persists nothing');
+  }
+
+  /**
+   * The per-client DynamoDB configuration a migration writes must be the
+   * client's one row, updated in place. toClaim() saved it with the id unset,
+   * so CakePHP inserted a new row on every call -- one per search attribute on
+   * the same client.
+   */
+  public function testMigratingTwoSearchAttributesWritesOneDynamoConfig() {
+    $first = $this->seedSearchAttribute('gecos', 'gecos');
+    $second = $this->seedSearchAttribute('eduPersonOrcid', 'orcid');
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->validDynamoConfig(), $this->ldapConfig(), $first);
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->validDynamoConfig(), $this->ldapConfig(), $second);
+
+    $this->assertEqual(2, $this->claimCount(),
+      'both search attributes migrated, so the count below is about the '
+      . 'configuration rows and not about a migration that did not run');
+    $this->assertEqual(1, $this->dynamoConfigCount(),
+      'the client has one configuration row, not one per migrated search '
+      . 'attribute');
+  }
+
+  /**
+   * The same rule where the client already has a row, which is every client
+   * created through Oa4mpClientCoOidcClientsController::add(): it copies the
+   * admin client default into a per-client row at creation. A migration must
+   * update that row, never add a second one beside it.
+   */
+  public function testMigrationUpdatesAnExistingDynamoConfigInPlace() {
+    $existingId = $this->fx->insert('cm_oa4mp_client_dynamo_configs',
+      array('client_id' => $this->clientId, 'admin_id' => null)
+      + $this->validDynamoConfig());
+
+    $attr = $this->seedSearchAttribute('gecos', 'gecos');
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->rotatedDynamoConfig(), $this->ldapConfig(), $attr);
+
+    $this->assertEqual(1, $this->dynamoConfigCount(),
+      'the existing configuration row is updated, not duplicated');
+    $this->assertEqual($existingId, (int)$this->fx->scalar(
+      'SELECT id FROM cm_oa4mp_client_dynamo_configs WHERE client_id = '
+      . (int)$this->clientId), 'and it is still the same row');
+    $this->assertEqual('oa4mp-rotated-table', $this->fx->scalar(
+      'SELECT table_name FROM cm_oa4mp_client_dynamo_configs WHERE client_id = '
+      . (int)$this->clientId),
+      'carrying the values the migration was given');
+  }
+
+  /**
+   * A client carrying duplicate rows from before the fix: the row the migration
+   * updates and the row a later read returns must be the same one.
+   *
+   * The write side orders lowest id first, but that only means anything if the
+   * read side agrees -- a hasOne with no order returns an unspecified row, so
+   * the migration could update one duplicate while the marshaller and the
+   * synchronization check kept reading another, and the migration would look
+   * like it had succeeded while nothing observable changed.
+   */
+  public function testLegacyDuplicatesAreWrittenAndReadOnTheSameRow() {
+    $lowest = $this->fx->insert('cm_oa4mp_client_dynamo_configs',
+      array('client_id' => $this->clientId, 'admin_id' => null)
+      + $this->validDynamoConfig());
+    $higher = $this->fx->insert('cm_oa4mp_client_dynamo_configs',
+      array('client_id' => $this->clientId, 'admin_id' => null)
+      + $this->validDynamoConfig());
+
+    $this->assertTrue($lowest < $higher, 'the fixture seeded them in id order');
+
+    $attr = $this->seedSearchAttribute('gecos', 'gecos');
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->rotatedDynamoConfig(), $this->ldapConfig(), $attr);
+
+    $this->assertEqual('oa4mp-rotated-table', $this->fx->scalar(
+      'SELECT table_name FROM cm_oa4mp_client_dynamo_configs WHERE id = ' . (int)$lowest),
+      'the migration wrote the lowest-id row');
+
+    $curData = $this->model('Oa4mpClient.Oa4mpClientCoOidcClient')->current($this->clientId);
+
+    $this->assertEqual($lowest, (int)$curData['Oa4mpClientDynamoConfig']['id'],
+      'and a read returns that same row, not the other duplicate');
+    $this->assertEqual('oa4mp-rotated-table',
+      $curData['Oa4mpClientDynamoConfig']['table_name'],
+      'so what was written is what is read back');
+  }
+
+  /**
+   * The admin client's own DefaultDynamoConfig is what the controller hands
+   * toClaim(), and it arrives carrying its own id. That id must never reach the
+   * save: it would update the admin default row instead of the client's, and
+   * every client of that admin client would then be reconfigured by one
+   * client's migration.
+   *
+   * This is a guard, not a demonstration of the duplicate-insert bug: it held
+   * before the fix too, because dropping the incoming id was already what the
+   * pre-fix code did. It is here because the fix works by putting an id back
+   * into the save, and the wrong id is the failure that change invites.
+   */
+  public function testMigrationDoesNotWriteThroughToTheAdminDefault() {
+    $defaultId = $this->fx->insert('cm_oa4mp_client_dynamo_configs',
+      array('admin_id' => $this->adminId, 'client_id' => null)
+      + $this->validDynamoConfig());
+
+    $attr = $this->seedSearchAttribute('gecos', 'gecos');
+
+    // The shape the controller passes: the admin default row, id and all.
+    $adminDefault = array('id' => $defaultId, 'admin_id' => $this->adminId,
+      'client_id' => null) + $this->rotatedDynamoConfig();
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $adminDefault, $this->ldapConfig(), $attr);
+
+    $this->assertEqual('oa4mp-test-table', $this->fx->scalar(
+      'SELECT table_name FROM cm_oa4mp_client_dynamo_configs WHERE id = '
+      . (int)$defaultId),
+      'the admin client default is left exactly as it was');
+    $this->assertEqual(1, $this->dynamoConfigCount(),
+      'and the client got its own single row');
   }
 
   /**
