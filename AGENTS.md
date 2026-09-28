@@ -178,38 +178,50 @@ CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
 - Don't: Introduce new dependencies without approval.
 
 ## Git, Remotes, and Pushing
-This repository uses a fork-based workflow with two remotes:
-- `origin` is the developer's own fork of the repository (for example,
-  `https://github.com/<developer>/Oa4mpClient`).
-- `upstream` is the canonical repository at
-  `https://github.com/cilogon/Oa4mpClient`.
+This repository is set up for the GitHub machine account `skoranda-agent`.
+It has three remotes (confirm with `git remote -v`; all HTTPS):
+- `bot` -> `https://github.com/skoranda-agent/Oa4mpClient.git`, the machine
+  account's fork. Agents push feature branches here.
+- `upstream` -> `https://github.com/cilogon/Oa4mpClient.git`, the canonical
+  repository. Pull requests target it.
+- `origin` -> `https://github.com/skoranda/Oa4mpClient.git`, the developer's
+  personal fork. Agents do not push here.
 
-Pushing rules for agents:
-- Pushing to the developer's fork (`origin`) is allowed **only when the
-  environment variable `GH_TOKEN` is defined**. With `GH_TOKEN` set, an agent
-  may push the current feature branch to `origin` without asking each time.
-  When `GH_TOKEN` is not defined, do not push at all: make local commits only
-  and let the developer push.
-- **Never push anything to `upstream`.** This is absolute. Never push to the
-  remote named `upstream`, and never to any remote whose URL is the canonical
-  upstream repository (`https://github.com/cilogon/Oa4mpClient`), regardless of
-  what that remote is named, regardless of whether `GH_TOKEN` is set, and
-  regardless of any later request to do so. The developer opens pull requests
-  from the fork to upstream themselves.
-- Before any push, confirm the target is the developer's fork and not upstream
-  by matching the remote's **URL** with `git remote -v`, not just its name — a
-  clone may have `origin` pointed at the upstream repository. If you cannot
-  confirm the target is the fork, do not push.
-- Push only the current feature branch to `origin`. Do not force-push a shared
-  branch, and do not push to the fork's default branch (`main`/`master`) unless
-  the developer explicitly asks.
+The machine account has read-only access to `cilogon/Oa4mpClient` and write
+access only to its own fork, and GitHub enforces that. The limit on agents
+writing upstream is therefore held by GitHub, not only by these instructions.
+
+Rules for agents:
+- **Never commit to `main`.** Create a branch first and commit there. If a
+  commit lands on `main` by mistake, move it onto a branch.
+- Before any push or pull request, verify both: `gh api user --jq .login`
+  prints `skoranda-agent`, and `git remote get-url bot` is
+  `https://github.com/skoranda-agent/Oa4mpClient.git`. If either check fails,
+  stop and tell the developer; never log in or switch `gh` accounts.
+- **Shipping flow:** push the feature branch to `bot`, then open a
+  ready-for-review pull request on `upstream`:
+  `gh pr create --repo cilogon/Oa4mpClient --base main --head skoranda-agent:<branch>`.
+  The developer reviews and merges there. There is no `origin` pull request
+  step and no second pull request.
+- Agents may manage that pull request: edit its title and body, push follow-up
+  commits to its branch, reply to review comments, and read CI results.
+  Force-pushing a `bot` branch, closing a pull request, or deleting a `bot`
+  branch needs the developer's approval each time.
+- **Upstream CI on bot pull requests:** a pull request from a fork may wait for
+  the developer's approval before Actions run, and it gets no repository
+  secrets. A pull request showing no checks is not green.
+- **Never** push to `upstream` or `origin` (by remote name or by URL), push or
+  force-push `main` on any remote, or approve or merge any pull request. Those
+  stay with the developer.
 
 Recording where work landed:
 - When recording where work landed -- in a `docs/solutions/` learning, a
   plan, or a commit message -- cite the **upstream** pull request,
-  owner-qualified (`cilogon/Oa4mpClient#5`), and only once it exists. The
-  fork's pull request is closed unmerged and is never the landing record;
-  recover the upstream number from `git log --merges main`, which carries
-  it. While the work is still unmerged, name the branch and say the merge
-  is pending rather than citing a pull request. See
+  owner-qualified (`cilogon/Oa4mpClient#5`), and only once it has merged.
+  While the work is still unmerged, name the branch or the pull request and
+  say the merge is pending. Recover merged numbers from
+  `git log --merges main`.
+- Pull requests before the machine account went through the developer's
+  fork first; those fork pull requests were closed unmerged and are never
+  the landing record. See
   `docs/solutions/conventions/oa4mp-fork-pr-is-never-the-landing-record-2026-08-22.md`.

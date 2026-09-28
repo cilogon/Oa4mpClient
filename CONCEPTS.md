@@ -124,19 +124,20 @@ correct data, and it trains operators to distrust the check.
 ## Workflow and verification
 
 ### Landing record
-The durable identifier for where a change actually merged. Because this project
-is developed on a fork and merged in the canonical repository, work passes
-through two pull requests with different numbers, and only the canonical one is
-the landing record. Anything that records where a change landed — a learning, a
-plan, a commit message — cites that one, qualified by repository because a bare
-number is ambiguous across the two. Until the merge happens there is no landing
-record; name the branch and say the merge is pending instead.
+The durable identifier for where a change actually merged: the pull request on
+the canonical repository, cited qualified by repository because a bare number
+is ambiguous across forks. Anything that records where a change landed -- a
+learning, a plan, a commit message -- cites that one. Until the merge happens
+there is no landing record; name the branch and say the merge is pending
+instead.
 
 ### Fork pull request
-The pull request opened against the developer's own fork, used to read a change
-and confirm its checks. It is always closed unmerged and is never the Landing
-record. Its counterpart, the **upstream pull request**, is opened against the
-canonical repository, is where the work merges, and carries a different number.
+Before the machine account, a pull request opened against the developer's own
+fork, used to read a change and confirm its checks. Each one was closed
+unmerged and is never the Landing record; its counterpart on the canonical
+repository, the **upstream pull request**, carries a different number. Work
+now goes from the machine account's fork straight to one upstream pull
+request, so no new fork pull requests are opened.
 
 ### Hermetic tier
 The automated test tier that runs with no credentials and no network access to
