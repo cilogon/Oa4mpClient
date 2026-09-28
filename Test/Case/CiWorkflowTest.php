@@ -166,6 +166,29 @@ class CiWorkflowTest extends Oa4mpTestCase {
     }
   }
 
+  /**
+   * The gate's Registry image must come from GHCR, pinned by digest.
+   *
+   * Pulled anonymously from public.ecr.aws, the image intermittently failed
+   * with "toomanyrequests: Data limit exceeded" before any test ran (runs #39
+   * and #47 on 2026-09-28), because runners share the anonymous quota. The
+   * gate needs no secrets, so logging in to ECR is not an option; the same
+   * digest is mirrored to a public GHCR package instead.
+   */
+  public function testRegistryImageIsPulledFromGhcrByDigest() {
+    $path = App::pluginPath('Oa4mpClient') . 'Test' . DS . 'docker' . DS . 'docker-compose.yml';
+    $this->assertTrue(is_readable($path), "the compose file exists at $path");
+    $yaml = $this->directives(file_get_contents($path));
+
+    $this->assertTrue((bool)preg_match(
+      '/\$\{OA4MP_TEST_REGISTRY_IMAGE:-ghcr\.io\/cilogon\/comanage-registry@sha256:[0-9a-f]{64}\}/',
+      $yaml),
+      'the default Registry image must be ghcr.io/cilogon/comanage-registry pinned by digest');
+    $this->assertTrue(strpos($yaml, 'public.ecr.aws') === false,
+      'no default image may be pulled from public.ecr.aws; its anonymous quota '
+      . 'fails the gate intermittently');
+  }
+
   /** The credential file must be gitignored so a real secret cannot be committed. */
   public function testLiveCredentialFileIsGitignored() {
     $path = App::pluginPath('Oa4mpClient') . '.gitignore';

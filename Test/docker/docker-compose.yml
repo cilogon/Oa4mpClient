@@ -28,7 +28,12 @@ services:
     # Digest-pinned for the gating tier (KTD4, R7). Bumping this pin is an
     # explicit, reviewable change; set OA4MP_TEST_REGISTRY_IMAGE to try another
     # image without editing the file.
-    image: ${OA4MP_TEST_REGISTRY_IMAGE:-public.ecr.aws/cilogon/comanage-registry@sha256:e41c82a9148757bd310351ffdac8f3bdd10a6a37c8865f9c98ceb7bc319279d9}
+    #
+    # Pulled from a public GHCR copy of the CILogon image, not from
+    # public.ecr.aws: anonymous ECR Public pulls from Actions runners failed
+    # intermittently with "toomanyrequests: Data limit exceeded". Copy a new
+    # digest to GHCR before bumping this pin; see Test/README.md.
+    image: ${OA4MP_TEST_REGISTRY_IMAGE:-ghcr.io/cilogon/comanage-registry@sha256:e41c82a9148757bd310351ffdac8f3bdd10a6a37c8865f9c98ceb7bc319279d9}
     depends_on:
       comanage-registry-database:
         condition: service_healthy
