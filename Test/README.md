@@ -10,7 +10,9 @@ with the plugin-under-test overlaid over the image's bundled release. Validated
 facts:
 
 - **Image:** `public.ecr.aws/cilogon/comanage-registry:latest` (~1.07 GB),
-  PHP 8.4.24, CakePHP 2.10.24, app root `/srv/comanage-registry/app`.
+  PHP 8.4.24, CakePHP 2.10.24, app root `/srv/comanage-registry/app`. The
+  suite now pulls a digest-identical copy from GHCR; see "Bumping the Registry
+  image" below.
 - **Overlay target:** the released plugin lives at
   `app/Plugin/Oa4mpClient`; the compose file bind-mounts this checkout there.
 - **Database:** Postgres (the image's default `COMANAGE_REGISTRY_DATASOURCE`),
@@ -283,6 +285,32 @@ The Registry and database images are pinned by digest in
 request's code rather than image drift; bumping a pin is an explicit, reviewable
 change. Set `OA4MP_TEST_REGISTRY_IMAGE` or `OA4MP_TEST_DATABASE_IMAGE` to try a
 different image locally without editing the file.
+
+### Bumping the Registry image
+
+The default Registry image is `ghcr.io/cilogon/comanage-registry`, a public
+copy of `public.ecr.aws/cilogon/comanage-registry` with the same digest.
+Anonymous pulls from ECR Public on Actions runners intermittently fail with
+`toomanyrequests: Data limit exceeded`, and the gate cannot log in to ECR
+because it uses no secrets. `CiWorkflowTest::testRegistryImageIsPulledFromGhcrByDigest`
+keeps the default on GHCR.
+
+To move to a new image, someone with package write access in the `cilogon`
+organization copies the new digest to GHCR first, then the pin is bumped:
+
+```bash
+docker buildx imagetools create \
+  --tag ghcr.io/cilogon/comanage-registry:oa4mp-test-<short-digest> \
+  public.ecr.aws/cilogon/comanage-registry@sha256:<digest>
+docker buildx imagetools inspect ghcr.io/cilogon/comanage-registry:oa4mp-test-<short-digest>
+```
+
+`imagetools create` wraps a single-platform image in a new manifest list with
+its own digest. The original manifest is kept inside it unchanged, so pin the
+**original** digest (the `linux/amd64` entry in the inspect output), not the
+list's. `crane copy` or `skopeo copy` copy the manifest as-is and avoid the
+wrapper. Check that an anonymous pull by that digest works (after
+`docker logout ghcr.io`) before opening the pull request.
 
 ## The live-server tier
 
