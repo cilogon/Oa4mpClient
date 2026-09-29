@@ -433,8 +433,13 @@ configuration*. It has these settings:
   group; the URL to send users to when they are not members of that group. If
   you leave it blank, the client receives a standard protocol error message
   instead.
-- **Require Active Status** -- when checked (the default), a user's record must
-  have active status to access the client.
+- **Require Active Status** -- when checked, a user's record must have active
+  status to access the client. A new confidential client is created with it
+  checked, and it is in force from creation. The box shows the saved setting:
+  a client created before this default, whose setting was never saved, shows it
+  unchecked and does not require active status until you check it and select
+  **Save**. A public client cannot require active status, because the OA4MP
+  server accepts no custom configuration on a public client.
 - **Active Status Redirect URL** -- appears when Require Active Status is
   checked; where to send users who do not have active status. If blank, the
   client receives a standard protocol error message.
