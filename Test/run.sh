@@ -256,17 +256,18 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
-# Raised from 297 to 315 for the Require Active Status default on new
-# confidential clients, which added sixteen (302 -> 318): three in
+# Raised from 297 to 317 for the Require Active Status default on new
+# confidential clients, which added eighteen (302 -> 320): three in
 # Test/Case/Model/AuthorizationCreateSaveTest.php (a new client saves with its
 # authorization row, saves without one, and an update still requires
-# client_id); seven in Test/Case/Model/CreateTimeCfgTest.php (confidential
+# client_id); nine in Test/Case/Model/CreateTimeCfgTest.php (confidential
 # and public create data, the admin DynamoDB default and QDL script in the
 # create cfg, no marshalling warnings, create cfg equal to the edit cfg, the
-# read-back sync verdict, and the no-row edit case); and six in
-# Test/Case/Model/RequireActivePredicateTest.php (no row, saved off, saved
-# NULL, saved on, the posted strings, and the Authorization template's
-# binding to the saved value).
+# read-back sync verdict, the no-row edit case, an unbuildable cfg stopping
+# the create before it is sent, and add() sending and saving the builder
+# output); and six in Test/Case/Model/RequireActivePredicateTest.php (no row,
+# saved off, saved NULL, saved on, the posted strings, and the Authorization
+# template's binding to the saved value).
 #
 # Raised from 292 to 297 for the toClaim() duplicate-insert fix, which added
 # four in Test/Case/Model/ClaimMigrationPersistenceTest.php (297 -> 301): two
@@ -287,7 +288,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=315
+min_tests_run=317
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

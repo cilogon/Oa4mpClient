@@ -139,7 +139,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
       // Call out to Oa4mp server to create the new client. Building the cfg
       // can throw (for example on an unreadable cfg contract) before anything
-      // is sent, so nothing has been created when it does.
+      // is sent, and then nothing has been created. An exception from the
+      // request itself is shown the same way, though the server may already
+      // have created the client.
       try {
         $newClient = $oa4mpServer->oa4mpNewClient($adminClient, $marshallData);
       } catch(Exception $e) {

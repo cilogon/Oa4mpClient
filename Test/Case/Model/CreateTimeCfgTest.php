@@ -19,6 +19,21 @@
  * U2 (R1, R2, R3, R6, R8, AE1, AE6, KTD1, KTD3, KTD4, KTD5).
  */
 
+/**
+ * Reads its cfg contract from $contractPath, so a test can make building the
+ * cfg fail. Test/Case/Model/ContractRedactionTest.php overrides the same
+ * method the same way.
+ */
+class Oa4mpCreateTimeContractProbe extends Oa4mpClientOa4mpServer {
+
+  /** @var string Where this instance reads its contract from. */
+  public $contractPath = '';
+
+  protected function cfgContractPath() {
+    return $this->contractPath;
+  }
+}
+
 class CreateTimeCfgTest extends Oa4mpTestCase {
 
   const QDL_CLAIM_SOURCE = 'COmanageRegistry/test/create_time_claims.qdl';
@@ -304,5 +319,70 @@ class CreateTimeCfgTest extends Oa4mpTestCase {
     $content = $this->server()->oa4mpMarshallContent($this->adminClient(), $current);
     $this->assertFalse(isset($this->qdlArgs($content)['require_active_status']),
       'no require_active_status is sent for a client with no authorization row');
+  }
+
+  /**
+   * Covers AE4: when the cfg cannot be built, oa4mpNewClient() throws while
+   * building the request body, before it sends anything. The Add action's
+   * catch relies on this to show the create error with nothing created.
+   */
+  public function testUnbuildableCfgStopsTheCreateBeforeItIsSent() {
+    $admin = $this->adminClient();
+    list($saveData, $marshallData) = $this->server()->newClientData($admin, $this->posted('0'));
+
+    $probe = new Oa4mpCreateTimeContractProbe();
+    $probe->contractPath = sys_get_temp_dir() . DS . 'oa4mp_contract_absent_'
+                         . getmypid() . '.json';
+    $this->assertFalse(is_file($probe->contractPath),
+      'premise: the contract path names no file');
+
+    $thrown = null;
+    try {
+      $probe->oa4mpNewClient($admin, $marshallData);
+    } catch (RuntimeException $e) {
+      $thrown = $e;
+    }
+
+    $this->assertTrue($thrown !== null,
+      'an unbuildable cfg throws from oa4mpNewClient()');
+    $this->assertContains('cfg capability contract cannot be read', $thrown->getMessage(),
+      'the failure is the cfg contract, raised while building the body');
+  }
+
+  /**
+   * The Add action sends the builder's marshalling copy inside the catch that
+   * turns a failure into the create error, and saves the builder's save data.
+   * Sending or saving the raw posted data instead would create the client
+   * with no cfg or save it with no authorization row, and nothing else in the
+   * suite drives add().
+   */
+  public function testAddSendsAndSavesTheBuilderOutput() {
+    $path = App::pluginPath('Oa4mpClient') . 'Controller' . DS
+      . 'Oa4mpClientCoOidcClientsController.php';
+    $this->assertTrue(is_readable($path), "the OIDC clients controller exists at $path");
+
+    $source = file_get_contents($path);
+    $start = strpos($source, 'function add()');
+    $end = strpos($source, 'function calculateImpliedCoId(');
+    $this->assertTrue($start !== false && $end !== false && $start < $end,
+      'add() is found in the controller');
+    $add = substr($source, $start, $end - $start);
+
+    $build = strpos($add, 'list($saveData, $marshallData) = $oa4mpServer->newClientData($adminClient, $data);');
+    $try = strpos($add, 'try {');
+    $send = strpos($add, '$oa4mpServer->oa4mpNewClient($adminClient, $marshallData)');
+    $catch = strpos($add, 'catch(Exception $e)');
+    $failed = strpos($add, "_txt('pl.oa4mp_client_co_admin_client.er.create_error')");
+    $save = strpos($add, '->saveAssociated($saveData, $args)');
+
+    $this->assertTrue($build !== false, 'add() builds the create data with newClientData()');
+    $this->assertTrue($send !== false, 'add() sends the marshalling copy, not the posted data');
+    $this->assertTrue($try !== false && $catch !== false && $try < $send && $send < $catch,
+      'the send is inside the try whose catch handles a failed create');
+    $this->assertTrue($failed !== false && $catch < $failed,
+      'a caught failure reaches the create error flash');
+    $this->assertTrue($save !== false && $failed < $save,
+      'add() saves the save data, and only after a successful create');
+    $this->assertTrue($build < $send, 'the data is built before it is sent');
   }
 }
