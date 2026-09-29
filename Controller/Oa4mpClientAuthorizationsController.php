@@ -155,6 +155,10 @@ class Oa4mpClientAuthorizationsController extends StandardController {
 
     $this->request->data = $client;
 
+    // Tick Require Active Status only when it was actually saved, asking the
+    // same question the marshaller asks before sending it to the server.
+    $this->set('vv_require_active', $oa4mpServer->requiresActiveStatus($client));
+
     $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));
   }
