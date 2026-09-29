@@ -712,6 +712,76 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * Whether client data describes a public client. Posted form data carries
+   * '0' or '1'; data read from the database carries a boolean.
+   *
+   * @param array $data Client data including Oa4mpClientCoOidcClient
+   * @return boolean
+   */
+
+  function isPublicClient($data) {
+    return !empty($data['Oa4mpClientCoOidcClient']['public_client']);
+  }
+
+  /**
+   * Whether client data requires an active CO Person record (Require Active
+   * Status). The marshaller and the Authorization tab both ask this one
+   * question, so what is sent to the OA4MP server and what the tab shows
+   * cannot drift apart.
+   *
+   * A client with no authorization row is read by Containable as an array of
+   * null-valued fields, so this tests the require_active value itself, never
+   * the presence of the association.
+   *
+   * @param array $data Client data including Oa4mpClientAuthorization
+   * @return boolean
+   */
+
+  function requiresActiveStatus($data) {
+    return !empty($data['Oa4mpClientAuthorization']['require_active']);
+  }
+
+  /**
+   * Build the data for a new OIDC client from the posted Add form data.
+   *
+   * Returns the data to save with saveAssociated() and a copy to marshal for
+   * the OA4MP create request.
+   *
+   * @param array $adminClient Admin client the new client belongs to
+   * @param array $data Posted client data
+   * @return array list($saveData, $marshallData)
+   */
+
+  function newClientData($adminClient, $data) {
+    $saveData = $data;
+
+    // The DynamoDB configuration starts as the admin client's default.
+    $saveData['Oa4mpClientDynamoConfig'] = $adminClient['DefaultDynamoConfig'];
+    unset($saveData['Oa4mpClientDynamoConfig']['id']);
+    unset($saveData['Oa4mpClientDynamoConfig']['admin_id']);
+
+    // A confidential client requires Active Status from creation. A public
+    // client cannot carry a cfg, so it gets no authorization row.
+    unset($saveData['Oa4mpClientAuthorization']);
+
+    if(!$this->isPublicClient($data)) {
+      $saveData['Oa4mpClientAuthorization'] = array('require_active' => true);
+    }
+
+    // Marshall from the shape a later edit marshalls from (current()): with
+    // the admin client, its DefaultDynamoConfig, and a claims list. Otherwise
+    // the create cfg loads a different QDL script than the admin client
+    // configures. The admin client is kept out of the save data because
+    // saveAssociated() would save it again.
+    $marshallData = $saveData;
+    $marshallData['Oa4mpClientCoAdminClient'] = $adminClient['Oa4mpClientCoAdminClient'];
+    $marshallData['Oa4mpClientCoAdminClient']['DefaultDynamoConfig'] = $adminClient['DefaultDynamoConfig'];
+    $marshallData['Oa4mpClientClaim'] = array();
+
+    return array($saveData, $marshallData);
+  }
+
+  /**
    * Reduce one claim row to the normalized shape isClientDataSynchronized()
    * compares.
    *
@@ -1573,7 +1643,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // $dropEmpty false and still emits exactly the keys it always did.
     $authzArgs = array();
 
-    if(!empty($data['Oa4mpClientAuthorization']) && $data['Oa4mpClientAuthorization']['require_active']) {
+    if($this->requiresActiveStatus($data)) {
       $authzArgs['require_active_status'] = $data['Oa4mpClientAuthorization']['require_active'];
     }
 
@@ -1826,10 +1896,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // Default is a non-public client.
     $content['token_endpoint_auth_method'] = 'client_secret_basic';
 
-    if(!empty($data['Oa4mpClientCoOidcClient']['public_client'])) {
-      if($data['Oa4mpClientCoOidcClient']['public_client']) {
-        $content['token_endpoint_auth_method'] = 'none';
-      }
+    if($this->isPublicClient($data)) {
+      $content['token_endpoint_auth_method'] = 'none';
     }
 
     $content['grant_types'] = array();
@@ -1921,10 +1989,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // OA4MP rejects custom configurations (cfg) on public clients with
     // "custom configurations not permitted in public clients", so only
     // marshall and attach a cfg for confidential (non-public) clients.
-    $isPublicClient = !empty($data['Oa4mpClientCoOidcClient']['public_client'])
-                      && $data['Oa4mpClientCoOidcClient']['public_client'];
-
-    if(!$isPublicClient &&
+    if(!$this->isPublicClient($data) &&
        (!empty($data['Oa4mpClientCoLdapConfig']) ||
         !empty($data['Oa4mpClientCoOidcClient']['named_config_id']) ||
         !empty($data['Oa4mpClientAccessToken']) ||

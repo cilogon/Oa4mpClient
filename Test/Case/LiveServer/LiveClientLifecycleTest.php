@@ -209,6 +209,49 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
   }
 
   /**
+   * A confidential client created the way the Add action creates it -- from
+   * newClientData(), so requiring Active Status and carrying a cfg on the
+   * create request -- is accepted, and reads back in sync.
+   *
+   * Before this, no create request carried a cfg; only edits did. The sync
+   * verdict also proves the server stored the authorization: a plugin row
+   * with require_active on and no authorization on the server is reported
+   * out of sync.
+   */
+  public function testConfidentialClientCreatedRequiringActiveStatusStaysInSync() {
+    $admin = $this->adminClient;
+    $admin['Oa4mpClientCoAdminClient']['qdl_claim_source'] = 'COmanageRegistry/default/dynamodb_claims.qdl';
+    // Synthetic DynamoDB default. The server stores it at create; it is only
+    // used when a token is issued, which this tier never does.
+    $admin['DefaultDynamoConfig'] = array(
+      'aws_region' => 'us-east-2',
+      'aws_access_key_id' => 'AKIAEXAMPLE',
+      'aws_secret_access_key' => 'not-a-real-secret',
+      'table_name' => 'oa4mp-live-test',
+      'partition_key' => 'sub',
+      'partition_key_template' => '${sub}',
+      'partition_key_claim_name' => 'sub'
+    );
+
+    $posted = $this->clientData(false);
+    unset($posted['Oa4mpClientClaim']);
+    $posted['Oa4mpClientCoOidcClient']['public_client'] = '0';
+
+    list($saveData, $marshallData) = $this->server()->newClientData($admin, $posted);
+
+    $content = $this->server()->oa4mpMarshallContent($admin, $marshallData);
+    $this->assertTrue(!empty($content['cfg']['tokens']['identity']['qdl']['args']['require_active_status']),
+      'premise: the create request carries require_active_status');
+
+    $result = $this->createClient($marshallData);
+
+    $current = $this->currentData($marshallData, $result['clientId']);
+    $this->assertTrue($this->server()->oa4mpVerifyClient($admin, $current) === true,
+      'the client created requiring Active Status must read back in sync, and'
+      . ' the check must have actually run');
+  }
+
+  /**
    * An edit is accepted and the client still reads back in sync afterwards.
    */
   public function testEditIsAcceptedAndStaysInSync() {

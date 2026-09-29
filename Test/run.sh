@@ -256,6 +256,15 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
+# Raised from 297 to 309 for the Require Active Status default on new
+# confidential clients, which added ten (302 -> 312): three in
+# Test/Case/Model/AuthorizationCreateSaveTest.php (a new client saves with its
+# authorization row, saves without one, and an update still requires
+# client_id) and seven in Test/Case/Model/CreateTimeCfgTest.php (confidential
+# and public create data, the admin DynamoDB default and QDL script in the
+# create cfg, no marshalling warnings, create cfg equal to the edit cfg, the
+# read-back sync verdict, and the no-row edit case).
+#
 # Raised from 292 to 297 for the toClaim() duplicate-insert fix, which added
 # four in Test/Case/Model/ClaimMigrationPersistenceTest.php (297 -> 301): two
 # migrations writing one configuration row, a migration updating an existing
@@ -275,7 +284,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=297
+min_tests_run=309
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
