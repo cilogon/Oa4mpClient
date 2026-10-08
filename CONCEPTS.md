@@ -22,6 +22,9 @@ A redirect URI registered on an OIDC client, to which the authorization server
 returns the user after authentication. An OIDC client carries a list of them.
 *Avoid:* callback URL (use Callback for the registered entry).
 
+### Require Active Status
+An OIDC client authorization setting under which the OA4MP server refuses a user whose CO Person record is not active. It is in force only when saved: a client with no saved setting does not require Active Status, whatever a form might suggest. New confidential OIDC clients are created with it on; public clients cannot carry it, because OA4MP accepts no custom configuration on them; clients created before that default keep whatever setting they had.
+
 ## Configuration
 
 ### cfg

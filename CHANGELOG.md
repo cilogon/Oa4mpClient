@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Create new confidential clients requiring active status, and enforce it
+  from creation. The Authorization tab showed Require Active Status as the
+  default, but nothing saved it, so a new client did not require an active
+  record unless someone saved that tab. Public clients are unchanged: the
+  OA4MP server accepts no custom configuration on them.
+- Show Require Active Status on the Authorization tab only when it is saved.
+  A client whose setting was never saved, or was saved with no value, now
+  shows it unchecked, matching what the server enforces. Saving such a client
+  with the box unchecked also clears any Active Status Redirect URL it holds.
+
 ## 7.0.0-rc8 (2026-08-25)
 
 - Keep the refresh-token grace period, and the other settings the OA4MP server

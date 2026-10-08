@@ -131,9 +131,23 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $data['Oa4mpClientCoScope'] = array();
       $data['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::OpenId;
 
-      // Call out to Oa4mp server to create the new client.
+      // Build the data to save and the data to send to the Oa4mp server. A
+      // confidential client requires Active Status from creation, and its
+      // DynamoDB configuration starts as the admin client's default.
       $oa4mpServer = new Oa4mpClientOa4mpServer();
-      $newClient = $oa4mpServer->oa4mpNewClient($adminClient, $data);
+      list($saveData, $marshallData) = $oa4mpServer->newClientData($adminClient, $data);
+
+      // Call out to Oa4mp server to create the new client. Building the cfg
+      // can throw (for example on an unreadable cfg contract) before anything
+      // is sent, and then nothing has been created. An exception from the
+      // request itself is shown the same way, though the server may already
+      // have created the client.
+      try {
+        $newClient = $oa4mpServer->oa4mpNewClient($adminClient, $marshallData);
+      } catch(Exception $e) {
+        $this->log("Oa4mpClient: creating a new OIDC client failed: " . $e->getMessage());
+        $newClient = array();
+      }
 
       if(empty($newClient)) {
         $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.create_error'), array('key' => 'error'));
@@ -143,7 +157,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       // Set the client ID returned by the oa4mp server so it is saved and also
       // set a view variable so it can be displayed. The client secret, if provided, is also
       // set as a view variable so it can be displayed but it is NOT saved.
-      $data['Oa4mpClientCoOidcClient']['oa4mp_identifier'] = $newClient['clientId'];
+      $saveData['Oa4mpClientCoOidcClient']['oa4mp_identifier'] = $newClient['clientId'];
       $this->set('vv_client_id', $newClient['clientId']);
 
       if(!empty($newClient['secret'])) {
@@ -151,17 +165,12 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       }
 
       // For now we set proxy_limited to always be false.
-      $data['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
-
-      // For now we set the DynamoDB configuration to the default.
-      $data['Oa4mpClientDynamoConfig'] = $adminClient['DefaultDynamoConfig'];
-      unset($data['Oa4mpClientDynamoConfig']['id']);
-      unset($data['Oa4mpClientDynamoConfig']['admin_id']);
+      $saveData['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
 
       // Save the client and associated data.
       $args = array();
       $args['deep'] = true;
-      $ret = $this->Oa4mpClientCoOidcClient->saveAssociated($data, $args);
+      $ret = $this->Oa4mpClientCoOidcClient->saveAssociated($saveData, $args);
 
       if(!$ret) {
         $this->Flash->set(_txt('er.fields'), array('key' => 'error'));

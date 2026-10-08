@@ -152,9 +152,8 @@ if(!empty($authorization['id'])) {
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <?php 
-          $checked = isset($authorization['require_active']) ? $authorization['require_active'] : true;
-          print $this->Form->input('require_active', array('type' => 'checkbox', 'value' => 1, 'checked' => $checked)) 
+        <?php
+          print $this->Form->input('require_active', array('type' => 'checkbox', 'value' => 1, 'checked' => $vv_require_active))
         ?>
       </span>
     </div>

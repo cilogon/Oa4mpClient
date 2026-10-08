@@ -44,9 +44,12 @@ class Oa4mpClientAuthorization extends AppModel {
   
   // Validation rules for table elements
   public $validate = array(
+    // Required only on update: when a new OIDC client is saved together with
+    // its authorization row, saveAssociated() validates this row before the
+    // client exists and sets client_id only when it saves the row.
     'client_id' => array(
       'rule' => 'numeric',
-      'required' => true,
+      'required' => 'update',
       'allowEmpty' => false
     ),
     'authz_co_group_id' => array(
