@@ -43,7 +43,7 @@ No fix attempt failed here. The problem is that the defect stayed hidden, and th
 
 ## Solution
 
-The fix is on branch `feat/require-active-status-default`, pull request pending. It has four parts.
+The fix landed in cilogon/Oa4mpClient#31. It has four parts.
 
 **1. One predicate for "does this client require Active Status".** `Oa4mpClientOa4mpServer::requiresActiveStatus()` (`Model/Oa4mpClientOa4mpServer.php:740-742`) tests the `require_active` value, never whether the association is present:
 
@@ -114,4 +114,4 @@ Once the display is honest, a "default on" policy only holds if it is saved. `ne
 
 - [oa4mp-dynamo-config-hasone-phantom-null-array-2026-06-30](oa4mp-dynamo-config-hasone-phantom-null-array-2026-06-30.md): the same Containable phantom all-null hasOne array. There a bare `!empty()` on the association picked up a phantom config. Here `isset()` on the phantom's field fell through to a ticked default. In both cases the fix is to test a real field value.
 - [oa4mp-comparator-marshaller-asymmetry-2026-08-22](oa4mp-comparator-marshaller-asymmetry-2026-08-22.md): the same lesson from the other side. Two readers of the same data must share one rule, or they drift apart.
-- Fix on branch `feat/require-active-status-default`, pull request pending. Plan: `docs/plans/2026-09-28-1104-feat-require-active-status-default-plan.md`.
+- Fixed in cilogon/Oa4mpClient#31. Plan: `docs/plans/2026-09-28-1104-feat-require-active-status-default-plan.md`.
