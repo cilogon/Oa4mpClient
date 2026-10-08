@@ -91,7 +91,8 @@
               'plugin' => 'oa4mp_client',
               'controller' => 'oa4mp_client_co_callbacks',
               'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
-              $c['id']
+              $c['id'],
+              'clientid' => $this->params['named']['clientid']
             )
           );
         ?>
