@@ -246,6 +246,17 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
     $result = $this->createClient($marshallData);
 
     $current = $this->currentData($marshallData, $result['clientId']);
+    // The Add action saves the authorization row before any verify, and the
+    // comparison only counts a row that has an id: an unsaved one reads as
+    // "the plugin has no authorization", out of sync with the server's. Stand
+    // in for the saved row, as currentData() does for oa4mp_identifier, with
+    // the columns a saved row carries but the create data does not.
+    $current['Oa4mpClientAuthorization'] += array(
+      'id' => 1,
+      'authz_co_group_id' => null,
+      'authz_group_redirect_url' => null,
+      'require_active_redirect_url' => null
+    );
     $this->assertTrue($this->server()->oa4mpVerifyClient($admin, $current) === true,
       'the client created requiring Active Status must read back in sync, and'
       . ' the check must have actually run');
