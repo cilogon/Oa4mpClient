@@ -117,6 +117,13 @@ shapes a value must be applied identically by both. Where the two must agree,
 sharing one implementation is preferred to maintaining mirrored copies, since
 mirrored copies drift silently and the failure surfaces only as False drift.
 
+The plugin side of the comparison is the client as stored, not data on its way
+to being stored. A setting kept in its own stored record, such as the client's
+authorization settings, is counted as present on the plugin side only when
+that record exists, so a client that has not been saved yet -- such as one in
+the middle of being created -- reads as having none of them, and comparing it
+reports False drift.
+
 ### Drift
 A real difference between the plugin's stored representation of an OIDC client
 and the server's. **False drift** is the failure mode where the two sides agree
@@ -150,7 +157,10 @@ server. It gates every pull request, so it must stay runnable by anyone.
 ### Live-server tier
 The separate, non-gating test tier that exercises a real authorization server
 with a dedicated test credential. It cannot run in the Hermetic tier's
-conditions and is not run casually.
+conditions and is not run casually. Its credential is available only on the
+canonical repository's main branch, so a live-server test runs for the first
+time after the change adding it has merged, unless a developer runs the tier
+locally first.
 
 ### Test discovery
 The step that decides which automated tests exist, before any of them runs:
