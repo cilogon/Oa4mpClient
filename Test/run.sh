@@ -256,6 +256,14 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
+# Raised from 318 to 327 for the no-record redirect URL, which added nine
+# (321 -> 330): six in Test/Case/Model/AuthorizationRedirectRoundTripTest.php
+# (all three redirect URLs round-tripping in sync, a server copy missing the
+# no-record URL, a client without it, an empty value, a row predating the
+# column, and a public client sending no cfg) and three in
+# Test/Case/View/AuthorizationNoRecordFieldTest.php (the field rendered, never
+# hidden or cleared by the script, and its help text).
+#
 # Raised from 317 to 318 for the callbacks index link fix, which added one
 # (320 -> 321): Test/Case/View/ClientScopedLinksTest.php, which checks that
 # every link a client-scoped index view builds to its own controller carries
@@ -293,7 +301,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=318
+min_tests_run=327
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

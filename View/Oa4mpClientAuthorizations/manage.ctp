@@ -173,6 +173,20 @@ if(!empty($authorization['id'])) {
     </div>
   </li>
 
+  <li id="no_record_redirect_url_field">
+    <div class="field-name">
+      <div class="field-title">
+        <?php print $this->Form->label('no_record_redirect_url', _txt('pl.oa4mp_client_authorization.fd.no_record_redirect_url')) ?>
+      </div>
+      <div class="field-desc"><?php print _txt('pl.oa4mp_client_authorization.fd.no_record_redirect_url.desc'); ?></div>
+    </div>
+    <div class="field-info">
+      <span class="field-info-prefix">
+        <?php print $this->Form->input('no_record_redirect_url', array('type' => 'text', 'size' => 80)) ?>
+      </span>
+    </div>
+  </li>
+
 <li class="fields-submit">
   <div class="field-name">
     <span class="required"><?php print _txt('fd.req'); ?></span>

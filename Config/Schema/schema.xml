@@ -324,6 +324,7 @@
         <field name="require_active" type="L" />
         <field name="authz_group_redirect_url" type="C" size="512" />
         <field name="require_active_redirect_url" type="C" size="512" />
+        <field name="no_record_redirect_url" type="C" size="512" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 
@@ -460,6 +461,7 @@
         <field name="require_active" type="L" />
         <field name="authz_group_redirect_url" type="C" size="512" />
         <field name="require_active_redirect_url" type="C" size="512" />
+        <field name="no_record_redirect_url" type="C" size="512" />
         <field name="created" type="T" />
         <field name="modified" type="T" />
 

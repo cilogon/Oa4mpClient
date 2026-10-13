@@ -443,5 +443,25 @@ configuration*. It has these settings:
 - **Active Status Redirect URL** -- appears when Require Active Status is
   checked; where to send users who do not have active status. If blank, the
   client receives a standard protocol error message.
+- **No Record Redirect URL** -- always shown, but used only when an authorized
+  group is set or Require Active Status is checked. It is where to send users
+  the Registry holds no record for. That includes more people than those who
+  never enrolled: people who are invited or whose enrollment is pending,
+  confirmed, or unconfirmed; people whose petition was denied or declined;
+  people marked duplicate or deleted; and members who log in with an identity
+  not linked to their CO Person record. Choose a page that suits all of them,
+  such as one explaining how to get access, or an enrollment flow that checks
+  for an existing CO Person. If blank, these users get the other redirects or a
+  standard protocol error message.
+
+When a user is refused, the checks run in this order:
+
+1. A user with no record goes to the No Record Redirect URL, if one is set.
+2. A user who is not active is refused next. They go to the Active Status
+   Redirect URL. If that is blank and the user is also outside the authorized
+   group, they go to the Group authorization Redirect URL instead. With neither,
+   the client receives a standard protocol error message.
+3. An active user outside the authorized group goes to the Group authorization
+   Redirect URL, or the client receives a standard protocol error message.
 
 Select **Save** to apply the authorization policy.

@@ -592,18 +592,19 @@ class ContractAllowlistTest extends Oa4mpTestCase {
    * tokens.identity.qdl.args, and nothing inside dynamo_module_config, that
    * the contract does not declare.
    *
-   * The contract has declared qdl_args (eight names) and
-   * dynamo_module_config_keys (five) since version 1, and for that whole time
-   * neither group had a reader: those keys were literal assignments in
-   * oa4mpMarshallCfgQdl(). The declaration and the emission agreed only
-   * because one person kept them agreeing, which is precisely the arrangement
-   * the contract exists to replace -- a ninth arg would have reached every
-   * tier with no withheld line and a conformance run that still said PASS.
+   * The contract has declared qdl_args (eight names at version 1, nine since
+   * version 2) and dynamo_module_config_keys (five) since version 1, and for
+   * that whole time neither group had a reader: those keys were literal
+   * assignments in oa4mpMarshallCfgQdl(). The declaration and the emission
+   * agreed only because one person kept them agreeing, which is precisely the
+   * arrangement the contract exists to replace -- a ninth arg would have
+   * reached every tier with no withheld line and a conformance run that still
+   * said PASS.
    *
-   * The authorization section is populated on purpose. Its four args are the
+   * The authorization section is populated on purpose. Its five args are the
    * only CONDITIONAL entries in the group, emitted only when the row carries
    * the value each names, so a subset check run against a client without them
-   * would leave four of the eight declared names untested.
+   * would leave five of the nine declared names untested.
    */
   public function testEmittedQdlArgsAndModuleConfigKeysAreAllContractDeclared() {
     $server = $this->server();
@@ -626,13 +627,14 @@ class ContractAllowlistTest extends Oa4mpTestCase {
       . ' declares in dynamo_module_config_keys; got '
       . var_export($moduleKeys, true));
 
-    // The four conditional args really were exercised. Without this the subset
+    // The five conditional args really were exercised. Without this the subset
     // check above would pass just as well on a client that emitted none of
     // them, and the conditional half of the group would be untested.
     foreach (array('require_active_status',
                    'authorization_group_id',
                    'authorization_group_redirect_url',
-                   'require_active_redirect_url') as $conditional) {
+                   'require_active_redirect_url',
+                   'no_record_redirect_url') as $conditional) {
       $this->assertTrue(isset($args[$conditional]),
         'the probe client populates the optional authorization section, so '
         . $conditional . ' must be emitted; a subset check that never sees it'
@@ -640,18 +642,19 @@ class ContractAllowlistTest extends Oa4mpTestCase {
     }
 
     // And the conditionality is still conditionality: the same client with no
-    // authorization section emits none of the four.
+    // authorization section emits none of the five.
     $bare = $this->server()->oa4mpMarshallCfgQdl(Oa4mpClaimRows::data(Oa4mpClaimRows::claim()));
     $bareArgs = $bare['tokens']['identity']['qdl']['args'];
 
     foreach (array('require_active_status',
                    'authorization_group_id',
                    'authorization_group_redirect_url',
-                   'require_active_redirect_url') as $conditional) {
+                   'require_active_redirect_url',
+                   'no_record_redirect_url') as $conditional) {
       $this->assertFalse(array_key_exists($conditional, $bareArgs),
         'a client with no authorization row must emit no ' . $conditional
-        . ': routing the block through the contract must not turn four'
-        . ' conditional args into four unconditional ones');
+        . ': routing the block through the contract must not turn five'
+        . ' conditional args into five unconditional ones');
     }
   }
 
@@ -707,11 +710,11 @@ class ContractAllowlistTest extends Oa4mpTestCase {
   }
 
   /**
-   * A client carrying the optional authorization section, so the four
+   * A client carrying the optional authorization section, so the five
    * conditional qdl_args entries are actually emitted.
    *
    * The values are the shapes Oa4mpClientAuthorization persists: a boolean
-   * flag, a CO group id, and two redirect URLs. Nothing here is
+   * flag, a CO group id, and three redirect URLs. Nothing here is
    * credential-shaped.
    */
   private function authorizedData() {
@@ -723,6 +726,7 @@ class ContractAllowlistTest extends Oa4mpTestCase {
       'authz_co_group_id' => 12,
       'authz_group_redirect_url' => 'https://example.org/not-a-member',
       'require_active_redirect_url' => 'https://example.org/not-active',
+      'no_record_redirect_url' => 'https://example.org/enroll',
     );
 
     return $data;

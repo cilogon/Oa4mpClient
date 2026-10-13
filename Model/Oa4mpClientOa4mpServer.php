@@ -354,7 +354,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * isset() guard. Dropping an empty one here would change what an existing
    * client sends. Those callers pass false, and express optionality by
    * leaving the key off the row they hand in rather than by handing in an
-   * empty value -- which is exactly how the four conditional authorization
+   * empty value -- which is exactly how the five conditional authorization
    * args keep their conditionality.
    *
    * @param array $row One row -- a claim, a constraint, the QDL args block, or
@@ -1164,6 +1164,17 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
     }
 
+    // Read null-safe on the plugin side: a row loaded before the column was
+    // added, or a caller standing in for a saved row, may not carry the key.
+    if(!empty($curData['Oa4mpClientAuthorization']['id']) && !empty($oa4mpServerData['Oa4mpClientAuthorization'])) {
+      if(($curData['Oa4mpClientAuthorization']['no_record_redirect_url'] ?? null) != ($oa4mpServerData['Oa4mpClientAuthorization']['no_record_redirect_url'] ?? null)) {
+        $this->log("Oa4mpClientAuthorization no_record_redirect_url is out of sync");
+        $this->log("  plugin: " . var_export($curData['Oa4mpClientAuthorization']['no_record_redirect_url'] ?? null, true));
+        $this->log("  oa4mp:  " . var_export($oa4mpServerData['Oa4mpClientAuthorization']['no_record_redirect_url'] ?? null, true));
+        return false;
+      }
+    }
+
     // Compare DynamoDB configurations. Resolve the plugin-side config the same
     // way marshalling does (resolveDynamoConfig) so a client without a per-client
     // row is compared against the DefaultDynamoConfig values that were actually
@@ -1636,7 +1647,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // orthogonal to using a named configuration. That is, a client can
     // use a named configuration and still have a client authorization configuration.
     //
-    // Each of the four args is CONDITIONAL: it is emitted only when the
+    // Each of the five args is CONDITIONAL: it is emitted only when the
     // authorization row carries the value it names. The conditionality lives
     // in whether the key is put on the row below, never in an empty value
     // reaching marshallDeclaredRow(), which is why that call passes
@@ -1657,6 +1668,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
     if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['require_active_redirect_url'])) {
       $authzArgs['require_active_redirect_url'] = $data['Oa4mpClientAuthorization']['require_active_redirect_url'];
+    }
+
+    if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['no_record_redirect_url'])) {
+      $authzArgs['no_record_redirect_url'] = $data['Oa4mpClientAuthorization']['no_record_redirect_url'];
     }
 
     $authzArgs = $this->marshallDeclaredRow($authzArgs, $declaredQdlArgs, $withheldFields,
@@ -2828,6 +2843,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
       }
       if(!empty($qdlArgs['require_active_redirect_url'])) {
         $authz['require_active_redirect_url'] = $qdlArgs['require_active_redirect_url'];
+      }
+      if(!empty($qdlArgs['no_record_redirect_url'])) {
+        $authz['no_record_redirect_url'] = $qdlArgs['no_record_redirect_url'];
       }
 
       if(!empty($authz)) {

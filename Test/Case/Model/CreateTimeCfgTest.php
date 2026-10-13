@@ -178,6 +178,8 @@ class CreateTimeCfgTest extends Oa4mpTestCase {
       'the save data carries require_active on');
     $this->assertFalse(isset($saveData['Oa4mpClientAuthorization']['require_active_redirect_url']),
       'a new client has no Active Status redirect URL');
+    $this->assertFalse(isset($saveData['Oa4mpClientAuthorization']['no_record_redirect_url']),
+      'a new client has no no-record redirect URL');
 
     $this->assertTrue(isset($content['cfg']), 'a confidential create request carries a cfg');
     $args = $this->qdlArgs($content);
@@ -185,6 +187,8 @@ class CreateTimeCfgTest extends Oa4mpTestCase {
       'the cfg sends require_active_status');
     $this->assertFalse(isset($args['require_active_redirect_url']),
       'the cfg sends no Active Status redirect URL');
+    $this->assertFalse(isset($args['no_record_redirect_url']),
+      'the cfg sends no no-record redirect URL');
   }
 
   /**
