@@ -53,7 +53,7 @@ function requiresActiveStatus($data) {
 }
 ```
 
-**2. The marshaller uses the predicate** (`Model/Oa4mpClientOa4mpServer.php:1646-1648`). Its behavior is unchanged. The old guard, `!empty($data['Oa4mpClientAuthorization']) && $data['Oa4mpClientAuthorization']['require_active']` (`79db001` line 1576), already sent `require_active_status` only when the value was truthy. The change is that the tab now asks the same question:
+**2. The marshaller uses the predicate** (`Model/Oa4mpClientOa4mpServer.php:1657-1659`). Its behavior is unchanged. The old guard, `!empty($data['Oa4mpClientAuthorization']) && $data['Oa4mpClientAuthorization']['require_active']` (`79db001` line 1576), already sent `require_active_status` only when the value was truthy. The change is that the tab now asks the same question:
 
 ```php
 if($this->requiresActiveStatus($data)) {
