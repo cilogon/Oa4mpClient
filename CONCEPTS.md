@@ -25,6 +25,11 @@ returns the user after authentication. An OIDC client carries a list of them.
 ### Require Active Status
 An OIDC client authorization setting under which the OA4MP server refuses a user whose CO Person record is not active. It is in force only when saved: a client with no saved setting does not require Active Status, whatever a form might suggest. New confidential OIDC clients are created with it on; public clients cannot carry it, because OA4MP accepts no custom configuration on them; clients created before that default keep whatever setting they had.
 
+### Authorized User Group
+An OIDC client authorization setting naming one CO Group whose members alone may complete login; the OA4MP server refuses anyone the Registry does not record as a member of that group. Like Require Active Status it can carry a redirect URL for refused users, and it applies only to confidential clients.
+
+When both settings are on, active status is checked first, so a user who is neither active nor a member is refused as not active. The group is matched by its identifier, which must compare equal whether the client's cfg and the Registry's membership record express it as text or as a number.
+
 ## Configuration
 
 ### cfg
