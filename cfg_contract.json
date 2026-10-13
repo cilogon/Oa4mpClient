@@ -1,5 +1,5 @@
 {
-  "contract_version": 1,
+  "contract_version": 2,
   "title": "COmanage Registry Oa4mpClient Plugin cfg Capability Contract",
   "description": "Everything this plugin may emit into an OA4MP client cfg, declared once and read by every enforcement site that needs it: the marshaller's allowlist, the unmarshaller and sync comparator field lists, the cfg-side half of the log-redaction name list, and the QDL conformance check. This is a plain JSON declaration, not a JSON Schema: nothing validates it with a library, and this repository has no composer.json and no vendor tree. For the shape of a cfg -- what nests inside what -- see cfg_schema.json; this file says only which names may appear.",
   "version_policy": {
@@ -22,6 +22,7 @@
         { "name": "authorization_group_id", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
         { "name": "authorization_group_redirect_url", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
         { "name": "require_active_redirect_url", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
+        { "name": "no_record_redirect_url", "introduced_in": 2, "retired_in": null, "secret_bearing": false },
         { "name": "dynamo_module_config", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
         { "name": "partition_key_template", "introduced_in": 1, "retired_in": null, "secret_bearing": false },
         { "name": "partition_key_claim_name", "introduced_in": 1, "retired_in": null, "secret_bearing": false },

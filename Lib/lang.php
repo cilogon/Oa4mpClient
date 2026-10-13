@@ -469,6 +469,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_authorization.fd.require_active.desc'            => 'User record must have active status to access this client',
   'pl.oa4mp_client_authorization.fd.require_active_redirect_url'    => 'Active Status Redirect URL',
   'pl.oa4mp_client_authorization.fd.require_active_redirect_url.desc' => 'URL to redirect users to when they do not have active status. If not set the client receives a standard protocol error message.',
+  'pl.oa4mp_client_authorization.fd.no_record_redirect_url'         => 'No Record Redirect URL',
+  'pl.oa4mp_client_authorization.fd.no_record_redirect_url.desc'    => 'URL to redirect users to when they have no record, checked before the other redirects. Applies only when Authorized User Group or Require Active Status is set. No record means: never enrolled; invited, or with a pending, confirmed, or unconfirmed enrollment; petition denied or declined; marked duplicate or deleted; or logging in with an identity not linked to their CO Person record. Choose a page that suits all of them. If not set, these users get the other redirects or a standard protocol error message.',
 
   // Flash messages
   'pl.oa4mp_client_authorization.add.flash.success'    => 'Authorization Configuration Added',

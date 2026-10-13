@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Add a No Record Redirect URL to the Authorization tab: where to send users
+  the Registry holds no record for when the client requires a group or active
+  status, for example an enrollment flow. It needs the OA4MP server's DynamoDB
+  claim script to carry the matching change (cilogon-service-config-us commit
+  "feat: redirect users with no record and check Active status first"). Deploy
+  the plugin to a tier only after that tier's script has it. The same script
+  change checks active status before group membership. That moves one existing
+  case as soon as the script reaches a tier: on a client with both checks and
+  an Active Status Redirect URL, a user who is neither active nor in the group
+  now goes to that URL, instead of the group URL or an error.
 - Create new confidential clients requiring active status, and enforce it
   from creation. The Authorization tab showed Require Active Status as the
   default, but nothing saved it, so a new client did not require an active
