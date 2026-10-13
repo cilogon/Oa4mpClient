@@ -73,6 +73,12 @@ class Oa4mpClientAuthorization extends AppModel {
       'required' => false,
       'allowEmpty' => true,
       'message' => 'Please supply a valid https:// URL'
+    ),
+    'no_record_redirect_url' => array(
+      'rule' => 'url',
+      'required' => false,
+      'allowEmpty' => true,
+      'message' => 'Please supply a valid https:// URL'
     )
   );
 } 

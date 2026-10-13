@@ -130,6 +130,11 @@
           "format": "uri",
           "description": "URL to redirect to when require active status check fails."
         },
+        "no_record_redirect_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to redirect to when an authorization gate is configured and the authenticated user has no DynamoDB record."
+        },
         "require_active_status": {
           "type": "boolean",
           "description": "Whether an active CO Person status is required."

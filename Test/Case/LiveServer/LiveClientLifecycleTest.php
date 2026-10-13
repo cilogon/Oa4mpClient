@@ -255,7 +255,8 @@ class LiveClientLifecycleTest extends Oa4mpTestCase {
       'id' => 1,
       'authz_co_group_id' => null,
       'authz_group_redirect_url' => null,
-      'require_active_redirect_url' => null
+      'require_active_redirect_url' => null,
+      'no_record_redirect_url' => null
     );
     $this->assertTrue($this->server()->oa4mpVerifyClient($admin, $current) === true,
       'the client created requiring Active Status must read back in sync, and'

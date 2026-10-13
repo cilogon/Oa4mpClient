@@ -122,6 +122,7 @@
             "secret_access_key": "dummy/KC1ewZ43JijREjsUoQ5btqzzzzzz",
             "table_name": "multitenant_mess_dev"
           },
+          "no_record_redirect_url": "https://www.example.org/enroll",
           "partition_key_claim_name": "sub",
           "partition_key_template": "identifier#oidcsub#%%CLAIM_VALUE%%",
           "require_active_redirect_url": "https://www.google.com",
