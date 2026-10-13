@@ -44,9 +44,9 @@ class AuthorizationNoRecordFieldTest extends Oa4mpTestCase {
       'premise: the template has a script block');
     $script = $m[1];
 
-    $this->assertFalse(stripos($script, 'NoRecordRedirectUrl') !== false,
+    $this->assertTrue(stripos($script, 'NoRecordRedirectUrl') === false,
       'the script must not touch the no-record input');
-    $this->assertFalse(stripos($script, 'no_record_redirect_url') !== false,
+    $this->assertTrue(stripos($script, 'no_record_redirect_url') === false,
       'the script must not touch the no-record field container');
   }
 

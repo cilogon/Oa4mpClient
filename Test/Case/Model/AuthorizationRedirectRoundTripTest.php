@@ -5,11 +5,9 @@
  * as the server would return it, and the two sides go through the sync
  * comparator.
  *
- * Until this test the redirect URLs had coverage only on the way out (the
- * contract allowlist and the create-time cfg). Nothing proved that a URL the
- * plugin sends comes back as the same column, or that the comparator notices
- * when the server lost one. The no-record redirect URL is the third of these
- * and is covered alongside the original two.
+ * It proves, for all three redirect URLs, that a URL the plugin sends comes
+ * back as the same column, and that the comparator notices when the server
+ * copy has lost one.
  *
  * See docs/plans/2026-10-12-0712-feat-no-record-redirect-plan.md U3 (R10, R11).
  */
@@ -91,7 +89,7 @@ class AuthorizationRedirectRoundTripTest extends Oa4mpTestCase {
   public function testServerMissingTheNoRecordUrlIsOutOfSync() {
     $withoutUrl = $this->authorizationRow(array('no_record_redirect_url' => null));
 
-    list($args, $serverData, $verdict) = $this->roundTrip($withoutUrl, $this->authorizationRow());
+    list(, , $verdict) = $this->roundTrip($withoutUrl, $this->authorizationRow());
 
     $this->assertTrue($verdict === false,
       'the plugin row carries a no-record URL the server copy lacks');
@@ -102,7 +100,7 @@ class AuthorizationRedirectRoundTripTest extends Oa4mpTestCase {
    * still reads in sync.
    */
   public function testClientWithoutTheNoRecordUrlSendsNoArgAndStaysInSync() {
-    list($args, $serverData, $verdict) = $this->roundTrip(
+    list($args, , $verdict) = $this->roundTrip(
       $this->authorizationRow(array('no_record_redirect_url' => null)));
 
     $this->assertFalse(array_key_exists('no_record_redirect_url', $args),
@@ -115,7 +113,7 @@ class AuthorizationRedirectRoundTripTest extends Oa4mpTestCase {
    * in sync against a server that has nothing.
    */
   public function testEmptyStringNoRecordUrlIsNotSent() {
-    list($args, $serverData, $verdict) = $this->roundTrip(
+    list($args, , $verdict) = $this->roundTrip(
       $this->authorizationRow(array('no_record_redirect_url' => '')));
 
     $this->assertFalse(array_key_exists('no_record_redirect_url', $args),
@@ -138,7 +136,7 @@ class AuthorizationRedirectRoundTripTest extends Oa4mpTestCase {
     }, E_WARNING | E_NOTICE);
 
     try {
-      list($args, $serverData, $verdict) = $this->roundTrip($row);
+      list(, , $verdict) = $this->roundTrip($row);
     } finally {
       restore_error_handler();
     }
