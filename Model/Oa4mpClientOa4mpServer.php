@@ -1648,7 +1648,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
     }
 
     if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_co_group_id'])) {
-      $authzArgs['authorization_group_id'] = $data['Oa4mpClientAuthorization']['authz_co_group_id'];
+      // An integer whatever the source: the Authorization tab posts it as a
+      // string, and the QDL compares it with cm_group_id, which DynamoDB
+      // returns as a number.
+      $authzArgs['authorization_group_id'] = (int)$data['Oa4mpClientAuthorization']['authz_co_group_id'];
     }
 
     if(!empty($data['Oa4mpClientAuthorization']) && !empty($data['Oa4mpClientAuthorization']['authz_group_redirect_url'])) {

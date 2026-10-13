@@ -232,4 +232,29 @@ class CfgMarshallingTest extends Oa4mpTestCase {
     $this->assertFalse(in_array('', $values, true),
       'a constraint with an empty constraint_value must not be serialized');
   }
+
+  /**
+   * Bug: the Authorization tab marshals the posted form, where
+   * authz_co_group_id is the string "12". It went into the cfg as the JSON
+   * string "12", while DynamoDB returns cm_group_id as a number, and in QDL
+   * '12' == 12 is false: every member of the group was refused. The group
+   * id is sent as an integer whatever type it arrives as.
+   */
+  public function testAuthorizationGroupIdIsSentAsAnInteger() {
+    $data = Oa4mpClaimRows::data(Oa4mpClaimRows::claim());
+    $data['Oa4mpClientAuthorization'] = array(
+      'id' => 55,
+      'require_active' => true,
+      'authz_co_group_id' => '12',
+    );
+
+    $cfg = $this->server()->oa4mpMarshallCfgQdl($data);
+    $args = $cfg['tokens']['identity']['qdl']['args'];
+
+    $this->assertTrue(($args['authorization_group_id'] ?? null) === 12,
+      'a posted string group id must leave as the integer 12, got '
+      . var_export($args['authorization_group_id'] ?? null, true));
+    $this->assertContains('"authorization_group_id":12', json_encode($args),
+      'the cfg JSON must carry the group id unquoted');
+  }
 }

@@ -11,6 +11,11 @@
   A client whose setting was never saved, or was saved with no value, now
   shows it unchecked, matching what the server enforces. Saving such a client
   with the box unchecked also clears any Active Status Redirect URL it holds.
+- Send the Authorized User Group to the OA4MP server as a number. Saving the
+  Authorization tab sent it as text, and the server's claim script compares it
+  with the numeric group id stored for each membership, so members of the
+  group were refused as non-members. The matching claim script change, which
+  accepts either form, should be deployed as well.
 
 ## 7.0.0-rc8 (2026-08-25)
 
