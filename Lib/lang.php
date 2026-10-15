@@ -313,6 +313,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Flash messages
   'pl.oa4mp_client_co_scope.scope.flash.success' => 'Scopes Saved',
+  'pl.oa4mp_client_co_scope.er.named_config'     => 'Scopes cannot be changed while the Named Configuration "%1$s" is applied to this client.',
+  'pl.oa4mp_client_co_scope.named_config.description' => 'This client uses the Named Configuration "%1$s", which supplies its scopes. The scopes below are ignored while it is applied and take effect again if it is removed.',
 
   // Scope: openid
   'pl.oa4mp_client_co_scope.scope.openid.fd.name'  => 'openid',
