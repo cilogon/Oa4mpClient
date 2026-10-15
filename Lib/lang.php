@@ -204,6 +204,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.claims.edit.name'=> 'Edit Claim for %1$s',
   'pl.oa4mp_client_co_oidc_client.claims.tab.name' => 'Claims',
   'pl.oa4mp_client_co_oidc_client.claims.public_client.description' => 'Public clients release only the standard sub claim, so additional claims cannot be configured.',
+  'pl.oa4mp_client_co_oidc_client.claims.named_config.description' => 'This client uses the Named Configuration "%1$s", which supplies its claims. The claims below are ignored while it is applied and take effect again if it is removed.',
 
   // Field definitions
   'pl.oa4mp_client_co_oidc_client.claims.fd.add_button'         => 'Add another claim',
@@ -294,6 +295,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_claim.er.delete.remove'     => 'The claim was removed from the OA4MP server but could not be deleted by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including deleting the claim again. To bring them back into agreement, restore the claim on the OA4MP server with the values Registry still holds.',
   'pl.oa4mp_client_claim.er.edit.save'         => 'The claim was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the claim again. To bring them back into agreement, restore the claim on the OA4MP server to the values Registry still holds.',
   'pl.oa4mp_client_claim.er.public_client'     => 'Claims cannot be configured for a public client. A public client releases only the standard sub claim.',
+  'pl.oa4mp_client_claim.er.named_config'      => 'Claims cannot be changed while the Named Configuration "%1$s" is applied to this client.',
 
   // ===========================================================================
   // Scopes

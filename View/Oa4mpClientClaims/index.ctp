@@ -48,7 +48,11 @@
   // configuration is not offered for them.
   $is_public_client = !empty($this->request->data['Oa4mpClientCoOidcClient']['public_client']);
 
-  if($permissions['add'] && !$is_public_client) {
+  // While a Named configuration is applied it supplies the client's claims,
+  // so the stored claims are listed read-only.
+  $is_named_config = !empty($vv_named_config);
+
+  if($permissions['add'] && !$is_public_client && !$is_named_config) {
     $params['topLinks'][] = $this->Html->link(
       _txt('op.add.new', array(_txt('ct.oa4mp_client_co_claims.1'))),
       array(
@@ -81,6 +85,12 @@
 </div>
 <?php endif; ?>
 
+<?php if($is_named_config): ?>
+<div id="oa4mp_client_co_claims_named_config_info" class="ui-widget">
+  <p><?php print _txt('pl.oa4mp_client_co_oidc_client.claims.named_config.description', array(h($vv_named_config))); ?></p>
+</div>
+<?php endif; ?>
+
 <?php if(!$is_public_client || !empty($claims)): ?>
 <table id="oa4mp_client_co_claims" class="ui-widget">
   <thead>
@@ -96,21 +106,27 @@
     <tr class="line<?php print ($i % 2)+1; ?>">
       <td>
         <?php
-          print $this->Html->link(
-            $c['claim_name'],
-            array(
-              'plugin' => 'oa4mp_client',
-              'controller' => 'oa4mp_client_claims',
-              'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
-              $c['id'],
-              'clientid' => $this->params['named']['clientid']
-            )
-          );
+          // Plain text while a Named configuration is applied: the edit page
+          // the link leads to would only redirect back here.
+          if($is_named_config) {
+            print h($c['claim_name']);
+          } else {
+            print $this->Html->link(
+              $c['claim_name'],
+              array(
+                'plugin' => 'oa4mp_client',
+                'controller' => 'oa4mp_client_claims',
+                'action' => ($permissions['edit'] ? 'edit' : ($permissions['view'] ? 'view' : '')),
+                $c['id'],
+                'clientid' => $this->params['named']['clientid']
+              )
+            );
+          }
         ?>
       </td>
       <td>
         <?php
-          if(!$is_public_client && $permissions['edit']) {
+          if(!$is_public_client && !$is_named_config && $permissions['edit']) {
             print $this->Html->link(
                 _txt('op.edit'),
                 array(
@@ -121,7 +137,7 @@
                 ),
                 array('class' => 'editbutton')) . "\n";
           }
-          if(!$is_public_client && $permissions['delete']) {
+          if(!$is_public_client && !$is_named_config && $permissions['delete']) {
             print '<button type="button" class="deletebutton" title="' . _txt('op.delete')
               . '" onclick="javascript:js_confirm_generic(\''
               . _txt('js.remove') . '\',\''    // dialog body text
