@@ -17,7 +17,7 @@ root_cause: logic_error
 resolution_type: deferred_open
 related_components:
   - Model/Oa4mpClientOa4mpServer.php (oa4mpMarshallCfgQdl named-configuration branch, isClientDataSynchronized named-configuration early return)
-  - Controller/Oa4mpClientClaimsController.php (add, edit, delete -- guarded for public clients, ungated for named-configuration clients)
+  - Controller/Oa4mpClientClaimsController.php (add, edit, delete -- guarded for public and, since the read-only tabs work, named-configuration clients)
   - Test/Case/Model/NamedConfigClaimSyncTest.php (characterization lock for the comparator half)
   - Test/Case/Model/ClaimCfgContractTest.php (cfg_shape/named_config -- characterization lock for the marshaller half)
 tags:
@@ -36,10 +36,12 @@ tags:
 
 # Claims on a named-configuration client are silently inert
 
-**Status: OPEN. Not fixed.** This document records a defect that is understood,
-characterized by tests, and deliberately left in place. The remedy is a product
-decision, tracked as open question Q1 in
-`docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md`.
+**Status: OPEN, partly remedied.** This document records a defect that is
+understood and characterized by tests. The remedy is a product decision,
+tracked as open question Q1 in
+`docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md`. The
+Claims tab is now gated and the inert state is visible (see Current state);
+the bulk activation when the named configuration is cleared is still open.
 
 ## Problem
 
@@ -117,8 +119,20 @@ be months between the two acts.
 
 ## Current state
 
-No fix. The behavior is frozen and locked with characterization tests, so an
-incidental edit cannot change it unnoticed:
+The Claims tab is now read-only for a named-configuration client
+(`docs/plans/2026-10-14-1946-feat-named-config-read-only-tabs-plan.md`). The
+index lists the stored claims under a notice naming the named configuration and
+saying they are ignored while it is applied; add, edit and delete are refused
+before any server call (`ClaimsWritePathTest`). The Scopes and Authorization
+tabs got the same treatment, and the client's authorization args are no longer
+sent while a named configuration is applied. Against the remedy list below,
+that covers point 3 (a visible state) and part of point 1 (stored claims are
+kept and shown, not deleted or migrated). Point 2 is still open: removing the
+named configuration sends every stored claim at once, with no review step, and
+the read-only tab means stale claims cannot be pruned before removal.
+
+The comparator and marshaller halves are unchanged and still locked with
+characterization tests, so an incidental edit cannot change them unnoticed:
 
 - `Test/Case/Model/NamedConfigClaimSyncTest.php` locks the comparator's early
   return. Its first method -- a named-configuration client carrying claims
