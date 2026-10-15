@@ -462,6 +462,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Tab name
   'pl.oa4mp_client_authorization.tab.name' => 'Authorization',
+  'pl.oa4mp_client_authorization.er.named_config' => 'Authorization settings cannot be changed while the Named Configuration "%1$s" is applied to this client.',
+  'pl.oa4mp_client_authorization.named_config.description' => 'This client uses the Named Configuration "%1$s", whose own script decides who may log in. The settings below are not sent to the server while it is applied, so Require Active Status and the Authorized User Group are not enforced. They take effect again if it is removed.',
 
   // Field definitions
   'pl.oa4mp_client_authorization.fd.authz_co_group_id'              => 'Authorized User Group',
