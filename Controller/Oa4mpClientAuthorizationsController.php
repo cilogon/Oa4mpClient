@@ -97,6 +97,24 @@ class Oa4mpClientAuthorizationsController extends StandardController {
 
     $this->set('vv_available_groups', $availableGroupsWithBlank);
 
+    // While a Named configuration is applied its own script decides who may
+    // log in, so the client's authorization settings are kept but not sent
+    // and cannot be changed. Refuse the write before anything is sent or
+    // saved, and show the read-only page again. Only the write is refused:
+    // the GET below is the page that says why.
+    if($this->request->is(array('post','put')) && $oa4mpServer->usesNamedConfig($client)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_authorization.er.named_config',
+                             array($oa4mpServer->namedConfigLabel($client))),
+                        array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_authorizations';
+      $args['action'] = 'manage';
+      $args['clientid'] = $clientId;
+      $this->redirect($args);
+    }
+
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
       // Validate before anything is sent to the OA4MP server, and send the
@@ -210,6 +228,12 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $this->set('vv_require_active', $oa4mpServer->requiresActiveStatus($rejected !== null
                                       ? array('Oa4mpClientAuthorization' => $rejected)
                                       : $client));
+
+    // The Named configuration in force, or null. While it is set the view
+    // shows the saved settings disabled under a notice naming it.
+    $this->set('vv_named_config', $oa4mpServer->usesNamedConfig($client)
+                                  ? $oa4mpServer->namedConfigLabel($client)
+                                  : null);
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));

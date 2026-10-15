@@ -48,6 +48,11 @@
 
   $authorization = $this->request->data['Oa4mpClientAuthorization'];
 
+  // While a Named configuration is applied its own script decides who may
+  // log in, so the saved settings are shown disabled and are not sent.
+  $is_named_config = !empty($vv_named_config);
+  $readOnly = $is_named_config ? array('disabled' => true) : array();
+
   if(file_exists(APP . "Plugin/" . $this->plugin . "/View/Oa4mpClientAuthorizations/tabs.inc")) {
     include(APP . "Plugin/" . $this->plugin . "/View/Oa4mpClientAuthorizations/tabs.inc");
   } elseif(file_exists(LOCAL . "Plugin/" . $this->plugin . "/View/Oa4mpClientAuthorizations/tabs.inc")) {
@@ -56,6 +61,11 @@
 
 ?>
 
+<?php if($is_named_config): ?>
+<div id="oa4mp_client_authorizations_named_config_info" class="ui-widget">
+  <p><?php print _txt('pl.oa4mp_client_authorization.named_config.description', array(h($vv_named_config))); ?></p>
+</div>
+<?php else: ?>
 <script type="text/javascript">
 function js_local_onload() {
   // Initialize the visibility of both conditional fields
@@ -103,6 +113,7 @@ function toggleRequireActiveRedirectUrlField() {
   }
 }
 </script>
+<?php endif; ?>
 
 <?php
 print $this->Form->create('Oa4mpClientAuthorization', array('inputDefaults' => array('label' => false, 'div' => false)));
@@ -124,7 +135,7 @@ if(!empty($authorization['id'])) {
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <?php print $this->Form->select('authz_co_group_id', $this->viewVars['vv_available_groups'], array('empty' => false)); ?>
+        <?php print $this->Form->select('authz_co_group_id', $this->viewVars['vv_available_groups'], array('empty' => false) + $readOnly); ?>
       </span>
     </div>
   </li>
@@ -138,7 +149,7 @@ if(!empty($authorization['id'])) {
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <?php print $this->Form->input('authz_group_redirect_url', array('type' => 'text', 'size' => 80)) ?>
+        <?php print $this->Form->input('authz_group_redirect_url', array('type' => 'text', 'size' => 80) + $readOnly) ?>
       </span>
     </div>
   </li>
@@ -153,7 +164,7 @@ if(!empty($authorization['id'])) {
     <div class="field-info">
       <span class="field-info-prefix">
         <?php
-          print $this->Form->input('require_active', array('type' => 'checkbox', 'value' => 1, 'checked' => $vv_require_active))
+          print $this->Form->input('require_active', array('type' => 'checkbox', 'value' => 1, 'checked' => $vv_require_active) + $readOnly)
         ?>
       </span>
     </div>
@@ -168,7 +179,7 @@ if(!empty($authorization['id'])) {
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <?php print $this->Form->input('require_active_redirect_url', array('type' => 'text', 'size' => 80)) ?>
+        <?php print $this->Form->input('require_active_redirect_url', array('type' => 'text', 'size' => 80) + $readOnly) ?>
       </span>
     </div>
   </li>
@@ -182,11 +193,12 @@ if(!empty($authorization['id'])) {
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <?php print $this->Form->input('no_record_redirect_url', array('type' => 'text', 'size' => 80)) ?>
+        <?php print $this->Form->input('no_record_redirect_url', array('type' => 'text', 'size' => 80) + $readOnly) ?>
       </span>
     </div>
   </li>
 
+<?php if(!$is_named_config): ?>
 <li class="fields-submit">
   <div class="field-name">
     <span class="required"><?php print _txt('fd.req'); ?></span>
@@ -198,6 +210,7 @@ if(!empty($authorization['id'])) {
     ?>
   </div>
 </li>
+<?php endif; ?>
 
 </ul>
 
