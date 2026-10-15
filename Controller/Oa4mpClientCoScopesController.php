@@ -81,6 +81,24 @@ class Oa4mpClientCoScopesController extends StandardController {
     $rejected = null;
     $rejectedErrors = array();
 
+    // While a Named configuration is applied it supplies the client's
+    // scopes, so the client's own are kept but not sent and cannot be
+    // changed. Refuse the write before anything is sent or saved, and show
+    // the read-only page again. Only the write is refused: the GET below is
+    // the page that says why.
+    if($this->request->is(array('post','put')) && $oa4mpServer->usesNamedConfig($client)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_scope.er.named_config',
+                             array($oa4mpServer->namedConfigLabel($client))),
+                        array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_co_scopes';
+      $args['action'] = 'edit_scopes';
+      $args['clientid'] = $clientId;
+      $this->redirect($args);
+    }
+
     // PUT request
     if($this->request->is(array('post','put'))) {
 
@@ -230,6 +248,12 @@ class Oa4mpClientCoScopesController extends StandardController {
       $this->request->data['Oa4mpClientCoScope'] = $rejected;
       $this->Oa4mpClientCoScope->validationErrors = $rejectedErrors;
     }
+
+    // The Named configuration in force, or null. While it is set the view
+    // shows the stored scopes disabled under a notice naming it.
+    $this->set('vv_named_config', $oa4mpServer->usesNamedConfig($client)
+                                  ? $oa4mpServer->namedConfigLabel($client)
+                                  : null);
 
     // Set the title for the view.
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_scope.scope.edit.name',

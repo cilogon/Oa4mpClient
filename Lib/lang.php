@@ -315,6 +315,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Flash messages
   'pl.oa4mp_client_co_scope.scope.flash.success' => 'Scopes Saved',
+  'pl.oa4mp_client_co_scope.er.named_config'     => 'Scopes cannot be changed while the Named Configuration "%1$s" is applied to this client.',
+  'pl.oa4mp_client_co_scope.named_config.description' => 'This client uses the Named Configuration "%1$s", which supplies its scopes. The scopes below are ignored while it is applied and take effect again if it is removed.',
 
   // Error messages
   'pl.oa4mp_client_co_scope.er.edit.save' => 'The scopes were updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the scopes again. To bring them back into agreement, restore the scopes on the OA4MP server to the values Registry still holds.',
