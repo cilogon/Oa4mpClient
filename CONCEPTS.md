@@ -47,7 +47,7 @@ recognize one is a bug, not a policy.
 The scripting language the OA4MP server executes to compute identity-token claims. A client's cfg names a QDL script to load, the execution phases at which it runs (e.g. post-auth, post-token), and the arguments passed to it, including the claim source connection settings.
 
 ### Named configuration
-A reusable, stored cfg that an OIDC client can reference by id instead of carrying its own inline configuration. When a client uses a Named configuration, the plugin emits that stored JSON rather than building the cfg from the client's own associations.
+A reusable, stored cfg that an OIDC client can reference by id instead of carrying its own inline configuration. When a client uses a Named configuration, the plugin emits that stored JSON rather than building the cfg from the client's own associations. While one is applied, the client's own Claims, scopes and authorization settings (Require Active Status and Authorized User Group) are kept but not sent: the Named configuration's scopes and script are what the server uses, so those tabs are read-only and the client's own gates are not enforced.
 
 ### Default configuration
 A claim-source configuration (LDAP or DynamoDB connection settings) attached to an Admin client and inherited by the OIDC clients it manages. A per-client configuration overrides it; when a client has no per-client row, the Default configuration applies.

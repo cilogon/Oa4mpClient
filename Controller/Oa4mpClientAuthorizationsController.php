@@ -46,6 +46,17 @@ class Oa4mpClientAuthorizationsController extends StandardController {
   public $requires_co = true;
 
   /**
+   * Factory for the OA4MP server model. The test harness overrides it to
+   * substitute a fake, which is only possible by subclassing in PHP.
+   *
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
+  }
+
+  /**
    * Manage an authorization configuration.
    *
    * @since COmanage Registry 4.5.0
@@ -57,7 +68,7 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->current($clientId);
@@ -80,6 +91,24 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $availableGroupsWithBlank = array('' => _txt('pl.oa4mp_client_authorization.fd.authz_co_group_id.select.empty')) + $availableGroups;
 
     $this->set('vv_available_groups', $availableGroupsWithBlank);
+
+    // While a Named configuration is applied its own script decides who may
+    // log in, so the client's authorization settings are kept but not sent
+    // and cannot be changed. Refuse the write before anything is sent or
+    // saved, and show the read-only page again. Only the write is refused:
+    // the GET below is the page that says why.
+    if($this->request->is(array('post','put')) && $oa4mpServer->usesNamedConfig($client)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_authorization.er.named_config',
+                             array($oa4mpServer->namedConfigLabel($client))),
+                        array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_authorizations';
+      $args['action'] = 'manage';
+      $args['clientid'] = $clientId;
+      $this->redirect($args);
+    }
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
@@ -158,6 +187,12 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     // Tick Require Active Status only when it was actually saved, asking the
     // same question the marshaller asks before sending it to the server.
     $this->set('vv_require_active', $oa4mpServer->requiresActiveStatus($client));
+
+    // The Named configuration in force, or null. While it is set the view
+    // shows the saved settings disabled under a notice naming it.
+    $this->set('vv_named_config', $oa4mpServer->usesNamedConfig($client)
+                                  ? $oa4mpServer->namedConfigLabel($client)
+                                  : null);
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));

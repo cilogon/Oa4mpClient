@@ -26,12 +26,13 @@
  *
  * WHAT THIS TEST ASSERTS IS A KNOWN DEFECT, DELIBERATELY FROZEN.
  *
- * The claims tab is completely ungated for named-configuration clients, so a
- * user can create claims on one. Those claims are stored, are never sent to
- * the OA4MP server, and are never compared -- they are inert, and nothing in
- * the interface says so. Clearing the named configuration later activates
- * every previously inert claim at once, so a relying party begins receiving
- * identity attributes that nobody reviewed at the moment they go live.
+ * Claims stored on a named-configuration client are never sent to the OA4MP
+ * server and never compared -- they are inert. The Claims tab is read-only
+ * for such a client and says so, but claims stored before that, or
+ * before the named configuration was applied, remain. Clearing the named
+ * configuration later activates every one of them at once, so a relying party
+ * begins receiving identity attributes that nobody reviewed at the moment
+ * they go live.
  *
  * The remedy is a product decision, because it has to cover claims already
  * stored and not only future tab gating. It is recorded as open question Q1 in

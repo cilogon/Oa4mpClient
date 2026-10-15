@@ -256,6 +256,36 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
+# Raised from 343 to 347 for the read-only Authorization tab on
+# Named-configuration clients, which added four (346 -> 350) in
+# Test/Case/Controller/AuthorizationsNamedConfigGuardTest.php: the save
+# refused before any server call, the page still rendering with the saved
+# setting and the configuration's name, the control that an ordinary
+# client's save reaches the server, and a source check that every form
+# control is disabled, the submit block left out and the clearing script
+# skipped while a Named configuration is applied.
+#
+# Raised from 340 to 343 for the read-only Scopes tab on Named-configuration
+# clients, which added three (343 -> 346) in
+# Test/Case/Controller/ScopesNamedConfigGuardTest.php: the save refused
+# before any server call, the page still rendering with the configuration's
+# name, and the control that an ordinary client's save reaches the server.
+#
+# Raised from 333 to 340 for the read-only Claims tab on Named-configuration
+# clients, which added seven (336 -> 343): six in
+# Test/Case/Controller/ClaimsWritePathTest.php (add, edit and delete refused
+# before any server call, the add form refused by direct URL, the control
+# that an ordinary client's add still reaches the server, and the index
+# handing the view the configuration's name) and one in
+# NamedConfigAuthorizationCfgTest (the label falling back to the id).
+#
+# Raised from 328 to 333 for the Named-configuration authorization args,
+# which added five (331 -> 336): Test/Case/Model/
+# NamedConfigAuthorizationCfgTest.php (a Named-configuration client sends no
+# authorization args, the configuration's own args reach the cfg unchanged,
+# removing it restores them, the predicate reads named_config_id rather than
+# the association, and a retained authorization row still reports in sync).
+#
 # Raised from 327 to 328 for the authorization group id type fix, which added
 # one (330 -> 331): CfgMarshallingTest::
 # testAuthorizationGroupIdIsSentAsAnInteger, which checks that a group id
@@ -306,7 +336,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=328
+min_tests_run=347
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

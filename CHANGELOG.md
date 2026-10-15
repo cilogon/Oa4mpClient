@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Make the Claims, Scopes and Authorization tabs read-only while a Named
+  Configuration is applied to a client, with a notice naming it. The Named
+  Configuration supplies the client's claims and scopes and runs its own claim
+  script, so these tabs' settings had no effect, yet they could still be
+  edited. The client's Require Active Status, Authorized User Group and
+  redirect URLs are no longer sent to the server for such a client, so those
+  gates are not enforced: they are removed when a Named Configuration is
+  applied, and for a client already using one, on its next save. Saved values
+  are kept and take effect again, claims included, when the Named
+  Configuration is removed.
 - Add a No Record Redirect URL to the Authorization tab: where to send users
   the Registry holds no record for when the client requires a group or active
   status, for example an enrollment flow. It needs the OA4MP server's DynamoDB
