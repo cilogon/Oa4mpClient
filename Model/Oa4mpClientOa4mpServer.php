@@ -761,6 +761,24 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * How the read-only Claims, Scopes and Authorization tabs name the Named
+   * configuration a client uses: its configuration name, or its id when the
+   * configuration is no longer found. The value is unescaped; a view escapes
+   * it once when printing it.
+   *
+   * @param array $data Client data from Oa4mpClientCoOidcClient::current()
+   * @return string
+   */
+
+  function namedConfigLabel($data) {
+    if(!empty($data['Oa4mpClientCoNamedConfig']['config_name'])) {
+      return $data['Oa4mpClientCoNamedConfig']['config_name'];
+    }
+
+    return '#' . $data['Oa4mpClientCoOidcClient']['named_config_id'];
+  }
+
+  /**
    * Build the data for a new OIDC client from the posted Add form data.
    *
    * Returns the data to save with saveAssociated() and a copy to marshal for

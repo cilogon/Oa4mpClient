@@ -297,6 +297,17 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
+# Raised from 397 to 404 for the read-only Claims tab on Named-configuration
+# clients, which added seven (400 -> 407): six in
+# Test/Case/Controller/ClaimsWritePathTest.php (add, edit and delete refused
+# before any server call, the add form refused by direct URL, the control
+# that an ordinary client's add still reaches the server, and the index
+# handing the view the configuration's name) and one in
+# NamedConfigAuthorizationCfgTest (the label falling back to the id).
+#
+# Raised from 328 to 333 for the Named-configuration authorization args,
+# which added five (331 -> 336): Test/Case/Model/
+#
 # Raised from 392 to 397 for the Named-configuration authorization args,
 # which added five (395 -> 400): Test/Case/Model/
 # NamedConfigAuthorizationCfgTest.php (a Named-configuration client sends no
@@ -396,7 +407,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=397
+min_tests_run=404
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

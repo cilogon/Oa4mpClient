@@ -89,6 +89,36 @@ class Oa4mpClientClaimsController extends StandardController {
   }
 
   /**
+   * Redirect to the claims index with an error when the client uses a Named
+   * configuration. The Named configuration supplies the client's claims, so
+   * the client's own claims are kept but not sent, and the tab is read-only
+   * while it is applied. Guards the write paths even against a hand-crafted
+   * POST or a direct edit/delete URL.
+   *
+   * @param  array   $client   Current client data (with Oa4mpClientCoOidcClient)
+   * @param  integer $clientId Oa4mpClientCoOidcClient ID
+   * @return void    Redirects and exits when the client uses a Named configuration
+   */
+
+  private function _blockIfNamedConfigClient($client, $clientId) {
+    $oa4mpServer = $this->_oa4mpServer();
+
+    if($oa4mpServer->usesNamedConfig($client)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_claim.er.named_config',
+                             array($oa4mpServer->namedConfigLabel($client))),
+                        array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_claims';
+      $args['action'] = 'index';
+      $args['clientid'] = $clientId;
+
+      $this->redirect($args);
+    }
+  }
+
+  /**
    * Add a claim.
    *
    * @since  COmanage Registry v4.4.2
@@ -107,6 +137,9 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
+
+    // Nor can a client while a Named configuration supplies its claims.
+    $this->_blockIfNamedConfigClient($client, $clientId);
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
@@ -281,6 +314,9 @@ class Oa4mpClientClaimsController extends StandardController {
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
 
+    // Nor can a client while a Named configuration supplies its claims.
+    $this->_blockIfNamedConfigClient($client, $clientId);
+
     $oa4mpServer = $this->_oa4mpServer();
 
     $newClient = $client;
@@ -374,6 +410,9 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
+
+    // Nor can a client while a Named configuration supplies its claims.
+    $this->_blockIfNamedConfigClient($client, $clientId);
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
@@ -606,6 +645,12 @@ class Oa4mpClientClaimsController extends StandardController {
     }
 
     $this->request->data = $client;
+
+    // The Named configuration in force, or null. While it is set the view
+    // lists the stored claims read-only under a notice naming it.
+    $this->set('vv_named_config', $oa4mpServer->usesNamedConfig($client)
+                                  ? $oa4mpServer->namedConfigLabel($client)
+                                  : null);
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.claims.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));

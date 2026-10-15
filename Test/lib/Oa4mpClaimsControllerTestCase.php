@@ -36,6 +36,17 @@ abstract class Oa4mpClaimsControllerTestCase extends Oa4mpTestCase {
   protected $constraintId = null;
 
   /**
+   * A client that uses a Named configuration, the configuration itself (its
+   * name carries an apostrophe, so escaping is exercised), and a claim stored
+   * on that client.
+   */
+  protected $namedConfigId = null;
+  protected $namedConfigClientId = null;
+  protected $namedConfigClaimId = null;
+
+  const NAMED_CONFIG_NAME = "Alice's named configuration";
+
+  /**
    * The fixture tag prefix this test file names its rows with. One per file,
    * so a leaked row is traceable to the file that seeded it.
    *
@@ -58,6 +69,9 @@ abstract class Oa4mpClaimsControllerTestCase extends Oa4mpTestCase {
     $this->publicClientId = null;
     $this->claimId = null;
     $this->constraintId = null;
+    $this->namedConfigId = null;
+    $this->namedConfigClientId = null;
+    $this->namedConfigClaimId = null;
 
     $this->fx = new Oa4mpFixtures();
     $tag = Oa4mpFixtures::tag($this->fixtureTagPrefix());
@@ -96,6 +110,24 @@ abstract class Oa4mpClaimsControllerTestCase extends Oa4mpTestCase {
       'constraint_field' => 'type',
       'constraint_value' => 'eppn'
     ));
+
+    $this->namedConfigId = $this->fx->insert('cm_oa4mp_client_co_named_configs', array(
+      'admin_id' => $this->adminId,
+      'config_name' => self::NAMED_CONFIG_NAME,
+      'config' => json_encode(Oa4mpClaimRows::namedConfigContent())
+    ));
+
+    $this->namedConfigClientId = $this->fx->oidcClient($this->adminId, 'named-' . $tag,
+      array('named_config_id' => $this->namedConfigId));
+
+    $this->namedConfigClaimId = $this->fx->insert('cm_oa4mp_client_claims', array(
+      'client_id' => $this->namedConfigClientId,
+      'claim_name' => 'eppn',
+      'source_model' => 'Identifier',
+      'source_model_claim_value_field' => 'identifier',
+      'claim_value_selection' => 'first',
+      'claim_value_json_format' => 'string'
+    ));
   }
 
   /**
@@ -114,7 +146,8 @@ abstract class Oa4mpClaimsControllerTestCase extends Oa4mpTestCase {
     // first: they carry the foreign key into claims.
     $purge = array();
     if ($this->clientId !== null) {
-      $clients = (int)$this->clientId . ', ' . (int)$this->publicClientId;
+      $clients = (int)$this->clientId . ', ' . (int)$this->publicClientId
+        . ', ' . (int)$this->namedConfigClientId;
       $purge['cm_oa4mp_client_claim_constraints'] =
         'claim_id IN (SELECT id FROM cm_oa4mp_client_claims WHERE client_id IN (' . $clients . '))';
       $purge['cm_oa4mp_client_claims'] = 'client_id IN (' . $clients . ')';

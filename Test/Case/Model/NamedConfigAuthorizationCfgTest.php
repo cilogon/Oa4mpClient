@@ -161,6 +161,24 @@ class NamedConfigAuthorizationCfgTest extends Oa4mpTestCase {
   }
 
   /**
+   * The read-only tabs name the Named configuration by its name, and by its
+   * id when the configuration is no longer found, never with an empty name.
+   */
+  public function testNamedConfigLabelFallsBackToTheId() {
+    $server = $this->server();
+
+    $data = $this->namedConfigClient();
+    $data['Oa4mpClientCoNamedConfig'] = array('id' => Oa4mpClaimRows::NAMED_CONFIG_ID,
+                                              'config_name' => "Alice's configuration");
+    $this->assertEqual("Alice's configuration", $server->namedConfigLabel($data),
+      'the label is the configuration name, unescaped');
+
+    $data['Oa4mpClientCoNamedConfig'] = array('id' => null, 'config_name' => null);
+    $this->assertEqual('#' . Oa4mpClaimRows::NAMED_CONFIG_ID, $server->namedConfigLabel($data),
+      'a configuration no longer found is named by its id');
+  }
+
+  /**
    * Covers AE4. A saved Named-configuration client with a retained
    * authorization row reports in sync whether or not the server's cfg still
    * carries authorization args from an earlier save.

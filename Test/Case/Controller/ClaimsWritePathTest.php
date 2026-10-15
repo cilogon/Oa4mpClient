@@ -318,6 +318,112 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
   }
 
   /**
+   * Covers AE1. A client that uses a Named configuration never reaches the
+   * OA4MP server through add(), and nothing is written.
+   */
+  public function testNamedConfigClientIsBlockedFromAddBeforeAnyServerCall() {
+    $data = $this->validAddData();
+    $data['Oa4mpClientClaim']['client_id'] = $this->namedConfigClientId;
+
+    $harness = Oa4mpClaimsControllerHarness::build($this->namedConfigClientId, $this->coId, $data);
+    $before = $this->namedConfigClaimCount();
+
+    $redirect = $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the guard stopped the action before any server call');
+    $this->assertEqual('index', $redirect['action'], 'the guard redirected to the claims index');
+    $this->assertEqual($before, $this->namedConfigClaimCount(), 'nothing was written');
+    $this->assertTrue($this->flashed($harness, $this->namedConfigError()),
+      'the Named-configuration error was flashed');
+    $this->assertFalse($this->flashedAnySuccess($harness), 'no success was reported');
+  }
+
+  /** The same guard on edit(): the stored claim is unchanged. */
+  public function testNamedConfigClientIsBlockedFromEditBeforeAnyServerCall() {
+    $data = $this->validEditData();
+    $data['Oa4mpClientClaim']['id'] = $this->namedConfigClaimId;
+    $data['Oa4mpClientClaim']['client_id'] = $this->namedConfigClientId;
+
+    $harness = Oa4mpClaimsControllerHarness::build($this->namedConfigClientId, $this->coId, $data);
+
+    $redirect = $harness->harnessInvoke('edit', array($this->namedConfigClaimId), 'POST');
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the guard stopped the action before any server call');
+    $this->assertEqual('index', $redirect['action'], 'the guard redirected to the claims index');
+    $this->assertEqual(1, $this->countRows($this->fx, 'cm_oa4mp_client_claims',
+      'id = ' . (int)$this->namedConfigClaimId . " AND claim_name = 'eppn'"),
+      'the claim is unchanged');
+    $this->assertTrue($this->flashed($harness, $this->namedConfigError()),
+      'the Named-configuration error was flashed');
+    $this->assertFalse($this->flashedAnySuccess($harness), 'no success was reported');
+  }
+
+  /** The same guard on delete(): the stored claim is still there. */
+  public function testNamedConfigClientIsBlockedFromDeleteBeforeAnyServerCall() {
+    $harness = Oa4mpClaimsControllerHarness::build($this->namedConfigClientId, $this->coId);
+
+    $redirect = $harness->harnessInvoke('delete', array($this->namedConfigClaimId), 'POST');
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the guard stopped the action before any server call');
+    $this->assertEqual('index', $redirect['action'], 'the guard redirected to the claims index');
+    $this->assertEqual(1, $this->countRows($this->fx, 'cm_oa4mp_client_claims',
+      'id = ' . (int)$this->namedConfigClaimId), 'the claim was not deleted');
+    $this->assertTrue($this->flashed($harness, $this->namedConfigError()),
+      'the Named-configuration error was flashed');
+  }
+
+  /** Opening the add form by direct URL is refused as well. */
+  public function testNamedConfigClientAddFormRedirectsToTheIndex() {
+    $harness = Oa4mpClaimsControllerHarness::build($this->namedConfigClientId, $this->coId);
+
+    $redirect = $harness->harnessInvoke('add', array(), 'GET');
+
+    $this->assertEqual('index', $redirect['action'] ?? null, 'the add form redirected to the claims index');
+    $this->assertTrue($this->flashed($harness, $this->namedConfigError()),
+      'the Named-configuration error was flashed');
+  }
+
+  /**
+   * The control: the same add for a client without a Named configuration
+   * reaches the server, so it is the guard that refuses the cases above.
+   */
+  public function testClientWithoutNamedConfigAddReachesTheServer() {
+    $harness = $this->harness($this->validAddData());
+    $harness->harnessServer->editClientReturn = 1;
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertTrue(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'an ordinary client\'s add was sent to the server');
+    $this->assertFalse($this->flashed($harness, $this->namedConfigError()),
+      'no Named-configuration error for an ordinary client');
+  }
+
+  /**
+   * The index lists the stored claims and hands the view the Named
+   * configuration's name, so it can show the notice and drop the write
+   * controls. An ordinary client gets null.
+   */
+  public function testIndexHandsTheViewTheNamedConfigName() {
+    $harness = Oa4mpClaimsControllerHarness::build($this->namedConfigClientId, $this->coId);
+    $harness->harnessInvoke('index', array(), 'GET');
+
+    $this->assertNull($harness->harnessRedirect, 'the index renders for a Named-configuration client');
+    $this->assertEqual(self::NAMED_CONFIG_NAME, $harness->viewVars['vv_named_config'] ?? null,
+      'the view receives the Named configuration\'s name, unescaped');
+
+    $ordinary = $this->harness();
+    $ordinary->harnessInvoke('index', array(), 'GET');
+
+    $this->assertTrue(array_key_exists('vv_named_config', $ordinary->viewVars)
+                      && $ordinary->viewVars['vv_named_config'] === null,
+      'an ordinary client gets a null Named configuration');
+  }
+
+  /**
    * Every failure branch of every action, in one place: none of them may
    * report success. This is the invariant the discarded write result broke.
    */
@@ -567,6 +673,17 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
   }
 
   /** Whether the harness recorded a flash with exactly this message. */
+  /** Claims stored on the Named-configuration client. */
+  private function namedConfigClaimCount() {
+    return $this->countRows($this->fx, 'cm_oa4mp_client_claims',
+      'client_id = ' . (int)$this->namedConfigClientId);
+  }
+
+  /** The error the guard flashes, naming the fixture's configuration. */
+  private function namedConfigError() {
+    return _txt('pl.oa4mp_client_claim.er.named_config', array(self::NAMED_CONFIG_NAME));
+  }
+
   private function flashed($harness, $message) {
     foreach ($harness->Flash->messages as $flash) {
       if ((string)$flash['message'] === (string)$message) {
