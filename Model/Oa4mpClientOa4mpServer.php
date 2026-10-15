@@ -742,6 +742,25 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * Whether client data describes a client that uses a Named configuration.
+   * The marshaller and the Claims, Scopes and Authorization tabs all ask this
+   * one question: while it holds, the client's own claims, scopes and
+   * authorization settings are kept but not sent, and those tabs are
+   * read-only.
+   *
+   * A client with no Named configuration is read by Containable with an
+   * array of null-valued fields for the association, so this tests the
+   * named_config_id value itself, never the presence of the association.
+   *
+   * @param array $data Client data including Oa4mpClientCoOidcClient
+   * @return boolean
+   */
+
+  function usesNamedConfig($data) {
+    return !empty($data['Oa4mpClientCoOidcClient']['named_config_id']);
+  }
+
+  /**
    * Build the data for a new OIDC client from the posted Add form data.
    *
    * Returns the data to save with saveAssociated() and a copy to marshal for
@@ -1643,9 +1662,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // Accumulated across every block below and reported once, at the end.
     $withheldFields = array();
 
-    // Client authorization configuration. Note that client authorization configuration is
-    // orthogonal to using a named configuration. That is, a client can
-    // use a named configuration and still have a client authorization configuration.
+    // Client authorization configuration. A client that uses a named
+    // configuration keeps its authorization row but sends none of these args:
+    // the named configuration points at its own QDL script, which does not
+    // read them, and the Authorization tab shows them as ignored while it is
+    // applied. The args are built either way and dropped below, so the row
+    // comes back into force unchanged once the named configuration is removed.
     //
     // Each of the five args is CONDITIONAL: it is emitted only when the
     // authorization row carries the value it names. The conditionality lives
@@ -1680,11 +1702,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $authzArgs = $this->marshallDeclaredRow($authzArgs, $declaredQdlArgs, $withheldFields,
                                             array(), false);
 
-    // Only when something survived. A client with no authorization row has
-    // never carried an args key at all, and the named-configuration branch
-    // below array_merge_recursive()s this cfg, so creating an empty args array
-    // here would put one into every named-configuration cfg.
-    if(!empty($authzArgs)) {
+    // Only when something survived, and never for a named-configuration
+    // client (see above). A client with no authorization row has never
+    // carried an args key at all, and the named-configuration branch below
+    // array_merge_recursive()s this cfg, so creating an empty args array here
+    // would put one into every named-configuration cfg.
+    if(!empty($authzArgs) && !$this->usesNamedConfig($data)) {
       $cfg['tokens']['identity']['qdl']['args'] = $authzArgs;
     }
 
