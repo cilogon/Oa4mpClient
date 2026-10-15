@@ -672,7 +672,6 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
     return (int)$this->fx->scalar('SELECT COALESCE(MAX(id), 0) AS m FROM cm_oa4mp_client_claims') + 1000;
   }
 
-  /** Whether the harness recorded a flash with exactly this message. */
   /** Claims stored on the Named-configuration client. */
   private function namedConfigClaimCount() {
     return $this->countRows($this->fx, 'cm_oa4mp_client_claims',
@@ -684,6 +683,7 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
     return _txt('pl.oa4mp_client_claim.er.named_config', array(self::NAMED_CONFIG_NAME));
   }
 
+  /** Whether the harness recorded a flash with exactly this message. */
   private function flashed($harness, $message) {
     foreach ($harness->Flash->messages as $flash) {
       if ((string)$flash['message'] === (string)$message) {
