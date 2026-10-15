@@ -99,8 +99,8 @@ class NamedConfigAuthorizationCfgTest extends Oa4mpTestCase {
 
   /**
    * An arg the Named configuration's own JSON defines reaches the cfg as
-   * stored. Before this change the client's authorization_group_id was merged
-   * into the same key with array_merge_recursive() and the two became an
+   * stored. The client's own authorization_group_id must not be merged into
+   * the same key, where array_merge_recursive() would turn the two into an
    * array.
    */
   public function testNamedConfigOwnArgsReachCfgUnchanged() {

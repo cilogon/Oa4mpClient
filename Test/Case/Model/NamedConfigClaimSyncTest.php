@@ -27,8 +27,8 @@
  * WHAT THIS TEST ASSERTS IS A KNOWN DEFECT, DELIBERATELY FROZEN.
  *
  * Claims stored on a named-configuration client are never sent to the OA4MP
- * server and never compared -- they are inert. The Claims tab is now
- * read-only for such a client and says so, but claims stored before that, or
+ * server and never compared -- they are inert. The Claims tab is read-only
+ * for such a client and says so, but claims stored before that, or
  * before the named configuration was applied, remain. Clearing the named
  * configuration later activates every one of them at once, so a relying party
  * begins receiving identity attributes that nobody reviewed at the moment
