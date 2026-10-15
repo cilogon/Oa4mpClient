@@ -403,6 +403,26 @@ cause the cfg for any client to be automatically updated. You must edit and
 re-save any client that uses the Named Configuration you just edited." Plan to
 re-save each affected client after changing a named configuration.
 
+While a named configuration is applied to a client, it decides what the OA4MP
+server does for that client, so three of the client's tabs become read-only:
+
+- **Claims** and **Scopes** -- the named configuration supplies the claims and
+  scopes, so the client's own are listed but not sent.
+- **Authorization** -- the named configuration points at its own claim script,
+  which does not read these settings, so the client's Require Active Status,
+  Authorized User Group and redirect URLs are not sent and **not enforced**.
+
+Each of these tabs names the named configuration in force, and the plugin
+refuses any change to them until it is removed. The saved values are kept: when
+you remove the named configuration, they are sent to the server again and take
+effect at once, including any claims stored on the client.
+
+Applying a named configuration removes the client's Require Active Status and
+group gate from the server at that moment. A client that was already using a
+named configuration before this behavior was introduced loses them the next
+time any of its tabs is saved. If such a client must still refuse inactive users
+or non-members, its named configuration's own script has to do it.
+
 ---
 
 ## 5. Managing tokens
