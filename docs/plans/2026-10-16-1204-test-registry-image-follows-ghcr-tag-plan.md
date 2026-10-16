@@ -13,12 +13,12 @@ execution: code
 ## Goal Capsule
 
 - **Objective:** When CILogon's image build produces a new COmanage Registry image, the hermetic and live-server test tiers run against it on their next run, with no copy, pin bump, or pull request from anyone.
-- **Means:** CILogon's build also publishes each such image to `ghcr.io/cilogon/comanage-registry` under one fixed tag; both tiers follow that tag and report the exact image each run used (KTD1, KTD2).
+- **Means:** CILogon's build also publishes each such image to `ghcr.io/cilogon/comanage-registry` under one fixed tag; both tiers follow that tag and report the exact image each run used (KTD2, KTD3, KTD4).
 - **Authority:** The Product Contract owns behavior (R-IDs win on what happens); the Planning Contract owns mechanism (KTDs win on how); units override neither. The change to CILogon's image build lives outside this repository and is a dependency, not an implementation unit here.
 - **Execution profile:** Two pull requests. Step one (U1-U3) lands now and changes no image. Step two (U4-U5) lands only after the U4 preconditions hold.
 - **Stop conditions:** Stop before U4 if any U4 precondition fails, or if the build owners have not agreed the tag name (KTD2).
 - **Who finishes:** Claude implements, pushes feature branches to the `bot` remote, and opens the PRs on `cilogon/Oa4mpClient`. The developer merges. The build owners make the CILogon build change.
-- **Open blockers:** None for planning. U4 waits on the first automated push of the followed tag and on the tag-name agreement.
+- **Open blockers:** None.
 
 ---
 
@@ -111,22 +111,19 @@ GHCR was adopted only because anonymous ECR Public pulls from Actions runners fa
 
 ### Dependencies / Assumptions
 
-- CILogon's build owners agree to and implement R1 and R2. Who makes that change, and in which repository, is outside this repo.
+- CILogon's build owners implemented R1 and R2 on 2026-10-16: the image build pushes to both ECR Public and GHCR. When the two `latest` tags differ, GHCR `latest` is treated as what CILogon ships.
 - The GHCR package stays public, and anonymous GHCR pulls from Actions runners stay within rate limits. That held after the move off ECR Public.
 - The build that becomes ECR `latest` is a single flavor (today's pinned image carries `mod_auth_openidc` labels) and is what the tests were originally built against.
 
 ### Outstanding Questions
 
-**Resolved in planning**
+**Resolved**
 
-- Tag name: `latest` on GHCR, pending the build owners' agreement before U4 (KTD2).
+- Tag name: `latest` on GHCR, which the build owners adopted (KTD2).
 - Where R6 is reported: in both run scripts, so local runs report too (KTD4, KTD6).
 - How the R5 CI override is set: a repository-level variable passed into both workflows (KTD5). It does not reach fork PRs (verified on cilogon/Oa4mpClient#41).
 - R11's check also locks the reporting and override wiring, asserted on the run scripts and workflows (KTD7).
-
-**Open for the build owners (not blocking U1-U3)**
-
-- Whether they agree to `latest` as the GHCR tag, and whether their build ever prunes untagged GHCR versions (the R5 rollback relies on old digests staying pullable).
+- Old GHCR versions: the build owners confirmed their build never prunes them, so the R5 override can always reach an earlier digest.
 
 ### Sources / Research
 
@@ -149,7 +146,7 @@ GHCR was adopted only because anonymous ECR Public pulls from Actions runners fa
 ### Key Technical Decisions
 
 - KTD1. **Deliver in two steps.** Step one (U1-U3) adds always-pull, run reporting, the CI override, and the publishing contract while the default stays the current pin. Step two (U4-U5) switches the default and rewrites the GHCR-digest check in the same PR, because `testRegistryImageIsPulledFromGhcrByDigest` fails the moment the default stops being a digest. Implements R8.
-- KTD2. **The followed tag is `latest` on GHCR.** It mirrors `public.ecr.aws/cilogon/comanage-registry:latest`, so the build pushes the same tag to both registries. The GHCR package has no `latest` today, so nothing collides. Needs the build owners' agreement before U4. Chosen over a repo-specific tag such as `oa4mp-test-current` so colleagues learn no new name. Implements R1.
+- KTD2. **The followed tag is `latest` on GHCR.** It mirrors `public.ecr.aws/cilogon/comanage-registry:latest`, so the build pushes the same tag to both registries. The GHCR package has no `latest` today, so nothing collides. The build owners adopted it. Chosen over a repo-specific tag such as `oa4mp-test-current` so colleagues learn no new name. Implements R1.
 - KTD3. **Pull explicitly, then start without pulling.** Each run script pulls every compose service, then starts the stack with pulling disabled, so the image that runs is the one just pulled and a tag move between the two steps cannot change it. Chosen over `pull_policy: always`, which pulls again inside `up`. Implements R4 and R7.
 - KTD4. **Report from the container that ran.** After start, each script prints the selected reference (resolved compose config, override included), the running container's image ID, and the repo digest entry matching that reference's repository, or `UNKNOWN` when there is none. A failed pull prints the reference and the pull output, then exits non-zero. When the override is set, a warning line says the default is not in use. Implements R6 and R7.
 - KTD5. **The CI override is one repository-level variable.** Both workflows pass `vars.OA4MP_TEST_REGISTRY_IMAGE` into the run step's `env:`. It is never defined on the `live-server` environment, where it would shadow the repository value. An unset variable resolves empty, and the compose `:-` default treats empty as unset. Chosen over `workflow_dispatch` inputs: one switch covers PR, push, schedule, and dispatch runs. Implements R5.
@@ -184,7 +181,7 @@ flowchart TB
 
 ### Assumptions
 
-- Untagged GHCR versions persist until someone deletes them; GitHub documents no automatic cleanup.
+- Untagged GHCR versions persist: GitHub documents no automatic cleanup, and the build owners confirmed their build never prunes them.
 - CILogon's build may publish a manifest list, in which case the GHCR digest differs from ECR's. KTD4 reports the image ID alongside the repo digest so runs stay comparable with each other.
 
 ### Risks
