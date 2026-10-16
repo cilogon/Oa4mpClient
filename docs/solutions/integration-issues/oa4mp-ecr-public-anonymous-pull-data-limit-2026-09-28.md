@@ -110,11 +110,12 @@ registry changing and the content provably unchanged. `crane copy` or
 > `public.ecr.aws` default. See
 > `docs/plans/2026-10-16-1204-test-registry-image-follows-ghcr-tag-plan.md`.
 
-- The test above keeps the default Registry image on GHCR, pinned by digest,
-  and rejects any default pulled from `public.ecr.aws`.
-- Bumping the pin is now two steps: copy the new digest to GHCR, then change
-  the default. `Test/README.md`, "Bumping the Registry image", has the
-  commands.
+- `CiWorkflowTest::testRegistryImageFollowsTheGhcrLatestTag` keeps the default
+  Registry image on GHCR and rejects any default pulled from `public.ecr.aws`.
+- (Historical, until 2026-10-16: the default was pinned by digest, and moving
+  to a new image took two steps, copying the digest to GHCR and then bumping
+  the pin. `Test/README.md`'s "Registry image publishing contract" replaces
+  that procedure.)
 - A pull failure of this kind stops the run in its first seconds, before any
   test runs. Read the log before treating a red run on a docs-only change as
   a regression.
