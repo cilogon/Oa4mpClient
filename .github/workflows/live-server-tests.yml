@@ -80,6 +80,11 @@ jobs:
           # digits, across 621 lines. That is exactly the log someone reads
           # when this tier fails. Variables are not masked.
           OA4MP_LIVE_CO_ID: ${{ vars.OA4MP_LIVE_CO_ID }}
+          # The same repository variable the hermetic gate reads, so one
+          # setting points both tiers at the same Registry image. Define it at
+          # repository level only: a copy on the live-server environment would
+          # silently take precedence here.
+          OA4MP_TEST_REGISTRY_IMAGE: ${{ vars.OA4MP_TEST_REGISTRY_IMAGE }}
         # Same digest-pinned environment as the hermetic tier: this job runs the
         # harness with a live credential in scope, so a mutable image alongside
         # a secret would be a supply-chain exfiltration risk.

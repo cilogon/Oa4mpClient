@@ -189,6 +189,75 @@ class CiWorkflowTest extends Oa4mpTestCase {
       . 'fails the gate intermittently');
   }
 
+  /**
+   * Both tiers must re-pull the Registry image every run and log what ran.
+   *
+   * Compose's default pull policy only pulls a missing image, so once the
+   * default follows a tag instead of a digest a cached copy would quietly stand
+   * in for the tag's current target. Pulling first and then starting with
+   * pulling disabled makes the image that runs the one just pulled, and the
+   * report after start is how a reader tells image drift from a code
+   * regression when a run goes red. A failed pull must fail loudly by name
+   * rather than exit under `set -e` with no message.
+   *
+   * See docs/plans/2026-10-16-1204-test-registry-image-follows-ghcr-tag-plan.md
+   * U1 (R4, R6, R7; KTD3, KTD4).
+   */
+  public function testRunScriptsPullThenReportTheRegistryImage() {
+    foreach (array('run.sh', 'run-live.sh') as $script) {
+      $path = App::pluginPath('Oa4mpClient') . 'Test' . DS . $script;
+      $this->assertTrue(is_readable($path), "the $script entry command exists at $path");
+      $sh = $this->directives(file_get_contents($path));
+
+      $pull = strpos($sh, 'docker compose pull');
+      $this->assertTrue($pull !== false, "$script pulls the images explicitly before starting");
+      $this->assertContains('|| pull_status=$?', $sh,
+        "$script captures the pull's status so a failure reports the image instead of "
+        . 'exiting silently under set -e');
+
+      preg_match_all('/docker compose up[^\n]*/', $sh, $ups);
+      $this->assertNotEmpty($ups[0], "$script starts the stack");
+      foreach ($ups[0] as $up) {
+        $this->assertContains('--pull never', $up,
+          "$script must start with pulling disabled so the image that runs is the one "
+          . "just pulled and reported; found: $up");
+        $this->assertTrue($pull < strpos($sh, $up), "$script pulls before it starts");
+      }
+
+      $this->assertContains('Registry image digest:', $sh,
+        "$script reports the repo digest of the Registry image that ran");
+      $this->assertContains('UNKNOWN', $sh,
+        "$script prints UNKNOWN rather than a blank when no repo digest matches");
+      $this->assertContains('WARNING: OA4MP_TEST_REGISTRY_IMAGE', $sh,
+        "$script warns on every run while the image override is set");
+    }
+  }
+
+  /**
+   * Both tiers must take the image override from a repository variable.
+   *
+   * With no digest pin and no automatic fallback, a bad image turns every run
+   * red until a fixed one is published; the escape is pointing both tiers at
+   * a known-good digest without a commit. A repository-level variable reaches
+   * pull-request, push, scheduled, and dispatched runs alike. It must never be
+   * a secret: the hermetic gate reads none, and the reference is not a
+   * credential.
+   *
+   * See docs/plans/2026-10-16-1204-test-registry-image-follows-ghcr-tag-plan.md
+   * U2 (R5; KTD5).
+   */
+  public function testBothTiersTakeTheImageOverrideAsAVariable() {
+    foreach (array('hermetic-tests.yml', 'live-server-tests.yml') as $name) {
+      $yaml = $this->directives($this->workflow($name));
+
+      $this->assertContains(
+        'OA4MP_TEST_REGISTRY_IMAGE: ${{ vars.OA4MP_TEST_REGISTRY_IMAGE }}', $yaml,
+        "$name must pass the image override from the repository variable");
+      $this->assertTrue(strpos($yaml, 'secrets.OA4MP_TEST_REGISTRY_IMAGE') === false,
+        "$name must not take the image override from a secret");
+    }
+  }
+
   /** The credential file must be gitignored so a real secret cannot be committed. */
   public function testLiveCredentialFileIsGitignored() {
     $path = App::pluginPath('Oa4mpClient') . '.gitignore';
