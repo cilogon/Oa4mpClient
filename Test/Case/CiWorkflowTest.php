@@ -233,6 +233,31 @@ class CiWorkflowTest extends Oa4mpTestCase {
     }
   }
 
+  /**
+   * Both tiers must take the image override from a repository variable.
+   *
+   * With no digest pin and no automatic fallback, a bad image turns every run
+   * red until a fixed one is published; the escape is pointing both tiers at
+   * a known-good digest without a commit. A repository-level variable reaches
+   * pull-request, push, scheduled, and dispatched runs alike. It must never be
+   * a secret: the hermetic gate reads none, and the reference is not a
+   * credential.
+   *
+   * See docs/plans/2026-10-16-1204-test-registry-image-follows-ghcr-tag-plan.md
+   * U2 (R5; KTD5).
+   */
+  public function testBothTiersTakeTheImageOverrideAsAVariable() {
+    foreach (array('hermetic-tests.yml', 'live-server-tests.yml') as $name) {
+      $yaml = $this->directives($this->workflow($name));
+
+      $this->assertContains(
+        'OA4MP_TEST_REGISTRY_IMAGE: ${{ vars.OA4MP_TEST_REGISTRY_IMAGE }}', $yaml,
+        "$name must pass the image override from the repository variable");
+      $this->assertTrue(strpos($yaml, 'secrets.OA4MP_TEST_REGISTRY_IMAGE') === false,
+        "$name must not take the image override from a secret");
+    }
+  }
+
   /** The credential file must be gitignored so a real secret cannot be committed. */
   public function testLiveCredentialFileIsGitignored() {
     $path = App::pluginPath('Oa4mpClient') . '.gitignore';
