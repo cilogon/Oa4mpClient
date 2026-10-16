@@ -286,7 +286,51 @@ request's code rather than image drift; bumping a pin is an explicit, reviewable
 change. Set `OA4MP_TEST_REGISTRY_IMAGE` or `OA4MP_TEST_DATABASE_IMAGE` to try a
 different image locally without editing the file.
 
+Both run scripts pull every image at the start of each run, then start the
+stack without pulling again, so a cached copy never stands in for what the
+compose file names. Each run then prints the Registry reference, the running
+container's image ID, and its repo digest (`UNKNOWN` when the image has none).
+Compare those lines across runs to tell image drift from a code regression.
+Because every run pulls, `OA4MP_TEST_REGISTRY_IMAGE` must name an image a
+registry can serve; a locally built image has to be pushed somewhere first.
+
+### Registry image publishing contract
+
+The tests are moving off a digest pin to follow
+`ghcr.io/cilogon/comanage-registry:latest`, so that a new CILogon Registry
+build reaches both tiers with no change in this repository. Until that switch
+lands, the pin below stays in force. For the switch to work, CILogon's image
+build must:
+
+- push every build that becomes `public.ecr.aws/cilogon/comanage-registry:latest`
+  to `ghcr.io/cilogon/comanage-registry:latest` as well;
+- keep that GHCR package public, since fork pull requests pull it anonymously;
+- publish a `linux/amd64` image, which is what Actions runners run;
+- leave earlier versions in the package rather than pruning untagged ones, so
+  a known-good digest stays pullable for the override below.
+
+### When a new image breaks the tests
+
+There is no automatic fallback: a broken image turns every run red until it is
+dealt with.
+
+1. Compare the `Registry image digest` and `Registry image ID` lines of the red
+   run with the last green one. If they match, the image is not the cause.
+2. If they differ, decide which side changed. A defective image is fixed by
+   publishing a corrected build. An intended Registry change is fixed here, in
+   the plugin or its tests, verified locally against the new image.
+3. Meanwhile, a maintainer can point both tiers at the last green image by
+   setting the repository variable `OA4MP_TEST_REGISTRY_IMAGE` (Settings >
+   Secrets and variables > Actions > Variables) to its digest reference, e.g.
+   `ghcr.io/cilogon/comanage-registry@sha256:<digest>`. Set it at repository
+   level only; a copy on the `live-server` environment would take precedence
+   for the live tier. Every run warns while it is set.
+4. Delete the variable once the fix lands, so both tiers return to the default.
+
 ### Bumping the Registry image
+
+This is the interim procedure while the default is still a digest pin; the
+publishing contract above replaces it once the default follows the tag.
 
 The default Registry image is `ghcr.io/cilogon/comanage-registry`, a public
 copy of `public.ecr.aws/cilogon/comanage-registry` with the same digest.
