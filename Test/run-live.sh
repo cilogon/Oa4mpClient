@@ -54,10 +54,12 @@ if [ -n "${OA4MP_TEST_REGISTRY_IMAGE:-}" ]; then
 fi
 
 echo "==> Pulling images..."
-# Pull every run, then start with pulling disabled, so a cached copy of a tag
-# never stands in for its current target and the image that runs is the one
-# reported below. Capture the status rather than letting `set -e` exit with no
-# message. (Mirrors Test/run.sh.)
+# Pull every run, then start with pulling disabled. Compose's default policy
+# only pulls a missing image, so a cached copy of a tag would otherwise stand
+# in for the tag's current target; and starting without a second pull keeps
+# the image that runs the one this pull fetched and the report below names.
+# Capture the status rather than letting `set -e` exit with no message.
+# (Mirrors Test/run.sh.)
 pull_status=0
 pull_output="$(docker compose pull --quiet 2>&1)" || pull_status=$?
 if [ "$pull_status" -ne 0 ]; then
