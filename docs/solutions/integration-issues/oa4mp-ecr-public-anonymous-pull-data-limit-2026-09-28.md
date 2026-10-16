@@ -102,6 +102,14 @@ registry changing and the content provably unchanged. `crane copy` or
 
 ## Prevention
 
+> **Superseded for the Registry image (2026-10-16).** The default no longer
+> pins a digest: it follows `ghcr.io/cilogon/comanage-registry:latest`, which
+> CILogon's image build now publishes, so the copy-then-bump steps below are
+> retired. `CiWorkflowTest::testRegistryImageIsPulledFromGhcrByDigest` became
+> `testRegistryImageFollowsTheGhcrLatestTag`, which still rejects any
+> `public.ecr.aws` default. See
+> `docs/plans/2026-10-16-1204-test-registry-image-follows-ghcr-tag-plan.md`.
+
 - The test above keeps the default Registry image on GHCR, pinned by digest,
   and rejects any default pulled from `public.ecr.aws`.
 - Bumping the pin is now two steps: copy the new digest to GHCR, then change

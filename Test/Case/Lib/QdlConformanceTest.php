@@ -18,10 +18,9 @@
  * wrong file, and no fixture-driven test would notice.
  *
  * There is no git binary in the image this suite runs in, and there must not
- * be: Test/docker/docker-compose.yml digest-pins that image precisely so that
- * a pass or a fail is attributable to the pull request's code rather than to
- * image drift, and installing a package would trade that for a network
- * dependency at test time. The shell-out is therefore a SEAM. gitShow() takes
+ * be: the suite runs CILogon's own Registry image (Test/docker/docker-compose.yml),
+ * and installing a package at test time would add a network dependency and
+ * test an environment CILogon does not ship. The shell-out is therefore a SEAM. gitShow() takes
  * an optional runner and defaults to QdlConformance::runGit(); the tests below
  * hand it a stub that records the command it was given and answers with a
  * scripted status and output.

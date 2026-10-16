@@ -1,6 +1,6 @@
 # Hermetic test suite: the merge gate for every pull request.
 #
-# Runs the same Test/run.sh a developer runs locally, against the digest-pinned
+# Runs the same Test/run.sh a developer runs locally, against CILogon's
 # COmanage Registry image plus a companion database, with all OA4MP server
 # interactions stubbed. It needs no repository secrets and never contacts
 # dev.cilogon.org, so it runs on pull requests from forks, where GitHub

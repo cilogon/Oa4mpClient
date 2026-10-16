@@ -9,10 +9,10 @@ The hermetic environment is a real COmanage Registry plus a Postgres database,
 with the plugin-under-test overlaid over the image's bundled release. Validated
 facts:
 
-- **Image:** `public.ecr.aws/cilogon/comanage-registry:latest` (~1.07 GB),
-  PHP 8.4.24, CakePHP 2.10.24, app root `/srv/comanage-registry/app`. The
-  suite now pulls a digest-identical copy from GHCR; see "Bumping the Registry
-  image" below.
+- **Image:** `ghcr.io/cilogon/comanage-registry:latest`, CILogon's Registry
+  build (also published to ECR Public as `latest`), PHP 8.4.24, app root
+  `/srv/comanage-registry/app`. The suite follows that tag; see "Registry
+  image publishing contract" below.
 - **Overlay target:** the released plugin lives at
   `app/Plugin/Oa4mpClient`; the compose file bind-mounts this checkout there.
 - **Database:** Postgres (the image's default `COMANAGE_REGISTRY_DATASOURCE`),
@@ -280,11 +280,12 @@ properties of that file are load-bearing:
 breaking any of them red-lights the merge. The full account is in
 `docs/solutions/integration-issues/`.
 
-The Registry and database images are pinned by digest in
-`Test/docker/docker-compose.yml`, so a pass or fail is attributable to the pull
-request's code rather than image drift; bumping a pin is an explicit, reviewable
-change. Set `OA4MP_TEST_REGISTRY_IMAGE` or `OA4MP_TEST_DATABASE_IMAGE` to try a
-different image locally without editing the file.
+The Registry image follows `ghcr.io/cilogon/comanage-registry:latest` in
+`Test/docker/docker-compose.yml`, so a new CILogon build reaches both tiers
+with no change in this repository. The database image stays pinned by digest,
+since nothing publishes a newer one for these tests to follow. Set
+`OA4MP_TEST_REGISTRY_IMAGE` or `OA4MP_TEST_DATABASE_IMAGE` to try a different
+image locally without editing the file.
 
 Both run scripts pull every image at the start of each run, then start the
 stack without pulling again, so a cached copy never stands in for what the
@@ -296,11 +297,13 @@ registry can serve; a locally built image has to be pushed somewhere first.
 
 ### Registry image publishing contract
 
-The tests are moving off a digest pin to follow
-`ghcr.io/cilogon/comanage-registry:latest`, so that a new CILogon Registry
-build reaches both tiers with no change in this repository. Until that switch
-lands, the pin below stays in force. For the switch to work, CILogon's image
-build must:
+The default Registry image is `ghcr.io/cilogon/comanage-registry:latest`,
+not `public.ecr.aws`: anonymous ECR Public pulls from Actions runners
+intermittently fail with `toomanyrequests: Data limit exceeded`, and the gate
+cannot log in because it uses no secrets.
+`CiWorkflowTest::testRegistryImageFollowsTheGhcrLatestTag` keeps the default
+on that tag. For the tests to keep tracking what CILogon ships, CILogon's
+image build must:
 
 - push every build that becomes `public.ecr.aws/cilogon/comanage-registry:latest`
   to `ghcr.io/cilogon/comanage-registry:latest` as well;
@@ -322,42 +325,14 @@ dealt with.
 3. Meanwhile, a maintainer can point both tiers at the last green image by
    setting the repository variable `OA4MP_TEST_REGISTRY_IMAGE` (Settings >
    Secrets and variables > Actions > Variables) to its digest reference, e.g.
-   `ghcr.io/cilogon/comanage-registry@sha256:<digest>`. Set it at repository
+   `ghcr.io/cilogon/comanage-registry@sha256:<digest>`, using the digest the
+   last green run printed on its `Registry image digest` line. Set it at repository
    level only; a copy on the `live-server` environment would take precedence
    for the live tier. Every run warns while it is set. Pull requests from
    forks never see the variable (GitHub passes them no repository variables,
    checked on cilogon/Oa4mpClient#41), so they keep using the default; rerun
    them once the fix lands.
 4. Delete the variable once the fix lands, so both tiers return to the default.
-
-### Bumping the Registry image
-
-This is the interim procedure while the default is still a digest pin; the
-publishing contract above replaces it once the default follows the tag.
-
-The default Registry image is `ghcr.io/cilogon/comanage-registry`, a public
-copy of `public.ecr.aws/cilogon/comanage-registry` with the same digest.
-Anonymous pulls from ECR Public on Actions runners intermittently fail with
-`toomanyrequests: Data limit exceeded`, and the gate cannot log in to ECR
-because it uses no secrets. `CiWorkflowTest::testRegistryImageIsPulledFromGhcrByDigest`
-keeps the default on GHCR.
-
-To move to a new image, someone with package write access in the `cilogon`
-organization copies the new digest to GHCR first, then the pin is bumped:
-
-```bash
-docker buildx imagetools create \
-  --tag ghcr.io/cilogon/comanage-registry:oa4mp-test-<short-digest> \
-  public.ecr.aws/cilogon/comanage-registry@sha256:<digest>
-docker buildx imagetools inspect ghcr.io/cilogon/comanage-registry:oa4mp-test-<short-digest>
-```
-
-`imagetools create` wraps a single-platform image in a new manifest list with
-its own digest. The original manifest is kept inside it unchanged, so pin the
-**original** digest (the `linux/amd64` entry in the inspect output), not the
-list's. `crane copy` or `skopeo copy` copy the manifest as-is and avoid the
-wrapper. Check that an anonymous pull by that digest works (after
-`docker logout ghcr.io`) before opening the pull request.
 
 ## The live-server tier
 
