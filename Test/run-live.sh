@@ -41,8 +41,47 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# The Registry image reference after interpolation, override included. Asking
+# compose for one service's images also lists its dependencies, so subtract
+# the database's. (Mirrors Test/run.sh.)
+registry_image="$(docker compose config --images comanage-registry \
+  | grep -vxF -f <(docker compose config --images comanage-registry-database))"
+
+if [ -n "${OA4MP_TEST_REGISTRY_IMAGE:-}" ]; then
+  echo "==> WARNING: OA4MP_TEST_REGISTRY_IMAGE is set, so this run uses" \
+    "$registry_image instead of the compose default. Unset it once the" \
+    "default image works again."
+fi
+
+echo "==> Pulling images..."
+# Pull every run, then start with pulling disabled, so a cached copy of a tag
+# never stands in for its current target and the image that runs is the one
+# reported below. Capture the status rather than letting `set -e` exit with no
+# message. (Mirrors Test/run.sh.)
+pull_status=0
+pull_output="$(docker compose pull --quiet 2>&1)" || pull_status=$?
+if [ "$pull_status" -ne 0 ]; then
+  echo "==> ERROR: could not pull the test images (Registry: $registry_image)." >&2
+  echo "$pull_output" >&2
+  exit 1
+fi
+
 echo "==> Bringing up Registry + Postgres..."
-docker compose up -d
+docker compose up -d --pull never
+
+# Report the image that actually ran. (Mirrors Test/run.sh.)
+registry_container="$(docker compose ps -q comanage-registry)"
+registry_image_id="$(docker inspect --format '{{.Image}}' "$registry_container")"
+registry_repo="${registry_image%@*}"
+case "${registry_repo##*/}" in
+  *:*) registry_repo="${registry_repo%:*}" ;;
+esac
+registry_digest="$(docker image inspect \
+  --format '{{range .RepoDigests}}{{println .}}{{end}}' "$registry_image_id" \
+  | grep -m1 -F "$registry_repo@" || true)"
+echo "==> Registry image: $registry_image"
+echo "==> Registry image ID: $registry_image_id"
+echo "==> Registry image digest: ${registry_digest:-UNKNOWN}"
 
 echo "==> Creating schema..."
 # `cake database`'s exit code is not trustworthy: Test/README.md's "Known
