@@ -324,7 +324,10 @@ dealt with.
    Secrets and variables > Actions > Variables) to its digest reference, e.g.
    `ghcr.io/cilogon/comanage-registry@sha256:<digest>`. Set it at repository
    level only; a copy on the `live-server` environment would take precedence
-   for the live tier. Every run warns while it is set.
+   for the live tier. Every run warns while it is set. Pull requests from
+   forks never see the variable (GitHub passes them no repository variables,
+   checked on cilogon/Oa4mpClient#41), so they keep using the default; rerun
+   them once the fix lands.
 4. Delete the variable once the fix lands, so both tiers return to the default.
 
 ### Bumping the Registry image

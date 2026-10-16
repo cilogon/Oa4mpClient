@@ -16,7 +16,7 @@ execution: code
 - **Means:** CILogon's build also publishes each such image to `ghcr.io/cilogon/comanage-registry` under one fixed tag; both tiers follow that tag and report the exact image each run used (KTD1, KTD2).
 - **Authority:** The Product Contract owns behavior (R-IDs win on what happens); the Planning Contract owns mechanism (KTDs win on how); units override neither. The change to CILogon's image build lives outside this repository and is a dependency, not an implementation unit here.
 - **Execution profile:** Two pull requests. Step one (U1-U3) lands now and changes no image. Step two (U4-U5) lands only after the U4 preconditions hold.
-- **Stop conditions:** Stop before U4 if any U4 precondition fails, or if the build owners have not agreed the tag name (KTD2). Stop and report if the fork-PR override check (Verification Contract) shows repository variables do not reach fork runs; U1-U3 still land, and R5's fork reach becomes an open question for the user.
+- **Stop conditions:** Stop before U4 if any U4 precondition fails, or if the build owners have not agreed the tag name (KTD2).
 - **Who finishes:** Claude implements, pushes feature branches to the `bot` remote, and opens the PRs on `cilogon/Oa4mpClient`. The developer merges. The build owners make the CILogon build change.
 - **Open blockers:** None for planning. U4 waits on the first automated push of the followed tag and on the tag-name agreement.
 
@@ -41,6 +41,7 @@ GHCR was adopted only because anonymous ECR Public pulls from Actions runners fa
 - **Follow the build that becomes ECR `latest`.** Governs R1. (session-settled: user-approved -- chosen over every `develop-*` build and over builds explicitly marked test-ready: tests track what CILogon actually ships.)
 - **A bad image turns the tests red; no automatic fallback.** Governs R6, R7. (session-settled: user-approved -- chosen over a repo-side hold mechanism and over keeping the hermetic gate pinned: fix forward by pushing a fixed image, with the existing override as the escape.)
 - **The live tier accepts the trust shift.** Governs R10. (session-settled: user-directed -- chosen over provenance verification of the image and over keeping the live tier pinned: package writers are trusted colleagues and the credential is a dev-only test admin client.)
+- **Fork pull requests always test the compose default.** Governs R5. (session-settled: user-directed -- chosen over rethinking the escape hatch before step one merged: GitHub passes no repository variables to fork `pull_request` runs, verified on cilogon/Oa4mpClient#41, and the only workaround runs fork code with base-repo context.)
 - **Follow a moving tag rather than automate pin-bump pull requests.** Governs R4. (session-settled: user-approved -- chosen over a bot that opens pin-bump PRs: those still need a human merge, which defeats the goal.)
 - **PR results are no longer attributable to PR code alone.** Accepted consequence of the decisions above: a colleague's push can turn every open PR red at once, and R6's printed digest is how a reader tells image drift from a code regression. This supersedes R7 and KTD4 of `docs/plans/2026-08-19-0342-test-plugin-test-suite-plan.md` for the Registry image.
 
@@ -63,7 +64,7 @@ GHCR was adopted only because anonymous ECR Public pulls from Actions runners fa
 **Image selection in the tests**
 
 - R4. The hermetic and live-server tiers both run the Registry image the followed tag points to at the start of the run, with no digest pin in the default. Local runs re-resolve the tag the same way, so a cached copy never stands in for its current target.
-- R5. The image override (`OA4MP_TEST_REGISTRY_IMAGE`) keeps working for local runs, and a maintainer can point both CI tiers at a specific image or digest without committing a change.
+- R5. The image override (`OA4MP_TEST_REGISTRY_IMAGE`) keeps working for local runs, and a maintainer can point both CI tiers at a specific image or digest without committing a change, for every run inside `cilogon/Oa4mpClient`.
 - R6. Every run of either tier reports, in its log, the image reference it selected (the followed tag or the override), plus the exact digest it ran when the pull succeeds, or the pull error when it fails.
 - R7. When the followed tag cannot be pulled, the run fails with a message naming the image reference, rather than falling back to another image.
 - R8. The default moves to the followed tag only after the tag exists on GHCR; until then the current pin stays in force.
@@ -120,7 +121,7 @@ GHCR was adopted only because anonymous ECR Public pulls from Actions runners fa
 
 - Tag name: `latest` on GHCR, pending the build owners' agreement before U4 (KTD2).
 - Where R6 is reported: in both run scripts, so local runs report too (KTD4, KTD6).
-- How the R5 CI override is set: a repository-level variable passed into both workflows (KTD5). Whether it reaches fork PRs is checked once in the Verification Contract.
+- How the R5 CI override is set: a repository-level variable passed into both workflows (KTD5). It does not reach fork PRs (verified on cilogon/Oa4mpClient#41).
 - R11's check also locks the reporting and override wiring, asserted on the run scripts and workflows (KTD7).
 
 **Open for the build owners (not blocking U1-U3)**
@@ -183,7 +184,6 @@ flowchart TB
 
 ### Assumptions
 
-- GitHub resolves repository variables on fork `pull_request` runs. The docs are silent; the Verification Contract checks it once. If they do not resolve, fork PRs fall back to the default and only the escape hatch is lost there.
 - Untagged GHCR versions persist until someone deletes them; GitHub documents no automatic cleanup.
 - CILogon's build may publish a manifest list, in which case the GHCR digest differs from ECR's. KTD4 reports the image ID alongside the repo digest so runs stay comparable with each other.
 
@@ -294,7 +294,7 @@ flowchart TB
 |---|---|---|
 | `Test/run.sh` (the only supported way to run PHP tests) | U1, U2, U4 | Suite passes, count gate holds, log shows reference, image ID, and digest |
 | Mutation checks named in each unit's test scenarios | U1, U2, U4 | Each new test goes red on the named mutation, then green when restored; recorded in the commit message per the README compound norm |
-| Fork-PR override check | U2 | A throwaway fork PR run, with the repository variable set to the current pinned digest, logs the override warning and that digest; then the variable is cleared |
+| Fork-PR override check | U2 | Done 2026-10-16 on cilogon/Oa4mpClient#41: with the repository variable set to the pinned digest, the fork PR's run received it empty and printed no warning. Fork PRs always use the default (Key Decisions) |
 | U4 preconditions | U4 | All five hold before the step-two PR is opened |
 | Dispatched live run on `main` after step two merges | U4 | Log shows the tag, image ID, and digest; run result matches the hermetic tier |
 
@@ -302,7 +302,7 @@ flowchart TB
 
 ## Definition of Done
 
-- Step one: U1-U3 merged upstream; CI green on that PR; fork-PR override check passed or its failure reported to the user.
+- Step one: U1-U3 merged upstream; CI green on that PR; fork-PR override result recorded.
 - Step two: U4-U5 merged upstream after the preconditions held; a dispatched live run on the tag reported its image.
 - Every new test was mutation-checked and the count-gate floor raised with its comment paragraph.
 - No experimental or abandoned code from either step remains in the diff.

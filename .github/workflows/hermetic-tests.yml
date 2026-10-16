@@ -45,7 +45,9 @@ jobs:
           # Empty unless a maintainer sets the repository variable to point
           # this gate at a specific Registry image, e.g. a known-good digest
           # while a broken one is being fixed. Empty falls back to the compose
-          # default, and run.sh warns on every run while it is set.
+          # default, and run.sh warns on every run while it is set. Pull
+          # requests from forks always get it empty: GitHub passes them no
+          # repository variables, so they always test the compose default.
           OA4MP_TEST_REGISTRY_IMAGE: ${{ vars.OA4MP_TEST_REGISTRY_IMAGE }}
         run: Test/run.sh
 
