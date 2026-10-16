@@ -85,7 +85,12 @@ jobs:
           # repository level only: a copy on the live-server environment would
           # silently take precedence here.
           OA4MP_TEST_REGISTRY_IMAGE: ${{ vars.OA4MP_TEST_REGISTRY_IMAGE }}
-        # Same digest-pinned environment as the hermetic tier: this job runs the
-        # harness with a live credential in scope, so a mutable image alongside
-        # a secret would be a supply-chain exfiltration risk.
+        # Same environment as the hermetic tier, including its Registry image,
+        # which follows ghcr.io/cilogon/comanage-registry:latest. That is an
+        # accepted trust trade-off: the image runs the harness and receives the
+        # admin secret inside its container, so whoever can change what
+        # `latest` points to -- anyone with write access to that GHCR package,
+        # CILogon's image build and its publishing credential, and anyone who
+        # can trigger that build -- can affect code running beside this
+        # dev-only test credential.
         run: Test/run-live.sh
