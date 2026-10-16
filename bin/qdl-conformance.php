@@ -687,10 +687,9 @@ class QdlConformance {
    * as a method of its own so that gitShow()'s resolution logic -- which tier
    * is asked for, which command is composed, and which of the two nulls comes
    * back -- can be driven by a test with no git binary present. The suite runs
-   * inside a digest-pinned image on purpose, so that a pass or fail is
-   * attributable to the pull request's code rather than to image drift;
-   * installing git into it to test this logic would trade that away for a
-   * network dependency.
+   * inside CILogon's own Registry image, which has no git; installing git into
+   * it at test time to exercise this logic would add a network dependency and
+   * test an environment CILogon does not ship.
    *
    * Standard error is discarded rather than captured: it would carry paths and
    * content out of a PRIVATE repository into a verdict pasted on a PUBLIC one.

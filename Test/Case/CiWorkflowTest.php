@@ -167,26 +167,34 @@ class CiWorkflowTest extends Oa4mpTestCase {
   }
 
   /**
-   * The gate's Registry image must come from GHCR, pinned by digest.
+   * The gate's Registry image must follow the GHCR `latest` tag that CILogon's
+   * image build publishes, and never come from public.ecr.aws.
    *
-   * Pulled anonymously from public.ecr.aws, the image intermittently failed
-   * with "toomanyrequests: Data limit exceeded" before any test ran (runs #39
-   * and #47 on 2026-09-28), because runners share the anonymous quota. The
-   * gate needs no secrets, so logging in to ECR is not an option; the same
-   * digest is mirrored to a public GHCR package instead.
+   * Following the tag means a new CILogon build reaches both tiers with no
+   * copy or pin bump; the run scripts pull it every run and report the digest
+   * that ran. GHCR rather than ECR because anonymous public.ecr.aws pulls
+   * intermittently failed with "toomanyrequests: Data limit exceeded" before
+   * any test ran (runs #39 and #47 on 2026-09-28), and the gate needs no
+   * secrets, so it cannot log in to raise the quota. The database image stays
+   * pinned by digest: nothing publishes a newer one for these tests to follow.
+   *
+   * See docs/plans/2026-10-16-1204-test-registry-image-follows-ghcr-tag-plan.md
+   * U4 (R4, R9, R11; KTD2).
    */
-  public function testRegistryImageIsPulledFromGhcrByDigest() {
+  public function testRegistryImageFollowsTheGhcrLatestTag() {
     $path = App::pluginPath('Oa4mpClient') . 'Test' . DS . 'docker' . DS . 'docker-compose.yml';
     $this->assertTrue(is_readable($path), "the compose file exists at $path");
     $yaml = $this->directives(file_get_contents($path));
 
-    $this->assertTrue((bool)preg_match(
-      '/\$\{OA4MP_TEST_REGISTRY_IMAGE:-ghcr\.io\/cilogon\/comanage-registry@sha256:[0-9a-f]{64}\}/',
-      $yaml),
-      'the default Registry image must be ghcr.io/cilogon/comanage-registry pinned by digest');
+    $this->assertContains(
+      'image: ${OA4MP_TEST_REGISTRY_IMAGE:-ghcr.io/cilogon/comanage-registry:latest}', $yaml,
+      'the default Registry image must follow ghcr.io/cilogon/comanage-registry:latest');
     $this->assertTrue(strpos($yaml, 'public.ecr.aws') === false,
       'no default image may be pulled from public.ecr.aws; its anonymous quota '
       . 'fails the gate intermittently');
+    $this->assertTrue((bool)preg_match(
+      '/\$\{OA4MP_TEST_DATABASE_IMAGE:-postgres@sha256:[0-9a-f]{64}\}/', $yaml),
+      'the default database image must stay pinned by digest');
   }
 
   /**
