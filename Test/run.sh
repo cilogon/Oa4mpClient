@@ -80,11 +80,10 @@ docker compose exec -T comanage-registry bash -c '
   cd /srv/comanage-registry/app && ./Console/cake database'
 
 echo "==> Verifying the plugin's tables actually exist..."
-# schema.xml declares 22 <table> elements but only 15 unique table names (some
-# tables, e.g. oa4mp_client_dynamo_configs, are defined twice), so an exact
-# count of <table> tags would be fragile; use the unique-name count as a floor
-# instead. This is the post-condition `cake database`'s exit code cannot be
-# trusted to provide (see the comment above).
+# schema.xml declares 15 tables, each once (Test/Case/Config/
+# SchemaDeclarationTest.php holds it to that); use that count as a floor. This
+# is the post-condition `cake database`'s exit code cannot be trusted to
+# provide (see the comment above).
 min_plugin_tables=15
 plugin_table_count="$(docker compose exec -T comanage-registry-database \
   psql -U registry_user -d registry -tAc \
@@ -298,6 +297,11 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
+# Raised from 330 to 334 for the duplicate schema tables fix, which added four
+# in Test/Case/Config/SchemaDeclarationTest.php (333 -> 337): each table is
+# declared once, each referenced plugin table is declared before its referrer,
+# and a positive control for each of those two checks.
+#
 # Raised from 328 to 330 for the Registry image following a GHCR tag, which
 # added two in Test/Case/CiWorkflowTest.php (331 -> 333):
 # testRunScriptsPullThenReportTheRegistryImage, which checks that both run
@@ -355,7 +359,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=330
+min_tests_run=334
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

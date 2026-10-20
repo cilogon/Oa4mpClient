@@ -427,14 +427,16 @@ by `client_id`). Until it does, orphan cleanup is manual.
 
 ## Known wrinkle
 
-On a fresh database, `./Console/cake database` currently emits a non-fatal
-`relation "cm_oa4mp_client_dynamo_configs" already exists` warning ("Possibly
-failed to update database schema") while still returning success and leaving the
-plugin's tables queryable. This is a `cake database` reconciliation quirk in the
-plugin's schema (KTD2 territory, related to the raw-SQL foreign-key note in
-`Config/Schema/schema.xml`).
+`./Console/cake database` can warn "Possibly failed to update database schema"
+and still return success. On a fresh database it used to do exactly that,
+reporting `relation "cm_oa4mp_client_dynamo_configs" already exists`: seven
+tables were declared twice in `Config/Schema/schema.xml`, so the schema step
+issued a second `CREATE TABLE` for each. Removing the second copies
+(cilogon/Oa4mpClient#44) silenced the warning, and
+`Test/Case/Config/SchemaDeclarationTest.php` now fails if a table is declared
+twice again.
 
-Because that exit code cannot be trusted, `Test/run.sh` no longer relies on it:
+Because that exit code cannot be trusted, `Test/run.sh` does not rely on it:
 it prints the step's output and then verifies the plugin's tables actually exist
 in the database, failing the run if fewer than the schema's 15 distinct
 `cm_oa4mp_client_*` tables are present. Without that post-condition a checkout
