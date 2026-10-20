@@ -26,6 +26,9 @@
   with the numeric group id stored for each membership, so members of the
   group were refused as non-members. The matching claim script change, which
   accepts either form, should be deployed as well.
+- Remove seven duplicated table definitions from the plugin schema. They made
+  `cake database` warn "Possibly failed to update database schema" on a fresh
+  install. Existing installations need no migration.
 
 ## 7.0.0-rc8 (2026-08-25)
 

@@ -86,7 +86,7 @@ referenced table moved to the end) to prove the check fires.
 
 ## Related Issues
 
-- cilogon/Oa4mpClient#44, fixed on branch `fix/schema-duplicate-tables` (merge pending).
+- cilogon/Oa4mpClient#44, fixed by cilogon/Oa4mpClient#45 (released in 7.0.0-rc11).
 - `docs/solutions/test-failures/oa4mp-test-runner-silent-pass-count-gate.md`, which
   quotes the same warning in its account of why `Test/run.sh` checks that the plugin's
   tables exist.
