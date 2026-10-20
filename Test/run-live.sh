@@ -98,11 +98,10 @@ docker compose exec -T comanage-registry bash -c '
   cd /srv/comanage-registry/app && ./Console/cake database'
 
 echo "==> Verifying the plugin's tables actually exist..."
-# schema.xml declares 22 <table> elements but only 15 unique table names (some
-# tables, e.g. oa4mp_client_dynamo_configs, are defined twice), so an exact
-# count of <table> tags would be fragile; use the unique-name count as a floor
-# instead. This is the post-condition `cake database`'s exit code cannot be
-# trusted to provide (see the comment above).
+# schema.xml declares 15 tables, each once (Test/Case/Config/
+# SchemaDeclarationTest.php holds it to that); use that count as a floor. This
+# is the post-condition `cake database`'s exit code cannot be trusted to
+# provide (see the comment above).
 min_plugin_tables=15
 plugin_table_count="$(docker compose exec -T comanage-registry-database \
   psql -U registry_user -d registry -tAc \
