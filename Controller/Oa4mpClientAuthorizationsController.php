@@ -46,6 +46,22 @@ class Oa4mpClientAuthorizationsController extends StandardController {
   public $requires_co = true;
 
   /**
+   * Construct the OA4MP server object the authorization actions talk to.
+   *
+   * The single construction point for Oa4mpClientOa4mpServer in this
+   * controller. It exists so a test subclass can substitute a fake server and
+   * drive an action without reaching the network; production behavior is
+   * unchanged. Same shape as the factory in Oa4mpClientClaimsController.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
+  }
+
+  /**
    * Manage an authorization configuration.
    *
    * @since COmanage Registry 4.5.0
@@ -57,7 +73,7 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->current($clientId);
@@ -83,32 +99,52 @@ class Oa4mpClientAuthorizationsController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, array_merge($client, $this->request->data));
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      // Validate before anything is sent to the OA4MP server, and send the
+      // data validation leaves behind. A redirect URL the plugin rejects --
+      // most often one with a stray space around it -- used to be stored by
+      // the server and not by the plugin, leaving the two out of sync
+      // (cilogon/Oa4mpClient#48). Validation trims the URLs, so the value sent
+      // and the value saved are the same.
+      $this->Oa4mpClientAuthorization->create(false);
+      $this->Oa4mpClientAuthorization->set($this->request->data);
+
+      if(!$this->Oa4mpClientAuthorization->validates()) {
+        // Set flash and fall through to the GET logic, which renders the form
+        // again with the validation error. Nothing was sent to the server.
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
       } else {
-        // Update successful so save the edit.
-        $ret = $this->Oa4mpClientAuthorization->save($this->request->data);
+        $this->request->data['Oa4mpClientAuthorization'] = $this->Oa4mpClientAuthorization->data['Oa4mpClientAuthorization'];
 
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_authorization.edit.flash.success'), array('key' => 'success'));
+        // Call out to oa4mp server.
+        // Return value of 0 indicates an error saving the edit.
+        // Return value of 2 indicates the plugin representation of the client
+        // and the Oa4mp server representation of the client are out of sync.
+        $ret = $oa4mpServer->oa4mpEditClient($admin, $client, array_merge($client, $this->request->data));
+        if($ret == 0) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+        } elseif($ret == 2) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+        } else {
+          // Update successful so save the edit. The server has already
+          // accepted it, so a failed save here leaves the two sides out of
+          // sync and must be reported, not flashed as success.
+          if(!$this->Oa4mpClientAuthorization->save($this->request->data)) {
+            $this->Flash->set(_txt('pl.oa4mp_client_authorization.er.edit.save'), array('key' => 'error'));
+          } else {
+            $this->Flash->set(_txt('pl.oa4mp_client_authorization.edit.flash.success'), array('key' => 'success'));
+          }
 
-        // Redirect to the manage view.
-        $args = array();
-        $args['plugin'] = 'oa4mp_client';
-        $args['controller'] = 'oa4mp_client_authorizations';
-        $args['action'] = 'manage';
-        $args['clientid'] = $clientId;
+          // Redirect to the manage view.
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_authorizations';
+          $args['action'] = 'manage';
+          $args['clientid'] = $clientId;
 
-        $this->redirect($args);
+          $this->redirect($args);
+        }
       }
     }
 
@@ -153,11 +189,27 @@ class Oa4mpClientAuthorizationsController extends StandardController {
       $client['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] = $serverExtra;
     }
 
+    // A posted configuration that failed validation stays in the form over
+    // the stored client, so the subscriber can see and correct what was
+    // rejected.
+    $rejected = null;
+    if(!empty($this->Oa4mpClientAuthorization->validationErrors)) {
+      $rejected = $this->request->data['Oa4mpClientAuthorization'] ?? array();
+    }
+
     $this->request->data = $client;
 
+    if($rejected !== null) {
+      $this->request->data['Oa4mpClientAuthorization'] = $rejected;
+    }
+
     // Tick Require Active Status only when it was actually saved, asking the
-    // same question the marshaller asks before sending it to the server.
-    $this->set('vv_require_active', $oa4mpServer->requiresActiveStatus($client));
+    // same question the marshaller asks before sending it to the server. For
+    // a rejected post, reflect what was posted instead, so the box and the
+    // redirect URL field it shows or hides match the input being corrected.
+    $this->set('vv_require_active', $oa4mpServer->requiresActiveStatus($rejected !== null
+                                      ? array('Oa4mpClientAuthorization' => $rejected)
+                                      : $client));
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));

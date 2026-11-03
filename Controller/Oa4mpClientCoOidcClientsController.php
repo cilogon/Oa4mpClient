@@ -123,6 +123,12 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         }
       }
 
+      // Trim the home URL before it is marshalled for the server, so the
+      // server and the plugin store the same value (cilogon/Oa4mpClient#48).
+      if(isset($data['Oa4mpClientCoOidcClient']['home_url']) && is_string($data['Oa4mpClientCoOidcClient']['home_url'])) {
+        $data['Oa4mpClientCoOidcClient']['home_url'] = trim($data['Oa4mpClientCoOidcClient']['home_url']);
+      }
+
       // For all new clients the only scope set initially is openid. OA4MP does
       // not require this, but without the openid scope set we cannot determine
       // from what OA4MP returns whether or not the client is a public client.
@@ -408,6 +414,12 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
+
+      // Trim the home URL before it is sent to the server, so the server and
+      // the plugin store the same value (cilogon/Oa4mpClient#48).
+      if(isset($this->request->data['Oa4mpClientCoOidcClient']['home_url']) && is_string($this->request->data['Oa4mpClientCoOidcClient']['home_url'])) {
+        $this->request->data['Oa4mpClientCoOidcClient']['home_url'] = trim($this->request->data['Oa4mpClientCoOidcClient']['home_url']);
+      }
 
       // Copy the current client to a new client and update it with
       // the values input through the form.
