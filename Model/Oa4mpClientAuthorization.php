@@ -81,4 +81,28 @@ class Oa4mpClientAuthorization extends AppModel {
       'message' => 'Please supply a valid https:// URL'
     )
   );
-} 
+
+  /**
+   * Trim surrounding whitespace from the redirect URLs before they are
+   * validated.
+   *
+   * A space pasted around a URL is never intended, and the url rule rejects
+   * it. The controller validates before it sends anything to the OA4MP server
+   * and sends the data validation leaves behind, so the trimmed URLs are the
+   * ones both sides store (cilogon/Oa4mpClient#48).
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  array $options Validation options
+   * @return boolean True to continue validation
+   */
+
+  public function beforeValidate($options = array()) {
+    foreach(array('authz_group_redirect_url', 'require_active_redirect_url', 'no_record_redirect_url') as $field) {
+      if(isset($this->data[$this->alias][$field]) && is_string($this->data[$this->alias][$field])) {
+        $this->data[$this->alias][$field] = trim($this->data[$this->alias][$field]);
+      }
+    }
+
+    return parent::beforeValidate($options);
+  }
+}

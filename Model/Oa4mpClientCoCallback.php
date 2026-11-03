@@ -83,6 +83,27 @@ class Oa4mpClientCoCallback extends AppModel {
     return $coid;
   }
 
+  /**
+   * Trim surrounding whitespace from the callback URL before it is validated.
+   *
+   * A space pasted around a URL is never intended, and validCallbackUri()
+   * rejects it. The controller validates before it sends anything to the
+   * OA4MP server and sends the data validation leaves behind, so the trimmed
+   * URL is the one both sides store (cilogon/Oa4mpClient#48).
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  array $options Validation options
+   * @return boolean True to continue validation
+   */
+
+  public function beforeValidate($options = array()) {
+    if(isset($this->data[$this->alias]['url']) && is_string($this->data[$this->alias]['url'])) {
+      $this->data[$this->alias]['url'] = trim($this->data[$this->alias]['url']);
+    }
+
+    return parent::beforeValidate($options);
+  }
+
   public function validCallbackUri($check) {
     $url = $check['url'];
 

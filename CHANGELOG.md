@@ -26,6 +26,13 @@
   with the numeric group id stored for each membership, so members of the
   group were refused as non-members. The matching claim script change, which
   accepts either form, should be deployed as well.
+- Trim spaces around callback URLs, the Authorization tab's redirect URLs, and
+  the client home URL, and check callback and Authorization changes before
+  sending them to the OA4MP server (cilogon/Oa4mpClient#48). A URL with a
+  stray space was sent to the server, then rejected when the Registry saved
+  it, but the page reported success anyway. The server and the Registry then
+  disagreed, so every later edit of that client was refused as out of sync.
+  Clients already in that state still need the server copy corrected by hand.
 - Remove seven duplicated table definitions from the plugin schema. They made
   `cake database` warn "Possibly failed to update database schema" on a fresh
   install. Existing installations need no migration.

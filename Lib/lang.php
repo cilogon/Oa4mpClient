@@ -193,6 +193,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_callback.callback.add.flash.success'   => 'Callback Added',
   'pl.oa4mp_client_co_callback.callback.delete.flash.success'=> 'Callback Deleted',
   'pl.oa4mp_client_co_callback.callback.edit.flash.success'  => 'Callback Updated',
+  'pl.oa4mp_client_co_callback.er.add.save'                  => 'The callback was added to the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including adding the callback again. To bring them back into agreement, remove the callback from the OA4MP server.',
+  'pl.oa4mp_client_co_callback.er.edit.save'                 => 'The callback was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the callback again. To bring them back into agreement, restore the callback on the OA4MP server to the value Registry still holds.',
   'pl.oa4mp_client_co_callback.url.fd.name'                  => 'URL',
 
   // ===========================================================================
@@ -476,6 +478,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_authorization.add.flash.success'    => 'Authorization Configuration Added',
   'pl.oa4mp_client_authorization.delete.flash.success' => 'Authorization Configuration Deleted',
   'pl.oa4mp_client_authorization.edit.flash.success'   => 'Authorization Configuration Updated',
+  'pl.oa4mp_client_authorization.er.edit.save'         => 'The authorization configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the authorization configuration again. To bring them back into agreement, restore the authorization configuration on the OA4MP server to the values Registry still holds.',
 
   // View titles
   'pl.oa4mp_client_authorization.add.name'   => 'Add Authorization Configuration for %s',

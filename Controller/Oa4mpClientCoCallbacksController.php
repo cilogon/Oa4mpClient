@@ -46,6 +46,22 @@ class Oa4mpClientCoCallbacksController extends StandardController {
   public $requires_co = true;
 
   /**
+   * Construct the OA4MP server object the callbacks actions talk to.
+   *
+   * The single construction point for Oa4mpClientOa4mpServer in this
+   * controller. It exists so a test subclass can substitute a fake server and
+   * drive an action without reaching the network; production behavior is
+   * unchanged. Same shape as the factory in Oa4mpClientClaimsController.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
+  }
+
+  /**
    * Add a callback.
    *
    * @since  COmanage Registry v4.4.2
@@ -56,7 +72,7 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
@@ -65,39 +81,48 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
 
-      $newCallbacks = $client['Oa4mpClientCoCallback'];
-      $newCallbacks[] = $this->request->data['Oa4mpClientCoCallback'];
-
-      $newClient = array_replace($client, array('Oa4mpClientCoCallback' => $newCallbacks));
-
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      if(!$this->_validatePostedCallback()) {
+        // Set flash and fall through to the GET logic, which renders the form
+        // again with the validation error. Nothing was sent to the server.
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
       } else {
-        // Update successful so save the new callback.
-        $ret = $this->Oa4mpClientCoCallback->save($this->request->data);
+        $newCallbacks = $client['Oa4mpClientCoCallback'];
+        $newCallbacks[] = $this->request->data['Oa4mpClientCoCallback'];
 
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_callback.callback.add.flash.success'), array('key' => 'success'));
+        $newClient = array_replace($client, array('Oa4mpClientCoCallback' => $newCallbacks));
 
-        // Redirect to the index view.
-        $args = array();
-        $args['plugin'] = 'oa4mp_client';
-        $args['controller'] = 'oa4mp_client_co_callbacks';
-        $args['action'] = 'index';
-        $args['clientid'] = $clientId;
+        // Call out to oa4mp server.
+        // Return value of 0 indicates an error saving the edit.
+        // Return value of 2 indicates the plugin representation of the client
+        // and the Oa4mp server representation of the client are out of sync.
+        $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
+        if($ret == 0) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+        } elseif($ret == 2) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+        } else {
+          // Update successful so save the new callback. The server has already
+          // accepted it, so a failed save here leaves the two sides out of
+          // sync and must be reported, not flashed as success.
+          if(!$this->Oa4mpClientCoCallback->save($this->request->data)) {
+            $this->Flash->set(_txt('pl.oa4mp_client_co_callback.er.add.save'), array('key' => 'error'));
+          } else {
+            $this->Flash->set(_txt('pl.oa4mp_client_co_callback.callback.add.flash.success'), array('key' => 'success'));
+          }
 
-        $this->redirect($args);
+          // Redirect to the index view.
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_co_callbacks';
+          $args['action'] = 'index';
+          $args['clientid'] = $clientId;
+
+          $this->redirect($args);
+        }
       }
-    } 
+    }
 
     // GET 
 
@@ -158,7 +183,7 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     $newClient = $client;
 
@@ -210,7 +235,7 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
@@ -218,43 +243,52 @@ class Oa4mpClientCoCallbacksController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
-      $newClient = $client;
-
-      foreach($client['Oa4mpClientCoCallback'] as $i => $c) {
-        if($c['id'] == $id) {
-          $newClient['Oa4mpClientCoCallback'][$i] = $this->request->data['Oa4mpClientCoCallback'];
-          break;
-        }
-      } 
-
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      if(!$this->_validatePostedCallback()) {
+        // Set flash and fall through to the GET logic, which renders the form
+        // again with the validation error. Nothing was sent to the server.
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
       } else {
-        // Update successful so save the edited callback.
-        $ret = $this->Oa4mpClientCoCallback->save($this->request->data);
+        $newClient = $client;
 
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_callback.callback.edit.flash.success'), array('key' => 'success'));
+        foreach($client['Oa4mpClientCoCallback'] as $i => $c) {
+          if($c['id'] == $id) {
+            $newClient['Oa4mpClientCoCallback'][$i] = $this->request->data['Oa4mpClientCoCallback'];
+            break;
+          }
+        }
 
-        // Redirect to the index view.
-        $args = array();
-        $args['plugin'] = 'oa4mp_client';
-        $args['controller'] = 'oa4mp_client_co_callbacks';
-        $args['action'] = 'index';
-        $args['clientid'] = $clientId;
+        // Call out to oa4mp server.
+        // Return value of 0 indicates an error saving the edit.
+        // Return value of 2 indicates the plugin representation of the client
+        // and the Oa4mp server representation of the client are out of sync.
+        $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
+        if($ret == 0) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+        } elseif($ret == 2) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+        } else {
+          // Update successful so save the edited callback. The server has
+          // already accepted it, so a failed save here leaves the two sides
+          // out of sync and must be reported, not flashed as success.
+          if(!$this->Oa4mpClientCoCallback->save($this->request->data)) {
+            $this->Flash->set(_txt('pl.oa4mp_client_co_callback.er.edit.save'), array('key' => 'error'));
+          } else {
+            $this->Flash->set(_txt('pl.oa4mp_client_co_callback.callback.edit.flash.success'), array('key' => 'success'));
+          }
 
-        $this->redirect($args);
+          // Redirect to the index view.
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_co_callbacks';
+          $args['action'] = 'index';
+          $args['clientid'] = $clientId;
+
+          $this->redirect($args);
+        }
       }
-    } 
+    }
 
     // GET 
 
@@ -298,12 +332,48 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.callbacks.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));
 
+    // A posted callback that failed validation stays in the form, so the
+    // subscriber can see and correct what was rejected.
+    if(!empty($this->Oa4mpClientCoCallback->validationErrors)) {
+      return;
+    }
+
     foreach($client['Oa4mpClientCoCallback'] as $i => $c) {
       if($c['id'] == $id) {
         $this->request->data = array('Oa4mpClientCoCallback' => $client['Oa4mpClientCoCallback'][$i]);
         return;
       }
-    } 
+    }
+  }
+
+  /**
+   * Validate the posted callback before anything is sent to the OA4MP server.
+   *
+   * The add and edit actions used to send the posted callback to the server
+   * first and validate it only when saving it locally afterwards. A callback
+   * the plugin rejects -- most often one with a stray space around it -- was
+   * then stored by the server and not by the plugin, and the synchronization
+   * check blocked every later edit of the client (cilogon/Oa4mpClient#48).
+   *
+   * On success the posted callback is replaced with the data validation left
+   * behind, so the value sent to the server and the value saved are the same
+   * normalized (trimmed) URL.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @return boolean True if the posted callback is valid
+   */
+
+  protected function _validatePostedCallback() {
+    $this->Oa4mpClientCoCallback->create(false);
+    $this->Oa4mpClientCoCallback->set($this->request->data);
+
+    if(!$this->Oa4mpClientCoCallback->validates()) {
+      return false;
+    }
+
+    $this->request->data['Oa4mpClientCoCallback'] = $this->Oa4mpClientCoCallback->data['Oa4mpClientCoCallback'];
+
+    return true;
   }
 
   /**
@@ -317,7 +387,7 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
