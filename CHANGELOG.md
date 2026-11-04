@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Keep sending the isMemberOf group claim as a JSON array when an LDAP-backed
+  client is converted to DynamoDB claims (cilogon/Oa4mpClient#40). The
+  conversion set the claim to a comma-delimited string, so relying parties
+  that read the groups as the array the LDAP claim source sent got a single
+  string instead. A client converted before this fix but never saved is not
+  reported as modified outside the Registry because of it, and is repaired
+  automatically the next time its edit page is opened. Only clients already
+  saved under DynamoDB still return a delimited string until their isMemberOf
+  claim is switched to JSON Array on the Claims tab.
 - Make the Claims, Scopes and Authorization tabs read-only while a Named
   Configuration is applied to a client, with a notice naming it. The Named
   Configuration supplies the client's claims and scopes and runs its own claim

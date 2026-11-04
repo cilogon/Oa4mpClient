@@ -7,9 +7,30 @@
  *    defect lived in the unmarshall layer, so the claim cases here build the
  *    server side by running a real cfg through oa4mpUnMarshallContent() rather
  *    than comparing a hand-built array to itself.
+ *  - cilogon/Oa4mpClient#40: an isMemberOf claim now converts to a JSON array.
+ *    A legacy LDAP cfg carries no serialization setting at all, so a client
+ *    converted before that change (its row still says delimited_string) and
+ *    one converted after it must both read in sync against that cfg. The
+ *    comparison also reports which kind of cfg it read ('legacy_cfg'), which
+ *    is what lets the edit page repair a pre-change row only while the server
+ *    copy is still legacy.
  *
  * See docs/plans/2026-08-19-0342-test-plugin-test-suite-plan.md U4 (R2, R3, R5).
  */
+
+App::uses('Oa4mpClientOa4mpServer', 'Oa4mpClient.Model');
+
+/**
+ * Exposes the protected compareToServerObject(), the step of
+ * oa4mpVerifyClient() after the HTTP read, so the comparison's result can be
+ * observed without a socket.
+ */
+class Oa4mpSyncVerificationComparisonProbe extends Oa4mpClientOa4mpServer {
+
+  public function compareWith($adminClient, $curClient, $oa4mpObject) {
+    return $this->compareToServerObject($adminClient, $curClient, $oa4mpObject);
+  }
+}
 
 class SyncVerificationTest extends Oa4mpTestCase {
 
@@ -257,10 +278,38 @@ class SyncVerificationTest extends Oa4mpTestCase {
     );
   }
 
+  /** A deprecated (pre-QDL) cfg carrying the given LDAP search attributes. */
+  private function deprecatedCfg($searchAttributes) {
+    return array(
+      'claims' => array(
+        'sourceConfig' => array(
+          array(
+            'ldap' => array(
+              'authorizationType' => 'simple',
+              'enabled' => 'true',
+              'address' => 'ldap.example.org',
+              'port' => 636,
+              'principal' => 'cn=service,dc=example,dc=org',
+              'password' => 'not-a-real-password',
+              'searchBase' => 'ou=people,dc=example,dc=org',
+              'searchName' => 'uid',
+              'searchAttributes' => $searchAttributes,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /**
    * The persisted claim rows toClaim() produces for the isMemberOf and gecos
    * search attributes. Neither takes the LdapProvisioner-config branch, so the
    * legacy path can be driven without provisioner fixtures.
+   *
+   * isMemberOf is json_array with no delimiter. It was delimited_string ','
+   * until cilogon/Oa4mpClient#40: the LDAP claim source sends a multi-valued
+   * attribute as a JSON array, so toClaim() now converts isMemberOf to one.
+   * See persistedPreJsonArrayLegacyClaims() for a row converted before that.
    */
   private function persistedLegacyClaims() {
     return array(
@@ -272,8 +321,8 @@ class SyncVerificationTest extends Oa4mpTestCase {
         'source_model_claim_value_field' => 'member',
         'claim_value_selection' => 'all',
         'claim_value_json_format' => 'string',
-        'claim_multiple_value_serialization' => 'delimited_string',
-        'claim_value_string_serialization_delimiter' => ',',
+        'claim_multiple_value_serialization' => 'json_array',
+        'claim_value_string_serialization_delimiter' => null,
         'Oa4mpClientClaimConstraint' => array(
           array('id' => 95, 'claim_id' => 31, 'constraint_field' => 'owner', 'constraint_value' => 'false'),
         ),
@@ -341,6 +390,139 @@ class SyncVerificationTest extends Oa4mpTestCase {
     $this->assertFalse($this->server()->isClientDataSynchronized($cur, $serverData),
       'a claim mapping present in the plugin but absent from the server cfg'
       . ' must report out-of-sync');
+  }
+
+  /**
+   * persistedLegacyClaims() as a client converted before
+   * cilogon/Oa4mpClient#40 saved it: isMemberOf still delimited_string ','.
+   */
+  private function persistedPreJsonArrayLegacyClaims() {
+    $claims = $this->persistedLegacyClaims();
+    $claims[0]['claim_multiple_value_serialization'] = 'delimited_string';
+    $claims[0]['claim_value_string_serialization_delimiter'] = ',';
+
+    return $claims;
+  }
+
+  /**
+   * Issue #40. A client converted to DynamoDB claims before isMemberOf became
+   * a JSON array, and never saved, still has a delimited_string ',' row while
+   * the server still holds its QDLv2 cfg. That cfg has no serialization
+   * setting at all, so the serialization fields must not count; comparing
+   * them would block every edit to the client as out of sync.
+   */
+  public function testLegacyCfgPreJsonArrayIsMemberOfRowReportsInSync() {
+    $cfg = $this->qdlv2Cfg(array('isMemberOf' => 'is_member_of', 'gecos' => 'gecos'));
+
+    $serverData = $this->server()->oa4mpUnMarshallContent(
+      $this->serverObject($cfg), $this->adminClient());
+
+    $cur = $this->pluginSide($this->persistedPreJsonArrayLegacyClaims());
+
+    $this->assertTrue($this->server()->isClientDataSynchronized($cur, $serverData),
+      'an isMemberOf row converted before the JSON array change must compare'
+      . ' in sync against a QDLv2 cfg, which carries no serialization setting');
+  }
+
+  /**
+   * The same for the deprecated (pre-QDL) cfg syntax, the other legacy path
+   * that builds its claims through buildClaimFromLdapMapping().
+   */
+  public function testDeprecatedCfgIsMemberOfRowsReportInSync() {
+    $cfg = $this->deprecatedCfg(array(
+      array('name' => 'isMemberOf', 'returnName' => 'is_member_of', 'returnAsList' => 'true'),
+      array('name' => 'gecos', 'returnName' => 'gecos', 'returnAsList' => 'false'),
+    ));
+
+    $serverData = $this->server()->oa4mpUnMarshallContent(
+      $this->serverObject($cfg), $this->adminClient());
+
+    $this->assertEqual(2, count($serverData['Oa4mpClientClaim']),
+      'each deprecated search attribute must be translated into a claim');
+
+    $this->assertTrue($this->server()->isClientDataSynchronized(
+      $this->pluginSide($this->persistedLegacyClaims()), $serverData),
+      'a newly converted json_array isMemberOf row must compare in sync against'
+      . ' a deprecated cfg');
+    $this->assertTrue($this->server()->isClientDataSynchronized(
+      $this->pluginSide($this->persistedPreJsonArrayLegacyClaims()), $serverData),
+      'a delimited_string isMemberOf row converted before the JSON array change'
+      . ' must also compare in sync against a deprecated cfg');
+  }
+
+  /**
+   * The control that keeps the exception above narrow: on the legacy path
+   * only the two serialization fields are set aside, so a claim that really
+   * differs -- here the source field -- still reports out of sync.
+   */
+  public function testLegacyCfgDifferentSourceFieldReportsOutOfSync() {
+    $cfg = $this->qdlv2Cfg(array('isMemberOf' => 'is_member_of', 'gecos' => 'gecos'));
+
+    $serverData = $this->server()->oa4mpUnMarshallContent(
+      $this->serverObject($cfg), $this->adminClient());
+
+    $claims = $this->persistedPreJsonArrayLegacyClaims();
+    $claims[1]['source_model_claim_value_field'] = 'given';
+
+    $this->assertFalse($this->server()->isClientDataSynchronized(
+      $this->pluginSide($claims), $serverData),
+      'a claim whose source field differs from the legacy cfg must report out'
+      . ' of sync; only the serialization fields are set aside on that path');
+  }
+
+  /**
+   * The other control: a QDLv3 cfg does carry the serialization, so there it
+   * is still compared. A server mapping that says json_array against a row
+   * that says delimited_string reports out of sync.
+   */
+  public function testQdlv3SerializationDifferenceReportsOutOfSync() {
+    $mappings = $this->qdlv3ClaimMappings();
+    $mappings[0]['claim_multiple_value_serialization'] = 'json_array';
+    unset($mappings[0]['claim_value_string_serialization_delimiter']);
+
+    $serverData = $this->server()->oa4mpUnMarshallContent(
+      $this->serverObject($this->qdlv3Cfg($mappings)),
+      $this->adminClient());
+
+    $cur = $this->pluginSide($this->persistedQdlv3Claims());
+
+    $this->assertFalse($this->server()->isClientDataSynchronized($cur, $serverData),
+      'a QDLv3 cfg carries the serialization, so a differing serialization'
+      . ' must still report out of sync');
+  }
+
+  /**
+   * Issue #40. The comparison reports a legacy server cfg, so the edit page
+   * can repair an isMemberOf row converted before the JSON array change while
+   * the server still holds the cfg that sent a JSON array.
+   */
+  public function testLegacyCfgComparisonReportsLegacyCfg() {
+    $probe = new Oa4mpSyncVerificationComparisonProbe();
+    $comparison = $probe->compareWith($this->adminClient(),
+      $this->pluginSide($this->persistedPreJsonArrayLegacyClaims()),
+      $this->serverObject($this->qdlv2Cfg(array('isMemberOf' => 'is_member_of', 'gecos' => 'gecos'))));
+
+    $this->assertTrue($comparison['synchronized'], 'premise: the client compares in sync');
+    $this->assertTrue(($comparison['legacy_cfg'] ?? null) === true,
+      'a QDLv2 cfg must be reported as legacy, got '
+      . var_export($comparison['legacy_cfg'] ?? '<missing>', true));
+  }
+
+  /**
+   * The control: a QDLv3 cfg already carries the serialization, so the
+   * server holds the delimited string too and a repair there would be drift.
+   * The comparison reports it as not legacy, with the key present.
+   */
+  public function testQdlv3ComparisonDoesNotReportLegacyCfg() {
+    $probe = new Oa4mpSyncVerificationComparisonProbe();
+    $comparison = $probe->compareWith($this->adminClient(),
+      $this->pluginSide($this->persistedQdlv3Claims()),
+      $this->serverObject($this->qdlv3Cfg($this->qdlv3ClaimMappings())));
+
+    $this->assertTrue($comparison['synchronized'], 'premise: the client compares in sync');
+    $this->assertTrue(array_key_exists('legacy_cfg', $comparison) && $comparison['legacy_cfg'] === false,
+      'a QDLv3 cfg must be reported as not legacy, got '
+      . var_export($comparison['legacy_cfg'] ?? '<missing>', true));
   }
 
   // ------------------------------------------------------------------

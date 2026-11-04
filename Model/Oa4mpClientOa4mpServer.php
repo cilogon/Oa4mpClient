@@ -57,6 +57,23 @@ class Oa4mpClientOa4mpServer extends AppModel {
   const CFG_CONSTRAINTS_FIELD = 'claim_constraints';
 
   /**
+   * Key oa4mpUnMarshallContent() sets to true on its result when the server's
+   * claims were translated from a legacy LDAP cfg (QDLv2 or the deprecated
+   * syntax) rather than read from claim mappings. isClientDataSynchronized()
+   * reads it; see LEGACY_CFG_UNCOMPARED_CLAIM_FIELDS.
+   */
+  const LEGACY_CFG_CLAIMS_KEY = 'legacy_cfg_claims';
+
+  /**
+   * The claim fields a legacy LDAP cfg has no setting for, and that the
+   * comparator therefore sets aside when LEGACY_CFG_CLAIMS_KEY is set.
+   */
+  const LEGACY_CFG_UNCOMPARED_CLAIM_FIELDS = array(
+    'claim_multiple_value_serialization',
+    'claim_value_string_serialization_delimiter',
+  );
+
+  /**
    * Path to the cfg capability contract document.
    *
    * protected, not private, on purpose. The suite has no mocking framework, so
@@ -851,11 +868,14 @@ class Oa4mpClientOa4mpServer extends AppModel {
    *                                 log below.
    * @param string $side             Which representation this claim came from,
    *                                 'plugin' or 'oa4mp', also for that log.
+   * @param array  $uncompared       Claim fields to leave out of the
+   *                                 normalized claim. Pass the same list for
+   *                                 both sides.
    * @return array The normalized claim.
    * @since COmanage Registry 4.4.2
    */
 
-  private function normalizeClaimForComparison($claim, $clientIdentifier, $side) {
+  private function normalizeClaimForComparison($claim, $clientIdentifier, $side, $uncompared = array()) {
     $normalized = array();
 
     // The fields the cfg capability contract declares a claim mapping may
@@ -865,7 +885,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
     // every one of them a hand-copied field list that quietly stopped matching
     // what actually went over the wire.
     foreach($this->cfgContractNames('claim_mapping_fields') as $field) {
-      if($field === self::CFG_CONSTRAINTS_FIELD) {
+      if($field === self::CFG_CONSTRAINTS_FIELD || in_array($field, $uncompared, true)) {
         continue;
       }
 
@@ -1320,10 +1340,23 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // leaves is that log line; naming the client is what makes it useful.
       $clientIdentifier = $curData['Oa4mpClientCoOidcClient']['oa4mp_identifier'] ?? null;
 
+      // The one exception to comparing every field the contract declares,
+      // and it follows the same rule as the sort key above: compare only what
+      // the server copy actually carries. A legacy LDAP cfg (QDLv2 or
+      // deprecated) has no serialization setting, so the server-side value is
+      // only what buildClaimFromLdapMapping() supplies, and that changed for
+      // isMemberOf (cilogon/Oa4mpClient#40). Comparing it against rows
+      // toClaim() wrote before the change would block edits to clients the
+      // server never disagreed with. Both sides drop the same fields; QDLv3
+      // and later cfgs carry the serialization and are compared in full.
+      $uncompared = !empty($oa4mpServerData[self::LEGACY_CFG_CLAIMS_KEY])
+                  ? self::LEGACY_CFG_UNCOMPARED_CLAIM_FIELDS
+                  : array();
+
       // Build a normalized array of claims from curData for comparison.
       $curClaimsNormalized = array();
       foreach($curClaims as $claim) {
-        $curClaimsNormalized[] = $this->normalizeClaimForComparison($claim, $clientIdentifier, 'plugin');
+        $curClaimsNormalized[] = $this->normalizeClaimForComparison($claim, $clientIdentifier, 'plugin', $uncompared);
       }
 
       // Build a normalized array of claims from oa4mpServerData for comparison.
@@ -1332,7 +1365,7 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // questions.
       $oa4mpClaimsNormalized = array();
       foreach($oa4mpClaims as $claim) {
-        $oa4mpClaimsNormalized[] = $this->normalizeClaimForComparison($claim, $clientIdentifier, 'oa4mp');
+        $oa4mpClaimsNormalized[] = $this->normalizeClaimForComparison($claim, $clientIdentifier, 'oa4mp', $uncompared);
       }
 
       // Sort both arrays by claim_name for consistent comparison.
@@ -2343,6 +2376,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
           }
         }
 
+        $oa4mpClient[self::LEGACY_CFG_CLAIMS_KEY] = true;
+
         return $oa4mpClient;
       }
 
@@ -2370,6 +2405,8 @@ class Oa4mpClientOa4mpServer extends AppModel {
             }
           }
         }
+
+        $oa4mpClient[self::LEGACY_CFG_CLAIMS_KEY] = true;
 
         // Check the preProcessing block. Currently we should find a sincle claim source
         // of type 'LDAP' and its config identifier should be consistent with the cfg
@@ -2422,7 +2459,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @since COmanage Registry 4.5.0
    * @param array $mapping     Array with 'ldap_attribute_name' and 'return_name'
    *                           keys. Callers may also include 'return_as_list'
-   *                           but the value is currently not consumed.
+   *                           but the value is not consumed: no claim built
+   *                           here depends on it, isMemberOf included (it is
+   *                           always a JSON array, as the LDAP claim source
+   *                           sent it).
    * @param string $serverUrl  LDAP server URL from the cfg's $ldapConfig['serverurl'];
    *                           used to match the CoLdapProvisionerTarget.
    * @param array $adminClient Admin client carrying CO context; must contain
@@ -2517,8 +2557,11 @@ class Oa4mpClientOa4mpServer extends AppModel {
         );
         $claim['claim_value_selection'] = 'all';
         $claim['claim_value_json_format'] = 'string';
-        $claim['claim_multiple_value_serialization'] = 'delimited_string';
-        $claim['claim_value_string_serialization_delimiter'] = ',';
+        // A JSON array, whatever return_as_list says: that is what the LDAP
+        // claim source sent for a multi-valued attribute (its list flag only
+        // wraps a single value), so the relying party keeps the same shape.
+        $claim['claim_multiple_value_serialization'] = 'json_array';
+        $claim['claim_value_string_serialization_delimiter'] = null;
         break;
       case 'mail':
         $claim['source_model'] = 'EmailAddress';
@@ -2986,9 +3029,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @return Mixed If $returnExtras is false, Boolean true or false when the
    *               comparison ran, and null when it did not (the three-state
    *               bare form: test === null before any boolean handling).
-   *               Otherwise array with 'synchronized', 'oa4mp_server_extra'
-   *               and 'error' keys. See compareToServerObject() for what
-   *               'error' distinguishes.
+   *               Otherwise array with 'synchronized', 'oa4mp_server_extra',
+   *               'error' and 'legacy_cfg' keys. See compareToServerObject()
+   *               for what 'error' distinguishes and what 'legacy_cfg' means.
    */
 
   function oa4mpVerifyClient($adminClient, $curClient, $returnExtras = false) {
@@ -3113,14 +3156,18 @@ class Oa4mpClientOa4mpServer extends AppModel {
    * @param  Array $curClient current client
    * @param  Mixed $oa4mpObject decoded OA4MP server representation of the client
    * @return Array with keys 'synchronized' (Boolean), 'oa4mp_server_extra'
-   *               (Mixed) and 'error' (Boolean: the comparison did not run).
+   *               (Mixed), 'error' (Boolean: the comparison did not run) and
+   *               'legacy_cfg' (Boolean: the server copy is a legacy LDAP
+   *               cfg, QDLv2 or the deprecated syntax; never true when
+   *               'error' is).
    */
 
   protected function compareToServerObject($adminClient, $curClient, $oa4mpObject) {
     $comparison = array(
       'synchronized' => false,
       'oa4mp_server_extra' => null,
-      'error' => false
+      'error' => false,
+      'legacy_cfg' => false
     );
 
     try {
@@ -3129,6 +3176,12 @@ class Oa4mpClientOa4mpServer extends AppModel {
       // has been changed outside of this plugin.
       $oa4mpServerData = $this->oa4mpUnMarshallContent($oa4mpObject, $adminClient);
       $comparison['synchronized'] = $this->isClientDataSynchronized($curClient, $oa4mpServerData);
+
+      // Set only once the comparison has run, so a failed one never reports
+      // it. The OIDC client edit page reads it to repair an isMemberOf claim
+      // converted before cilogon/Oa4mpClient#40, which is safe only while
+      // the server still holds the legacy cfg.
+      $comparison['legacy_cfg'] = !empty($oa4mpServerData[self::LEGACY_CFG_CLAIMS_KEY]);
 
       // Capture any extra keys from the OA4MP server response.
       if(!empty($oa4mpServerData['Oa4mpClientCoOidcClient']['oa4mp_server_extra'])) {
