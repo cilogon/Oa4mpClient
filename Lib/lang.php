@@ -314,6 +314,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   // Flash messages
   'pl.oa4mp_client_co_scope.scope.flash.success' => 'Scopes Saved',
 
+  // Error messages
+  'pl.oa4mp_client_co_scope.er.edit.save' => 'The scopes were updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the scopes again. To bring them back into agreement, restore the scopes on the OA4MP server to the values Registry still holds.',
+  'pl.oa4mp_client_co_scope.er.id'        => 'This scope does not match the scope Registry holds for this client. Reload the page and try again.',
+
   // Scope: openid
   'pl.oa4mp_client_co_scope.scope.openid.fd.name'  => 'openid',
   'pl.oa4mp_client_co_scope.scope.openid.required' => 'openid scope is required',

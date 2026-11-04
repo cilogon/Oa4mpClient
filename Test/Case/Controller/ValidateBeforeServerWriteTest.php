@@ -86,6 +86,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       $purge['cm_oa4mp_client_refresh_tokens'] = 'client_id = ' . (int)$this->clientId;
       $purge['cm_oa4mp_client_access_tokens'] = 'client_id = ' . (int)$this->clientId;
       $purge['cm_oa4mp_client_access_controls'] = 'client_id = ' . (int)$this->clientId;
+      $purge['cm_oa4mp_client_co_scopes'] = 'client_id = ' . (int)$this->clientId;
+      $purge['cm_oa4mp_client_co_callbacks'] = 'client_id = ' . (int)$this->clientId;
     }
 
     $this->fx->cleanup($purge);
@@ -325,6 +327,169 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   }
 
   // ==========================================================================
+  // Scopes edit_scopes()
+  // ==========================================================================
+
+  /**
+   * A hand-built scope value outside the allowed list never reaches the
+   * server, and the form comes back with it and an error on that row.
+   */
+  public function testScopeValueOutsideTheAllowedListNeverReachesTheServer() {
+    $stored = $this->seedScopes();
+
+    $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId,
+      $this->scopesPost($stored, array(0 => 'openid', 1 => 'profile', 2 => 'bogus')));
+
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited with a scope the plugin rejects');
+    $this->assertTrue(in_array('oa4mpVerifyClient', $harness->harnessServer->callNames(), true),
+      'the synchronization check still ran');
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertEqual(array('openid', 'profile'), $this->storedScopes(), 'the stored scopes are unchanged');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual('bogus', $harness->request->data['Oa4mpClientCoScope'][2]['scope'] ?? null,
+      'the form re-renders with the rejected scope');
+    $this->assertEqual($this->clientId, (int)$harness->request->data['Oa4mpClientCoOidcClient']['id'],
+      'the form still has the client the scopes view reads');
+    $this->assertNotEmpty($harness->Oa4mpClientCoScope->validationErrors[2]['scope'] ?? null,
+      'the error is on the rejected row, where the form shows it');
+    $this->assertTrue(empty($harness->Oa4mpClientCoScope->validationErrors[0])
+      && empty($harness->Oa4mpClientCoScope->validationErrors[1]),
+      'the valid rows carry no error');
+  }
+
+  /**
+   * A row carrying a stored scope's id with a different, allowed value is
+   * rejected: the server would be sent the new value, and the save would
+   * skip the row because it already has an id.
+   */
+  public function testScopeRowWhoseIdDoesNotMatchItsStoredScopeIsRejected() {
+    $stored = $this->seedScopes();
+
+    $data = $this->scopesPost($stored, array(0 => 'openid', 1 => 'profile'));
+    $data['Oa4mpClientCoScope'][1]['scope'] = 'email';
+
+    $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId, $data);
+
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited with a scope the plugin would not store');
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertEqual(array('openid', 'profile'), $this->storedScopes(), 'the stored scopes are unchanged');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertNotEmpty($harness->Oa4mpClientCoScope->validationErrors[1]['scope'] ?? null,
+      'the error is on the mismatched row');
+  }
+
+  /** A row carrying an id that is not one of this client's scopes is rejected. */
+  public function testScopeRowWithAnUnknownIdIsRejected() {
+    $stored = $this->seedScopes();
+
+    $data = $this->scopesPost($stored, array(0 => 'openid', 1 => 'profile', 2 => 'email'));
+    $data['Oa4mpClientCoScope'][2]['id'] = (string)(max($stored) + 100000);
+
+    $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId, $data);
+
+    $harness->harnessInvoke('edit_scopes', array(), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited');
+    $this->assertEqual(array('openid', 'profile'), $this->storedScopes(), 'the stored scopes are unchanged');
+    $this->assertNotEmpty($harness->Oa4mpClientCoScope->validationErrors[2]['scope'] ?? null,
+      'the error is on the row with the unknown id');
+  }
+
+  /** Adding a scope is sent, saved, and reported as before. */
+  public function testScopeAddedIsSentAndSaved() {
+    $stored = $this->seedScopes();
+
+    $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId,
+      $this->scopesPost($stored, array(0 => 'openid', 1 => 'profile', 2 => 'email')));
+
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'POST');
+
+    $this->assertEqual(array('email', 'openid', 'profile'), $this->sentScopes($harness),
+      'the OA4MP server was sent all three scopes');
+    $this->assertEqual(array('email', 'openid', 'profile'), $this->storedScopes(),
+      'the plugin stored the new scope alongside the existing ones');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_scope.scope.flash.success'), 'success'),
+      'success was reported');
+    $this->assertEqual('oa4mp_client_co_callbacks', $redirect['controller'] ?? null,
+      'a client with no callbacks is sent on to add one, as before');
+    $this->assertEqual('add', $redirect['action'] ?? null, 'to the callback add view');
+  }
+
+  /** Removing a scope is sent, and its row deleted, as before. */
+  public function testScopeRemovedIsSentAndDeleted() {
+    $stored = $this->seedScopes();
+    $this->seedCallback();
+
+    $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId,
+      $this->scopesPost($stored, array(0 => 'openid')));
+
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'POST');
+
+    $this->assertEqual(array('openid'), $this->sentScopes($harness), 'the OA4MP server was sent openid only');
+    $this->assertEqual(array('openid'), $this->storedScopes(), 'the profile row was deleted');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_scope.scope.flash.success'), 'success'),
+      'success was reported');
+    $this->assertNull($redirect, 'a client with callbacks stays on the scopes page, as before');
+    $this->assertEqual(array('openid'), $this->scopeValues($harness->request->data['Oa4mpClientCoScope'] ?? array()),
+      'the page shows the scopes read back after the save');
+  }
+
+  /**
+   * The server accepted the change and saving a new row then failed: that is
+   * reported as an error, the remaining rows are still processed, and nothing
+   * is sent to the server to undo it.
+   */
+  public function testScopeFailedSaveAfterTheServerAcceptedIsReported() {
+    $stored = $this->seedScopes();
+
+    // Add email and remove profile, so the delete still has to run after the
+    // failed save.
+    $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId,
+      $this->scopesPost($stored, array(0 => 'openid', 2 => 'email')));
+    $harness->harnessFailWrites('save');
+
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'POST');
+
+    $this->assertEqual(1, $this->editCalls($harness), 'the server was edited exactly once, with no undo');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_scope.er.edit.save'), 'error'),
+      'the failed save was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual(array('openid'), $this->storedScopes(),
+      'the deselected row was still deleted, and the failed row was not stored');
+    $this->assertEqual('oa4mp_client_co_callbacks', $redirect['controller'] ?? null,
+      'the action redirected where success does');
+  }
+
+  /** A delete that fails after the server accepted is reported the same way. */
+  public function testScopeFailedDeleteAfterTheServerAcceptedIsReported() {
+    $stored = $this->seedScopes();
+    $this->seedCallback();
+
+    $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId,
+      $this->scopesPost($stored, array(0 => 'openid', 2 => 'email')));
+    $harness->harnessFailWrites('delete');
+
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'POST');
+
+    $this->assertEqual(1, $this->editCalls($harness), 'the server was edited exactly once, with no undo');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_scope.er.edit.save'), 'error'),
+      'the failed delete was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual(array('email', 'openid', 'profile'), $this->storedScopes(),
+      'the new row was still saved, and the row that failed to delete remains');
+    $this->assertNull($redirect, 'a client with callbacks stays on the scopes page, as on success');
+  }
+
+  // ==========================================================================
   // Helpers
   // ==========================================================================
 
@@ -350,6 +515,72 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'client_id' => $this->clientId,
       'co_group_id' => $groupId
     ));
+  }
+
+  /** Store openid and profile for the client; returns their ids by scope. */
+  private function seedScopes() {
+    $ids = array();
+    foreach (array('openid', 'profile') as $scope) {
+      $ids[$scope] = $this->fx->insert('cm_oa4mp_client_co_scopes', array(
+        'client_id' => $this->clientId,
+        'scope' => $scope
+      ));
+    }
+    return $ids;
+  }
+
+  private function seedCallback() {
+    $this->fx->insert('cm_oa4mp_client_co_callbacks', array(
+      'client_id' => $this->clientId,
+      'url' => 'https://example.org/callback'
+    ));
+  }
+
+  /**
+   * The scopes form as posted: one row per checkbox, in the order the view
+   * renders them, '0' for an unchecked box, and the stored row's id on the
+   * rows the view gives one.
+   *
+   * @param array $stored  Stored row ids by scope, from seedScopes()
+   * @param array $checked Checked scope values by row index
+   */
+  private function scopesPost($stored, $checked) {
+    $rows = array();
+    foreach (array('openid', 'profile', 'email', 'org.cilogon.userinfo') as $i => $scope) {
+      $rows[$i] = array('scope' => $checked[$i] ?? '0');
+      if (isset($stored[$scope])) {
+        $rows[$i]['id'] = (string)$stored[$scope];
+      }
+    }
+    return array('Oa4mpClientCoScope' => $rows);
+  }
+
+  /** The scope values of a set of rows, sorted. */
+  private function scopeValues($rows) {
+    $values = array();
+    foreach ($rows as $row) {
+      $values[] = $row['scope'];
+    }
+    sort($values);
+    return $values;
+  }
+
+  /** The scopes the most recent server edit was sent, sorted. */
+  private function sentScopes($harness) {
+    $sent = $harness->harnessServer->lastEditData();
+    return $this->scopeValues($sent['Oa4mpClientCoScope'] ?? array());
+  }
+
+  /** The client's stored scopes, sorted. */
+  private function storedScopes() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    $rows = $this->fx->query('SELECT scope FROM cm_oa4mp_client_co_scopes WHERE client_id = '
+      . (int)$this->clientId . ' ORDER BY scope');
+    $values = array();
+    foreach ((array)$rows as $row) {
+      $values[] = reset($row)['scope'];
+    }
+    return $values;
   }
 
   /** How many times the fake server was asked to edit the client. */
