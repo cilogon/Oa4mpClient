@@ -535,6 +535,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   // Errors and Exceptions
   // ===========================================================================
 
+  'pl.oa4mp_client_co_oidc_client.er.add.save'        => 'The client was created on the OA4MP server but could not be saved by Registry, so it exists only on the OA4MP server and does not appear in Registry. It must be removed from the OA4MP server by hand; adding the client again before then creates another one there. Please email help@cilogon.org for assistance.',
   'pl.oa4mp_client_co_oidc_client.er.bad_admin_id'    => 'The selected OAuth2 server is not available',
   'pl.oa4mp_client_co_oidc_client.er.bad_client'      => 'This client has been modified outside of the Registry. Please email help@cilogon.org for assistance.',
   'pl.oa4mp_client_co_oidc_client.er.bad_signature'   => 'Client object from Oa4mp server failed signature check',

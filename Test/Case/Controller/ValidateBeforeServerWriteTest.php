@@ -34,6 +34,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   private $oidcClientName = null;
   private $contactEmailId = null;
   private $clientDynamoConfigId = null;
+  private $addedClientName = null;
+  private $postedAdminTag = null;
 
   const STORED_LIFETIME = 86400;
   const STORED_CONTACT = 'owner@example.org';
@@ -45,6 +47,7 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->coId = $this->adminId = $this->clientId = $this->groupId = null;
     $this->refreshTokenId = $this->accessTokenId = $this->accessControlId = null;
     $this->oidcClientName = $this->contactEmailId = $this->clientDynamoConfigId = null;
+    $this->addedClientName = $this->postedAdminTag = null;
 
     $this->fx = new Oa4mpFixtures();
     $tag = Oa4mpFixtures::tag('oa4mpvbsw');
@@ -64,6 +67,7 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'partition_key_claim_name' => 'sub'
     ));
     $this->oidcClientName = 'vbsw-' . $tag;
+    $this->addedClientName = 'vbsw-added-' . $tag;
     $this->clientId = $this->fx->oidcClient($adminId, $this->oidcClientName);
 
     // Seeded before the access control row so cleanup, which runs newest
@@ -89,6 +93,18 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   public function tearDown() {
     if ($this->fx === null) {
       return;
+    }
+
+    // A client the add page created, and the rows saved with it, are removed
+    // before the admin client they point at.
+    if ($this->addedClientName !== null) {
+      $added = 'SELECT id FROM cm_oa4mp_client_co_oidc_clients WHERE name = '
+        . ConnectionManager::getDataSource('default')->value($this->addedClientName);
+      foreach (array('cm_oa4mp_client_co_scopes', 'cm_oa4mp_client_co_email_addresses',
+                     'cm_oa4mp_client_dynamo_configs', 'cm_oa4mp_client_authorizations') as $table) {
+        $this->fx->query('DELETE FROM ' . $table . ' WHERE client_id IN (' . $added . ')');
+      }
+      $this->fx->query('DELETE FROM cm_oa4mp_client_co_oidc_clients WHERE id IN (' . $added . ')');
     }
 
     $purge = array();
@@ -795,6 +811,219 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   }
 
   // ==========================================================================
+  // OIDC client add()
+  // ==========================================================================
+
+  /**
+   * A blank name is rejected before the server is asked to create the
+   * client. The add form comes back with what was typed, and with the form
+   * setup for the admin client that was posted, not the first one.
+   */
+  public function testOidcClientAddBlankNameNeverReachesTheServer() {
+    $this->seedAdminsGroup();
+    $postedAdminId = $this->seedAddAdminClient('admin2@example.org');
+    $namedConfigId = $this->seedNamedConfig($postedAdminId, 'second admin named configuration');
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($postedAdminId, array('name' => '', 'home_url' => 'https://example.org/typed')));
+
+    $redirect = $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(0, $this->newClientCalls($harness),
+      'the OA4MP server was not asked to create a client the plugin rejects');
+    $this->assertNull($redirect, 'the add form is shown again rather than redirecting');
+    $this->assertEqual(array(), $harness->harnessRendered, 'the action\'s own add view renders, not the secret page');
+    $this->assertEqual(0, $this->addedClientCount(), 'no Registry save was attempted');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertNotEmpty($harness->Oa4mpClientCoOidcClient->validationErrors['name'] ?? null,
+      'the name error is there for the form to show');
+    $this->assertEqual('', $harness->request->data['Oa4mpClientCoOidcClient']['name'],
+      'the form re-renders with the blank name');
+    $this->assertEqual('https://example.org/typed', $harness->request->data['Oa4mpClientCoOidcClient']['home_url'],
+      'the form re-renders with the entered home URL');
+    $this->assertEqual($postedAdminId, (int)($harness->viewVars['vv_admin_id'] ?? 0),
+      'the form is set up for the posted admin client');
+    $this->assertEqual('https://' . $this->postedAdminTag . '.example.org', $harness->viewVars['vv_admin_issuer'] ?? null,
+      'with that admin client\'s issuer');
+    $this->assertEqual('admin2@example.org', $harness->viewVars['vv_default_contact_email'] ?? null,
+      'and its contact email as the default');
+    $this->assertEqual(array($namedConfigId), $this->rowIds($harness->request->data['Oa4mpClientCoNamedConfig'] ?? array()),
+      'and its named configurations as the choices');
+    $this->assertEqual(2, count($harness->viewVars['adminClients'] ?? array()),
+      'the admin client choices are still there');
+  }
+
+  /**
+   * A home URL the model's url rule refuses is rejected the same way. That
+   * rule does not require a scheme, so this needs a value that is no URL.
+   */
+  public function testOidcClientAddInvalidHomeUrlNeverReachesTheServer() {
+    $this->seedAdminsGroup();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($this->adminId, array('home_url' => 'not a url')));
+
+    $redirect = $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(0, $this->newClientCalls($harness),
+      'the OA4MP server was not asked to create a client with a home URL the plugin rejects');
+    $this->assertNull($redirect, 'the add form is shown again rather than redirecting');
+    $this->assertEqual(0, $this->addedClientCount(), 'no Registry save was attempted');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertEqual('not a url', $harness->request->data['Oa4mpClientCoOidcClient']['home_url'],
+      'the form re-renders with the rejected home URL');
+    $this->assertEqual($this->addedClientName, $harness->request->data['Oa4mpClientCoOidcClient']['name'],
+      'and with the entered name');
+    $this->assertNotEmpty($harness->Oa4mpClientCoOidcClient->validationErrors['home_url'] ?? null,
+      'the home URL error is there for the form to show');
+    $this->assertEqual($this->adminId, (int)($harness->viewVars['vv_admin_id'] ?? 0),
+      'the form is set up for the posted admin client');
+  }
+
+  /**
+   * An invalid contact email is rejected before the server is asked to
+   * create the client, with the error on the email model under the row index
+   * the form input names.
+   */
+  public function testOidcClientAddInvalidContactEmailNeverReachesTheServer() {
+    $this->seedAdminsGroup();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($this->adminId, array(), 'not-an-email'));
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(0, $this->newClientCalls($harness),
+      'the OA4MP server was not asked to create a client with a contact email the plugin rejects');
+    $this->assertEqual(0, $this->addedClientCount(), 'no Registry save was attempted');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertEqual('not-an-email', $harness->request->data['Oa4mpClientCoEmailAddress'][0]['mail'] ?? null,
+      'the form re-renders with the rejected contact email');
+    $this->assertNotEmpty(
+      $harness->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->validationErrors[0]['mail'] ?? null,
+      'the email model holds the error under the row index the form input names');
+  }
+
+  /**
+   * The new client's DynamoDB configuration is copied from the admin
+   * client's default. A default missing a required credential is rejected
+   * before the server is asked to create the client.
+   */
+  public function testOidcClientAddAdminDefaultMissingACredentialNeverReachesTheServer() {
+    $this->seedAdminsGroup();
+    $postedAdminId = $this->seedAddAdminClient('admin2@example.org', '');
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($postedAdminId));
+
+    $redirect = $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(0, $this->newClientCalls($harness),
+      'the OA4MP server was not asked to create a client the plugin cannot save');
+    $this->assertNull($redirect, 'the add form is shown again rather than redirecting');
+    $this->assertEqual(0, $this->addedClientCount(), 'no Registry save was attempted');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+  }
+
+  /**
+   * A valid confidential client is created once, saved with the returned
+   * client ID and Require Active Status, and the secret page is shown.
+   */
+  public function testOidcClientAddValidConfidentialClientIsCreatedAndSaved() {
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($this->adminId));
+
+    $redirect = $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(1, $this->newClientCalls($harness), 'the OA4MP server was asked to create the client once');
+    $sent = $harness->harnessServer->lastNewClientData();
+    $this->assertEqual($this->addedClientName, $sent['Oa4mpClientCoOidcClient']['name'] ?? null,
+      'the OA4MP server was sent the posted name');
+    $this->assertTrue(!empty($sent['Oa4mpClientAuthorization']['require_active']),
+      'the OA4MP server was sent Require Active Status');
+    $this->assertFalse(isset($sent['Oa4mpClientCoOidcClient']['proxy_limited']),
+      'the check ran on a copy, so the create request is built as before');
+    $this->assertNull($redirect, 'the action did not redirect');
+    $this->assertEqual(array('secret'), $harness->harnessRendered, 'the secret page is shown');
+    $this->assertFalse($harness->harnessFlashed(_txt('er.fields'), 'error'), 'no field error was reported');
+
+    $stored = $this->addedClient();
+    $this->assertEqual('harness-client-id', $stored['oa4mp_identifier'] ?? null,
+      'the plugin stored the client ID the server returned');
+    $this->assertEqual($stored['id'] ?? null, (int)($harness->viewVars['vv_id'] ?? 0),
+      'the secret page links to the stored client');
+    $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_authorizations',
+      'client_id = ' . (int)$stored['id'] . ' AND require_active = true'),
+      'the stored client requires Active Status');
+    $this->assertEqual(self::ADMIN_ACCESS_KEY, $this->fx->scalar('SELECT aws_access_key_id FROM cm_oa4mp_client_dynamo_configs'
+      . ' WHERE client_id = ' . (int)$stored['id']),
+      'the stored client has the admin client\'s default DynamoDB configuration');
+  }
+
+  /** A valid public client is created and saved with no authorization row. */
+  public function testOidcClientAddValidPublicClientIsSavedWithoutAnAuthorization() {
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($this->adminId, array('public_client' => '1')));
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(1, $this->newClientCalls($harness), 'the OA4MP server was asked to create the client once');
+    $sent = $harness->harnessServer->lastNewClientData();
+    $this->assertFalse(isset($sent['Oa4mpClientAuthorization']), 'no authorization was sent for a public client');
+    $this->assertEqual(array('secret'), $harness->harnessRendered, 'the secret page is shown');
+
+    $stored = $this->addedClient();
+    $this->assertEqual('harness-client-id', $stored['oa4mp_identifier'] ?? null, 'the client was stored');
+    $this->assertEqual(0, $this->fx->count('cm_oa4mp_client_authorizations', 'client_id = ' . (int)$stored['id']),
+      'a public client is stored with no authorization row');
+  }
+
+  /** A posted public_client of 0 creates a confidential client. */
+  public function testOidcClientAddPublicClientZeroIsConfidential() {
+    $this->assertAddedConfidential($this->oidcClientAddPost($this->adminId, array('public_client' => '0')));
+  }
+
+  /** A post with no public_client at all creates a confidential client. */
+  public function testOidcClientAddAbsentPublicClientIsConfidential() {
+    $post = $this->oidcClientAddPost($this->adminId);
+    unset($post['Oa4mpClientCoOidcClient']['public_client']);
+
+    $this->assertAddedConfidential($post);
+  }
+
+  /**
+   * The server created the client and the Registry save then failed: that
+   * is reported, the new client ID (never the secret) is logged so the
+   * server-only client can be found, and the page leaves for the client
+   * index rather than showing the secret or the add form again.
+   */
+  public function testOidcClientAddFailedSaveAfterTheServerCreatedIsReported() {
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($this->adminId));
+    $harness->harnessFailWrites('saveAssociated');
+
+    $redirect = $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(1, $this->newClientCalls($harness), 'the server was asked to create the client exactly once');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_oidc_client.er.add.save'), 'error'),
+      'the failed save was reported');
+    $this->assertFalse($harness->harnessFlashed(_txt('er.fields'), 'error'),
+      'the input passed the check, so no field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+
+    $logged = implode("\n", $harness->harnessLogged);
+    $this->assertContains('harness-client-id', $logged, 'the new client ID was logged');
+    $this->assertFalse(strpos($logged, 'not-a-real-secret') !== false, 'the client secret was not logged');
+
+    $this->assertEqual(array(
+      'plugin' => 'oa4mp_client',
+      'controller' => 'oa4mp_client_co_oidc_clients',
+      'action' => 'index',
+      'co' => $this->coId
+    ), $redirect, 'the action redirected to the CO\'s OIDC client index');
+    $this->assertFalse(in_array('secret', $harness->harnessRendered, true), 'the secret page was not shown');
+    $this->assertEqual(0, $this->addedClientCount(), 'premise: nothing was saved');
+  }
+
+  // ==========================================================================
   // Helpers
   // ==========================================================================
 
@@ -968,6 +1197,112 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
         )
       )
     );
+  }
+
+  /**
+   * The OIDC client add form as posted for $adminId, with $client overriding
+   * the client fields and $mail the contact email.
+   */
+  private function oidcClientAddPost($adminId, $client = array(), $mail = 'contact@example.org') {
+    return array(
+      'Oa4mpClientCoOidcClient' => $client + array(
+        'admin_id' => (string)$adminId,
+        'name' => $this->addedClientName,
+        'home_url' => 'https://example.org/app',
+        'public_client' => '0'
+      ),
+      'Oa4mpClientCoEmailAddress' => array(
+        0 => array('mail' => $mail)
+      )
+    );
+  }
+
+  /**
+   * Seed the CO administrators group the add form setup looks up. It has no
+   * members, so the default contact email falls back to the admin client's.
+   */
+  private function seedAdminsGroup() {
+    $this->fx->group($this->coId, 'admins ' . $this->addedClientName, array('group_type' => 'A'));
+  }
+
+  /**
+   * Seed a second admin client in the CO, with a contact email and a default
+   * DynamoDB configuration whose access key is $accessKey. Returns its id.
+   */
+  private function seedAddAdminClient($mail, $accessKey = self::ADMIN_ACCESS_KEY) {
+    $this->postedAdminTag = Oa4mpFixtures::tag('oa4mpvbsw2');
+    $adminId = $this->fx->adminClient($this->coId, $this->postedAdminTag);
+
+    $this->fx->insert('cm_oa4mp_client_co_email_addresses', array(
+      'admin_id' => $adminId,
+      'client_id' => null,
+      'mail' => $mail
+    ));
+
+    $this->fx->insert('cm_oa4mp_client_dynamo_configs', array(
+      'admin_id' => $adminId,
+      'client_id' => null,
+      'aws_region' => 'us-east-1',
+      'aws_access_key_id' => $accessKey,
+      'aws_secret_access_key' => 'not-a-real-secret',
+      'table_name' => 'oa4mp-test-table',
+      'partition_key' => 'client_id',
+      'partition_key_template' => '${client_id}',
+      'partition_key_claim_name' => 'sub'
+    ));
+
+    return $adminId;
+  }
+
+  /** Post $post to add() and check a confidential client was created and stored. */
+  private function assertAddedConfidential($post) {
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId, $post);
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(1, $this->newClientCalls($harness), 'the OA4MP server was asked to create the client once');
+    $sent = $harness->harnessServer->lastNewClientData();
+    $this->assertTrue(!empty($sent['Oa4mpClientAuthorization']['require_active']),
+      'the OA4MP server was sent Require Active Status');
+
+    $stored = $this->addedClient();
+    $this->assertEqual('harness-client-id', $stored['oa4mp_identifier'] ?? null, 'the client was stored');
+    $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_authorizations',
+      'client_id = ' . (int)($stored['id'] ?? 0) . ' AND require_active = true'),
+      'the stored client is confidential and requires Active Status');
+  }
+
+  /** How many times the fake server was asked to create a client. */
+  private function newClientCalls($harness) {
+    return count(array_keys($harness->harnessServer->callNames(), 'oa4mpNewClient', true));
+  }
+
+  /** How many clients the add page stored. */
+  private function addedClientCount() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    return $this->fx->count('cm_oa4mp_client_co_oidc_clients',
+      'name = ' . ConnectionManager::getDataSource('default')->value($this->addedClientName));
+  }
+
+  /** The id and oa4mp_identifier of the client the add page stored, or array(). */
+  private function addedClient() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    $rows = $this->fx->query('SELECT id, oa4mp_identifier FROM cm_oa4mp_client_co_oidc_clients WHERE name = '
+      . ConnectionManager::getDataSource('default')->value($this->addedClientName));
+    if (empty($rows)) {
+      return array();
+    }
+    $row = reset($rows[0]);
+    return array('id' => (int)$row['id'], 'oa4mp_identifier' => $row['oa4mp_identifier']);
+  }
+
+  /** The ids of a set of rows. */
+  private function rowIds($rows) {
+    $ids = array();
+    foreach ($rows as $row) {
+      $ids[] = (int)$row['id'];
+    }
+    return $ids;
   }
 
   private function storedClientName() {
