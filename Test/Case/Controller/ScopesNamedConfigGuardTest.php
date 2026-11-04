@@ -76,7 +76,7 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
     $harness = Oa4mpScopesControllerHarness::build($this->namedConfigClientId, $this->coId,
       $this->changedScopes());
 
-    $redirect = $harness->harnessInvoke('edit_scopes', 'POST');
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'POST');
 
     $this->assertEmpty($harness->harnessServer->calls,
       'the guard stopped the save before any server call');
@@ -97,7 +97,7 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
   public function testNamedConfigClientScopesPageRenders() {
     $harness = Oa4mpScopesControllerHarness::build($this->namedConfigClientId, $this->coId);
 
-    $redirect = $harness->harnessInvoke('edit_scopes', 'GET');
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'GET');
 
     $this->assertNull($redirect, 'the scopes page rendered');
     $this->assertEqual(self::NAMED_CONFIG_NAME, $harness->viewVars['vv_named_config'] ?? null,
@@ -114,7 +114,7 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
     $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId,
       $this->changedScopes());
 
-    $harness->harnessInvoke('edit_scopes', 'POST');
+    $harness->harnessInvoke('edit_scopes', array(), 'POST');
 
     $this->assertTrue(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
       'an ordinary client\'s scope save was sent to the server');

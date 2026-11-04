@@ -95,7 +95,7 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
     $harness = Oa4mpAuthorizationsControllerHarness::build($this->namedConfigClientId, $this->coId,
       $this->changedSettings($this->namedConfigClientId, $this->authorizationId));
 
-    $redirect = $harness->harnessInvoke('manage', 'POST');
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
 
     $this->assertEmpty($harness->harnessServer->calls,
       'the guard stopped the save before any server call');
@@ -118,7 +118,7 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
   public function testNamedConfigClientAuthorizationPageRenders() {
     $harness = Oa4mpAuthorizationsControllerHarness::build($this->namedConfigClientId, $this->coId);
 
-    $redirect = $harness->harnessInvoke('manage', 'GET');
+    $redirect = $harness->harnessInvoke('manage', array(), 'GET');
 
     $this->assertNull($redirect, 'the Authorization page rendered');
     $this->assertEqual(self::NAMED_CONFIG_NAME, $harness->viewVars['vv_named_config'] ?? null,
@@ -135,7 +135,7 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
     $harness = Oa4mpAuthorizationsControllerHarness::build($this->clientId, $this->coId,
       $this->changedSettings($this->clientId));
 
-    $harness->harnessInvoke('manage', 'POST');
+    $harness->harnessInvoke('manage', array(), 'POST');
 
     $this->assertTrue(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
       'an ordinary client\'s save was sent to the server');
