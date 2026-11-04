@@ -15,9 +15,19 @@
  *  - oa4mp-legacy-orphan-claim-recovery-2026-05-19 (#6): re-running migration
  *    for a search attribute whose claim was orphaned rewires the back-pointer
  *    to the existing matching claim instead of accumulating a duplicate row.
+ *  - cilogon/Oa4mpClient#40: an isMemberOf search attribute must migrate to a
+ *    claim serialized as a JSON array, which is what the LDAP claim source
+ *    sent for a multi-valued attribute, not to a comma-delimited string. An
+ *    isMemberOf claim row in the delimited-string form toClaim() wrote before
+ *    that change is upgraded, not duplicated, when an orphan of it is
+ *    rewired, and repairPreJsonArrayIsMemberOfClaims() upgrades one still
+ *    linked from the client's search attribute; rows changed by hand are left
+ *    alone either way.
  *
  * See docs/plans/2026-08-19-0342-test-plugin-test-suite-plan.md U5 (R2, R3, R5).
  */
+
+App::uses('ConnectionManager', 'Model');
 
 class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
 
@@ -74,11 +84,11 @@ class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
   }
 
   /** Seed a search attribute row and return the array shape toClaim() expects. */
-  private function seedSearchAttribute($name, $returnName) {
+  private function seedSearchAttribute($name, $returnName, $returnAsList = false) {
     $id = $this->fx->insert('cm_oa4mp_client_co_search_attributes', array(
       'ldap_id' => $this->ldapId,
       'name' => $name,
-      'return_as_list' => false,
+      'return_as_list' => $returnAsList,
       'return_name' => $returnName,
       'claim_id' => null
     ));
@@ -87,7 +97,7 @@ class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
       'id' => $id,
       'ldap_id' => $this->ldapId,
       'name' => $name,
-      'return_as_list' => false,
+      'return_as_list' => $returnAsList,
       'return_name' => $returnName,
       'claim_id' => null
     );
@@ -171,6 +181,58 @@ class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
   private function claimId() {
     return $this->fx->scalar('SELECT id FROM cm_oa4mp_client_claims'
       . ' WHERE client_id = ' . (int)$this->clientId . ' ORDER BY id LIMIT 1');
+  }
+
+  /** The serialization columns of the client's one migrated claim row. */
+  private function claimSerialization() {
+    return array(
+      $this->fx->scalar('SELECT claim_multiple_value_serialization FROM cm_oa4mp_client_claims'
+        . ' WHERE client_id = ' . (int)$this->clientId),
+      $this->fx->scalar('SELECT claim_value_string_serialization_delimiter FROM cm_oa4mp_client_claims'
+        . ' WHERE client_id = ' . (int)$this->clientId)
+    );
+  }
+
+  /**
+   * Issue #40. A list-valued isMemberOf must migrate to a JSON array claim
+   * with no delimiter. The LDAP claim source returned the groups as a JSON
+   * array, and toClaim() hard-coded a comma-delimited string, so converting
+   * the client to DynamoDB claims changed what the relying party received.
+   */
+  public function testListIsMemberOfMigratesAsJsonArray() {
+    $attr = $this->seedSearchAttribute('isMemberOf', 'is_member_of', true);
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->validDynamoConfig(), $this->ldapConfig(), $attr);
+
+    $this->assertEqual(1, $this->claimCount(), 'isMemberOf migrates to one claim');
+    list($serialization, $delimiter) = $this->claimSerialization();
+    $this->assertEqual('json_array', $serialization,
+      'a list-valued isMemberOf must migrate as a JSON array, got '
+      . var_export($serialization, true));
+    $this->assertNull($delimiter,
+      'a JSON array claim carries no string delimiter, got ' . var_export($delimiter, true));
+  }
+
+  /**
+   * Issue #40, the non-list case. The LDAP claim source returns a
+   * multi-valued attribute as a JSON array whether or not the list flag is
+   * set (the flag only wraps a single value), so return_as_list must not
+   * change the migrated serialization.
+   */
+  public function testNonListIsMemberOfMigratesAsJsonArray() {
+    $attr = $this->seedSearchAttribute('isMemberOf', 'is_member_of', false);
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->validDynamoConfig(), $this->ldapConfig(), $attr);
+
+    $this->assertEqual(1, $this->claimCount(), 'isMemberOf migrates to one claim');
+    list($serialization, $delimiter) = $this->claimSerialization();
+    $this->assertEqual('json_array', $serialization,
+      'a non-list isMemberOf must also migrate as a JSON array, got '
+      . var_export($serialization, true));
+    $this->assertNull($delimiter,
+      'a JSON array claim carries no string delimiter, got ' . var_export($delimiter, true));
   }
 
   /**
@@ -370,6 +432,139 @@ class ClaimMigrationPersistenceTest extends Oa4mpTestCase {
       're-running migration over an orphan must not create a duplicate claim');
     $this->assertEqual($originalClaimId, (int)$this->backPointer($attr['id']),
       'the search attribute must be rewired to the existing orphan claim');
+  }
+
+  /**
+   * Migrate an isMemberOf search attribute, then put its claim row back in
+   * the form toClaim() wrote before cilogon/Oa4mpClient#40: delimited_string
+   * with $delimiter. Returns the search attribute.
+   */
+  private function migratePreJsonArrayIsMemberOf($delimiter = ',') {
+    $attr = $this->seedSearchAttribute('isMemberOf', 'is_member_of', true);
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->validDynamoConfig(), $this->ldapConfig(), $attr);
+
+    $this->fx->query("UPDATE cm_oa4mp_client_claims SET claim_multiple_value_serialization = 'delimited_string',"
+      . ' claim_value_string_serialization_delimiter = '
+      . ConnectionManager::getDataSource('default')->value($delimiter)
+      . ' WHERE client_id = ' . (int)$this->clientId);
+
+    return $attr;
+  }
+
+  /** Clear a search attribute's back-pointer, leaving its claim orphaned. */
+  private function orphanClaimOf($attr) {
+    $this->fx->query('UPDATE cm_oa4mp_client_co_search_attributes SET claim_id = NULL'
+      . ' WHERE id = ' . (int)$attr['id']);
+  }
+
+  /** The serialization columns of one claim row. */
+  private function serializationOf($claimId) {
+    return array(
+      $this->fx->scalar('SELECT claim_multiple_value_serialization FROM cm_oa4mp_client_claims'
+        . ' WHERE id = ' . (int)$claimId),
+      $this->fx->scalar('SELECT claim_value_string_serialization_delimiter FROM cm_oa4mp_client_claims'
+        . ' WHERE id = ' . (int)$claimId)
+    );
+  }
+
+  /**
+   * Issue #40 meets bug #6. An isMemberOf orphan left from before the JSON
+   * array change carries delimited_string ',' and so no longer matches the
+   * claim toClaim() now builds. It must still be rewired, not duplicated --
+   * two isMemberOf claims against the legacy cfg's one is "Number of claims
+   * is out of sync" -- and upgraded to json_array on the way.
+   */
+  public function testPreJsonArrayIsMemberOfOrphanIsRewiredAndUpgraded() {
+    $attr = $this->migratePreJsonArrayIsMemberOf();
+    $originalClaimId = (int)$this->claimId();
+    $this->orphanClaimOf($attr);
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->validDynamoConfig(), $this->ldapConfig(), $attr);
+
+    $this->assertEqual(1, $this->claimCount(),
+      'an old-format isMemberOf orphan must be reused, not joined by a second isMemberOf claim');
+    $this->assertEqual($originalClaimId, (int)$this->backPointer($attr['id']),
+      'the search attribute must be rewired to the old-format orphan');
+    list($serialization, $delimiter) = $this->serializationOf($originalClaimId);
+    $this->assertEqual('json_array', $serialization,
+      'the rewired orphan must be upgraded to a JSON array, got ' . var_export($serialization, true));
+    $this->assertNull($delimiter,
+      'the upgraded orphan carries no delimiter, got ' . var_export($delimiter, true));
+  }
+
+  /**
+   * The control: only the exact old conversion output is upgraded. An
+   * isMemberOf orphan whose delimiter was changed by hand is not what
+   * toClaim() ever wrote, so matching stays strict and it is not rewired.
+   */
+  public function testHandChangedIsMemberOfOrphanIsNotRewired() {
+    $attr = $this->migratePreJsonArrayIsMemberOf(';');
+    $originalClaimId = (int)$this->claimId();
+    $this->orphanClaimOf($attr);
+
+    $this->searchAttrModel()->toClaim($this->clientId, $this->coId,
+      $this->validDynamoConfig(), $this->ldapConfig(), $attr);
+
+    $this->assertEqual(2, $this->claimCount(),
+      'a hand-changed orphan is not a match, so a new claim is created beside it');
+    $this->assertTrue($originalClaimId !== (int)$this->backPointer($attr['id']),
+      'the search attribute must not be rewired to the hand-changed orphan');
+    $this->assertEqual(array('delimited_string', ';'), $this->serializationOf($originalClaimId),
+      'the hand-changed orphan is left as it was');
+  }
+
+  /**
+   * Issue #40, a client converted before the fix and not yet saved: its
+   * isMemberOf row is exactly the old conversion output and still linked
+   * from the client's search attribute, so the repair upgrades it.
+   */
+  public function testRepairUpgradesPreJsonArrayIsMemberOfClaim() {
+    $this->migratePreJsonArrayIsMemberOf();
+    $claimId = (int)$this->claimId();
+
+    $repaired = $this->searchAttrModel()->repairPreJsonArrayIsMemberOfClaims($this->clientId);
+
+    $this->assertEqual(array($claimId), $repaired, 'the repair reports the claim it upgraded');
+    list($serialization, $delimiter) = $this->serializationOf($claimId);
+    $this->assertEqual('json_array', $serialization,
+      'the old-format isMemberOf row must be upgraded to a JSON array, got '
+      . var_export($serialization, true));
+    $this->assertNull($delimiter,
+      'the upgraded row carries no delimiter, got ' . var_export($delimiter, true));
+  }
+
+  /**
+   * A row that differs from the old default was changed by hand on the
+   * Claims tab, and the repair must not undo that.
+   */
+  public function testRepairLeavesHandChangedIsMemberOfClaimAlone() {
+    $this->migratePreJsonArrayIsMemberOf(';');
+    $claimId = (int)$this->claimId();
+
+    $repaired = $this->searchAttrModel()->repairPreJsonArrayIsMemberOfClaims($this->clientId);
+
+    $this->assertEqual(array(), $repaired, 'nothing was repaired');
+    $this->assertEqual(array('delimited_string', ';'), $this->serializationOf($claimId),
+      'a hand-changed isMemberOf row is left as it was');
+  }
+
+  /**
+   * The repair touches only the plugin's own converted row: one no search
+   * attribute of this client points at is left alone, however it looks.
+   */
+  public function testRepairLeavesUnlinkedIsMemberOfClaimAlone() {
+    $attr = $this->migratePreJsonArrayIsMemberOf();
+    $claimId = (int)$this->claimId();
+    $this->orphanClaimOf($attr);
+
+    $repaired = $this->searchAttrModel()->repairPreJsonArrayIsMemberOfClaims($this->clientId);
+
+    $this->assertEqual(array(), $repaired, 'nothing was repaired');
+    $this->assertEqual(array('delimited_string', ','), $this->serializationOf($claimId),
+      'a row no search attribute of the client points at is left as it was');
   }
 
   /**

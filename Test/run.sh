@@ -157,6 +157,23 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 411 to 426 on 2026-11-04 for converting isMemberOf to a JSON
+# array claim (cilogon/Oa4mpClient#40), which added fifteen (414 -> 429):
+# seven in Test/Case/Model/ClaimMigrationPersistenceTest.php (a list-valued and
+# a non-list isMemberOf both migrating to json_array with no delimiter, an
+# old-format isMemberOf orphan rewired and upgraded rather than duplicated, a
+# hand-changed one not rewired, and the edit-page repair upgrading an
+# old-format row while leaving a hand-changed row and an unlinked row alone);
+# six in Test/Case/Model/SyncVerificationTest.php (a row converted before the
+# change reading in sync against a QDLv2 cfg, both row shapes reading in sync
+# against a deprecated cfg, a differing source field on the legacy path still
+# reading out of sync, a differing serialization on a QDLv3 cfg still reading
+# out of sync, and the comparison reporting legacy_cfg for a QDLv2 cfg and not
+# for a QDLv3 one); and two in
+# Test/Case/Controller/PreJsonArrayIsMemberOfRepairTest.php (the edit page
+# repairing the old-format row against a legacy cfg and leaving it against a
+# QDLv3 cfg).
+#
 # The 289 is 257 plus the 32 methods added when the client-read began asking the
 # server for its newest representation: 15 in
 # Test/Case/Model/ServerRequestQueryTest.php, covering which query each request
@@ -428,7 +445,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=411
+min_tests_run=426
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

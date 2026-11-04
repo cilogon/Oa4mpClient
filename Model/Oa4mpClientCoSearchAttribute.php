@@ -214,6 +214,150 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
   }
 
   /**
+   * Whether a claim row is exactly what toClaim() wrote for an isMemberOf
+   * search attribute before cilogon/Oa4mpClient#40: every field toClaim()
+   * sets, a delimited_string serialization with a ',' delimiter, and the one
+   * constraint owner=false. claim_name comes from the search attribute's
+   * return_name, so it is not compared. A row that differs anywhere was
+   * changed by hand and is not this.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  array   $claim       Oa4mpClientClaim fields
+   * @param  array   $constraints Oa4mpClientClaimConstraint rows of the claim
+   * @return boolean True if the row is the old isMemberOf conversion output
+   */
+
+  protected function isPreJsonArrayIsMemberOfClaim($claim, $constraints) {
+    $expected = array(
+      'source_model' => 'CoGroupMember',
+      'source_model_claim_value_field' => 'member',
+      'claim_value_selection' => 'all',
+      'claim_value_json_format' => 'string',
+      'claim_multiple_value_serialization' => 'delimited_string',
+      'claim_value_string_serialization_delimiter' => ','
+    );
+
+    foreach($expected as $field => $value) {
+      if(!isset($claim[$field]) || (string)$claim[$field] !== $value) {
+        return false;
+      }
+    }
+
+    $constraints = array_values((array)$constraints);
+
+    return count($constraints) === 1
+           && (string)$constraints[0]['constraint_field'] === 'owner'
+           && (string)$constraints[0]['constraint_value'] === 'false';
+  }
+
+  /**
+   * Set an isMemberOf claim row's serialization to the JSON array toClaim()
+   * now writes (cilogon/Oa4mpClient#40). One UPDATE of the two serialization
+   * columns, so the row is never left half changed. Validation is skipped
+   * because only these two optional columns are written; the rules that
+   * require the claim's other fields apply to a whole claim.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  integer $claimId Oa4mpClientClaim id
+   * @return boolean True if the row was updated
+   */
+
+  protected function upgradeIsMemberOfToJsonArray($claimId) {
+    $claimModel = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientClaim;
+
+    $claimModel->clear();
+    $claimModel->id = $claimId;
+
+    $data = array();
+    $data['Oa4mpClientClaim']['id'] = $claimId;
+    $data['Oa4mpClientClaim']['claim_multiple_value_serialization'] = 'json_array';
+    $data['Oa4mpClientClaim']['claim_value_string_serialization_delimiter'] = null;
+
+    $options = array(
+      'validate' => false,
+      'fieldList' => array(
+        'claim_multiple_value_serialization',
+        'claim_value_string_serialization_delimiter'
+      )
+    );
+
+    return (bool)$claimModel->save($data, $options);
+  }
+
+  /**
+   * Repair the isMemberOf claim of a client converted to DynamoDB claims
+   * before cilogon/Oa4mpClient#40 and not saved since.
+   *
+   * toClaim() used to convert isMemberOf to a comma-delimited string, while
+   * the LDAP claim source the client's legacy cfg names sent a JSON array.
+   * Until the client is saved the OA4MP server still holds that legacy cfg,
+   * and the save would send the delimited string. This upgrades the row
+   * first.
+   *
+   * Call it only when the server copy is a legacy LDAP cfg. Once the client
+   * has been saved under DynamoDB the server holds the delimited string too,
+   * and changing the row would be real drift.
+   *
+   * Only the plugin's own converted row is touched: one an isMemberOf search
+   * attribute of this client points at (its claim_id back-pointer) that is
+   * exactly the old conversion output. A row changed by hand is left alone.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  integer $clientId Oa4mpClientCoOidcClient id
+   * @return array   Ids of the claims repaired, possibly empty
+   */
+
+  public function repairPreJsonArrayIsMemberOfClaims($clientId) {
+    $repaired = array();
+
+    $args = array();
+    $args['conditions']['Oa4mpClientCoLdapConfig.client_id'] = $clientId;
+    $args['conditions']['Oa4mpClientCoSearchAttribute.name'] = 'isMemberOf';
+    $args['conditions'][] = 'Oa4mpClientCoSearchAttribute.claim_id IS NOT NULL';
+    $args['contain'] = array('Oa4mpClientCoLdapConfig');
+    $searchAttributes = $this->find('all', $args);
+
+    if(empty($searchAttributes)) {
+      return $repaired;
+    }
+
+    $claimIds = array();
+    foreach($searchAttributes as $searchAttribute) {
+      $claimIds[] = (int)$searchAttribute['Oa4mpClientCoSearchAttribute']['claim_id'];
+    }
+
+    $claimModel = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientClaim;
+
+    $args = array();
+    $args['conditions']['Oa4mpClientClaim.id'] = array_values(array_unique($claimIds));
+    $args['conditions']['Oa4mpClientClaim.client_id'] = $clientId;
+    $args['contain'] = array('Oa4mpClientClaimConstraint');
+    $claims = $claimModel->find('all', $args);
+
+    if(empty($claims)) {
+      return $repaired;
+    }
+
+    foreach($claims as $claim) {
+      $constraints = isset($claim['Oa4mpClientClaimConstraint']) ? $claim['Oa4mpClientClaimConstraint'] : array();
+      if(!$this->isPreJsonArrayIsMemberOfClaim($claim['Oa4mpClientClaim'], $constraints)) {
+        continue;
+      }
+
+      $claimId = (int)$claim['Oa4mpClientClaim']['id'];
+
+      if($this->upgradeIsMemberOfToJsonArray($claimId)) {
+        $this->log("repairPreJsonArrayIsMemberOfClaims: repaired isMemberOf claim " . $claimId . " of client " . $clientId . " from delimited_string ',' to json_array (cilogon/Oa4mpClient#40)");
+        $repaired[] = $claimId;
+      } else {
+        $this->log("repairPreJsonArrayIsMemberOfClaims: could not repair isMemberOf claim " . $claimId . " of client " . $clientId . "; it still sends a delimited string");
+      }
+    }
+
+    return $repaired;
+  }
+
+  /**
    * Convert an LDAP search attribute to a claim object (and persist it).
    *
    * IMPORTANT: the read-only output shape of this function (the switch
@@ -313,8 +457,11 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
         );
         $claim['claim_value_selection'] = 'all';
         $claim['claim_value_json_format'] = 'string';
-        $claim['claim_multiple_value_serialization'] = 'delimited_string';
-        $claim['claim_value_string_serialization_delimiter'] = ',';
+        // A JSON array, whatever return_as_list says: that is what the LDAP
+        // claim source sent for a multi-valued attribute (its list flag only
+        // wraps a single value), so the relying party keeps the same shape.
+        $claim['claim_multiple_value_serialization'] = 'json_array';
+        $claim['claim_value_string_serialization_delimiter'] = null;
         break;
       case 'mail':
         $claim['source_model'] = 'EmailAddress';
@@ -513,7 +660,9 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
     // name but different shape (e.g. voPersonApplicationUID orphans from
     // before the CoService-derived effective filter landed) intentionally
     // fall through to new-claim creation; the operator cleanup runbook in
-    // docs/solutions/ handles those.
+    // docs/solutions/ handles those. The one exception is an isMemberOf
+    // orphan in the exact form this function wrote before
+    // cilogon/Oa4mpClient#40, which is matched and upgraded; see below.
     $claimModel = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoOidcClient->Oa4mpClientClaim;
 
     $candidatesArgs = array();
@@ -560,6 +709,7 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
 
       $matchingOrphanIds = array();
       $unmatchingOrphanIds = array();
+      $upgradeOrphanIds = array();
       foreach($candidates as $candidate) {
         $candidateId = $candidate['Oa4mpClientClaim']['id'];
 
@@ -597,6 +747,17 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
         if($orphanIdentityCanonical === $newIdentityCanonical
            && $orphanConstraintsCanonical === $newConstraintsCanonical) {
           $matchingOrphanIds[] = $candidateId;
+        } elseif($searchAttributeName === 'isMemberOf'
+                 && $this->isPreJsonArrayIsMemberOfClaim($candidate['Oa4mpClientClaim'], $orphanConstraintRows)) {
+          // The one relaxation of strict matching. Before
+          // cilogon/Oa4mpClient#40 this function wrote isMemberOf as
+          // delimited_string ','; it now writes json_array, so an orphan left
+          // from before differs from the new claim in those two fields only.
+          // It is still the plugin's own row, and creating a second one would
+          // leave two isMemberOf claims against the legacy cfg's one. Match
+          // it, and upgrade it before the rewire below.
+          $matchingOrphanIds[] = $candidateId;
+          $upgradeOrphanIds[] = $candidateId;
         } else {
           $unmatchingOrphanIds[] = $candidateId;
         }
@@ -604,6 +765,19 @@ class Oa4mpClientCoSearchAttribute extends AppModel {
 
       if(count($matchingOrphanIds) === 1) {
         $orphanId = $matchingOrphanIds[0];
+
+        // Upgrade the old-format orphan first and rewire only once that has
+        // landed. A failed upgrade leaves the search attribute unconverted, so
+        // the next load retries; a failed rewire after it leaves an orphan
+        // that now matches exactly.
+        if(in_array($orphanId, $upgradeOrphanIds, true)) {
+          if(!$this->upgradeIsMemberOfToJsonArray($orphanId)) {
+            $this->log("toClaim: orphan-recovery: could not upgrade isMemberOf orphan claim " . $orphanId . " for client " . $clientId . " to json_array; not rewiring search_attribute " . $searchAttribute['id']);
+            return;
+          }
+          $this->log("toClaim: orphan-recovery: upgraded isMemberOf orphan claim " . $orphanId . " for client " . $clientId . " from delimited_string ',' to json_array (cilogon/Oa4mpClient#40)");
+        }
+
         $this->log("toClaim: orphan-recovery: rewiring search_attribute " . $searchAttribute['id'] . " to existing matching orphan claim " . $orphanId . " for client " . $clientId . " name '" . $claim['claim_name'] . "' (avoids creating duplicate)");
         $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->id = $searchAttribute['id'];
         $ret = $this->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->saveField('claim_id', $orphanId);

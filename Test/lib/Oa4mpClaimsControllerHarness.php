@@ -103,6 +103,13 @@ class Oa4mpHarnessOa4mpServer {
    */
   public $verifyError = false;
 
+  /**
+   * @var boolean Whether the server copy oa4mpVerifyClient() compared against
+   *              was a legacy LDAP cfg, which the real model reports as the
+   *              array form's 'legacy_cfg' key.
+   */
+  public $verifyLegacyCfg = false;
+
   /** @var array One entry per call, in order. */
   public $calls = array();
 
@@ -126,7 +133,8 @@ class Oa4mpHarnessOa4mpServer {
       return array(
         'synchronized' => $this->verifySynchronized,
         'oa4mp_server_extra' => $this->verifyExtra,
-        'error' => $this->verifyError
+        'error' => $this->verifyError,
+        'legacy_cfg' => $this->verifyLegacyCfg
       );
     }
 

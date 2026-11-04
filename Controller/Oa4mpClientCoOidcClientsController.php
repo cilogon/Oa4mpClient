@@ -562,6 +562,23 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $this->redirect($args);
     }
 
+    // A client converted to DynamoDB claims before cilogon/Oa4mpClient#40 and
+    // not saved since holds an isMemberOf claim serialized as a delimited
+    // string, while the server still holds the legacy LDAP cfg, which sent a
+    // JSON array; the next save would send the string. Repair the row now,
+    // but only while the server copy is legacy: once the client has been
+    // saved under DynamoDB the server holds the delimited string too, and
+    // changing the row would be drift. The legacy comparison sets the
+    // serialization aside, so the client is still in sync after the repair.
+    if(!empty($verifyResult['legacy_cfg'])) {
+      $repaired = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoLdapConfig->Oa4mpClientCoSearchAttribute->repairPreJsonArrayIsMemberOfClaims($id);
+
+      if(!empty($repaired)) {
+        // Read the client state again to get the repaired claims.
+        $client = $this->Oa4mpClientCoOidcClient->current($id);
+      }
+    }
+
     // If the OA4MP server returned extra keys that differ from what is
     // stored in the database, update the database with the new values.
     $currentExtra = $client['Oa4mpClientCoOidcClient']['oa4mp_server_extra'] ?? null;
