@@ -31,13 +31,20 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   private $refreshTokenId = null;
   private $accessTokenId = null;
   private $accessControlId = null;
+  private $oidcClientName = null;
+  private $contactEmailId = null;
+  private $clientDynamoConfigId = null;
 
   const STORED_LIFETIME = 86400;
+  const STORED_CONTACT = 'owner@example.org';
+  const ADMIN_ACCESS_KEY = 'AKIAEXAMPLE';
+  const STALE_ACCESS_KEY = 'AKIASTALEKEY';
 
   public function setUp() {
     $this->fx = null;
     $this->coId = $this->adminId = $this->clientId = $this->groupId = null;
     $this->refreshTokenId = $this->accessTokenId = $this->accessControlId = null;
+    $this->oidcClientName = $this->contactEmailId = $this->clientDynamoConfigId = null;
 
     $this->fx = new Oa4mpFixtures();
     $tag = Oa4mpFixtures::tag('oa4mpvbsw');
@@ -56,7 +63,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'partition_key_template' => '${client_id}',
       'partition_key_claim_name' => 'sub'
     ));
-    $this->clientId = $this->fx->oidcClient($adminId, 'vbsw-' . $tag);
+    $this->oidcClientName = 'vbsw-' . $tag;
+    $this->clientId = $this->fx->oidcClient($adminId, $this->oidcClientName);
 
     // Seeded before the access control row so cleanup, which runs newest
     // first, removes a row pointing at the group before the group itself.
@@ -90,6 +98,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       $purge['cm_oa4mp_client_access_controls'] = 'client_id = ' . (int)$this->clientId;
       $purge['cm_oa4mp_client_co_scopes'] = 'client_id = ' . (int)$this->clientId;
       $purge['cm_oa4mp_client_co_callbacks'] = 'client_id = ' . (int)$this->clientId;
+      $purge['cm_oa4mp_client_co_email_addresses'] = 'client_id = ' . (int)$this->clientId;
+      $purge['cm_oa4mp_client_dynamo_configs'] = 'client_id = ' . (int)$this->clientId;
 
       // A named configuration a test seeded is removed before the client, so
       // the client must stop pointing at it first.
@@ -624,6 +634,167 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   }
 
   // ==========================================================================
+  // OIDC client edit()
+  // ==========================================================================
+
+  /**
+   * Clearing the name is rejected before the server is touched: the
+   * refreshed DynamoDB configuration is not persisted either, and the form
+   * comes back with the blank name and its error.
+   */
+  public function testOidcClientEditBlankNameNeverReachesTheServer() {
+    $this->seedOidcClientEditRows();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array('name' => '')));
+
+    $redirect = $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited with a name the plugin rejects');
+    $this->assertTrue(in_array('oa4mpVerifyClient', $harness->harnessServer->callNames(), true),
+      'the synchronization check still ran');
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertEqual($this->oidcClientName, $this->storedClientName(), 'the stored name is unchanged');
+    $this->assertEqual(self::STALE_ACCESS_KEY, $this->storedClientAccessKey(),
+      'the refreshed DynamoDB configuration was not persisted');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual('', $harness->request->data['Oa4mpClientCoOidcClient']['name'],
+      'the form re-renders with the blank name, not the stored one');
+    $this->assertEqual($this->clientId, (int)$harness->request->data['Oa4mpClientCoOidcClient']['id'],
+      'the form still has the client the edit view reads');
+    $this->assertNotEmpty($harness->Oa4mpClientCoOidcClient->validationErrors['name'] ?? null,
+      'the name error is there for the form to show');
+  }
+
+  /**
+   * A home URL the model's url rule refuses is rejected the same way. That
+   * rule does not require a scheme, so example.org/app is accepted, and is
+   * stored alike by the server and the plugin.
+   */
+  public function testOidcClientEditInvalidHomeUrlNeverReachesTheServer() {
+    $this->seedOidcClientEditRows();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array('home_url' => 'not a url')));
+
+    $redirect = $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited with a home URL the plugin rejects');
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertEqual('https://example.org/', $this->storedClientHomeUrl(), 'the stored home URL is unchanged');
+    $this->assertEqual(self::STALE_ACCESS_KEY, $this->storedClientAccessKey(),
+      'the refreshed DynamoDB configuration was not persisted');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual('not a url', $harness->request->data['Oa4mpClientCoOidcClient']['home_url'],
+      'the form re-renders with the rejected home URL');
+    $this->assertNotEmpty($harness->Oa4mpClientCoOidcClient->validationErrors['home_url'] ?? null,
+      'the home URL error is there for the form to show');
+  }
+
+  /**
+   * An invalid contact email is rejected before the server is touched. The
+   * error is left where the form looks for it: on the email model under the
+   * row index, and under the email model's name in the client's errors.
+   */
+  public function testOidcClientEditInvalidContactEmailNeverReachesTheServer() {
+    $this->seedOidcClientEditRows();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array(), 'not-an-email'));
+
+    $redirect = $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited with a contact email the plugin rejects');
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertEqual(self::STORED_CONTACT, $this->storedContactEmail(), 'the stored contact email is unchanged');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual('not-an-email', $harness->request->data['Oa4mpClientCoEmailAddress'][0]['mail'] ?? null,
+      'the form re-renders with the rejected contact email');
+    $this->assertNotEmpty(
+      $harness->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->validationErrors[0]['mail'] ?? null,
+      'the email model holds the error under the row index the form input names');
+    $this->assertNotEmpty(
+      $harness->Oa4mpClientCoOidcClient->validationErrors['Oa4mpClientCoEmailAddress'][0]['mail'] ?? null,
+      'the client errors hold the same error under the email model');
+  }
+
+  /**
+   * Server extras that differ from the stored ones make the edit page write
+   * the client row before it renders. That write clears the model's errors,
+   * which a rejected post must not lose.
+   */
+  public function testOidcClientEditRejectedPostKeepsItsErrorsWhenTheExtrasAreRewritten() {
+    $this->seedOidcClientEditRows();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array('name' => ''), 'not-an-email'));
+    $harness->harnessServer->verifyExtra = '{"harness":"extra"}';
+
+    $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited');
+    $this->assertEqual('{"harness":"extra"}', $this->storedClientExtra(),
+      'premise: the edit page wrote the new extras to the client row');
+    $this->assertNotEmpty($harness->Oa4mpClientCoOidcClient->validationErrors['name'] ?? null,
+      'the name error survived the write');
+    $this->assertNotEmpty(
+      $harness->Oa4mpClientCoOidcClient->validationErrors['Oa4mpClientCoEmailAddress'][0]['mail'] ?? null,
+      'the contact email error survived the write');
+    $this->assertEqual('', $harness->request->data['Oa4mpClientCoOidcClient']['name'],
+      'the form re-renders with the rejected name');
+  }
+
+  /** A valid name is sent, saved, and reported as before. */
+  public function testOidcClientEditValidNameIsSentAndSaved() {
+    $this->seedOidcClientEditRows();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array('name' => 'renamed client')));
+
+    $redirect = $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $sent = $harness->harnessServer->lastEditData();
+    $this->assertEqual('renamed client', $sent['Oa4mpClientCoOidcClient']['name'] ?? null,
+      'the OA4MP server was sent the posted name');
+    $this->assertEqual(self::ADMIN_ACCESS_KEY, $sent['Oa4mpClientDynamoConfig']['aws_access_key_id'] ?? null,
+      'the OA4MP server was sent the refreshed DynamoDB configuration');
+    $this->assertEqual('renamed client', $this->storedClientName(), 'the plugin stored the same name');
+    $this->assertEqual(self::ADMIN_ACCESS_KEY, $this->storedClientAccessKey(),
+      'the refreshed DynamoDB configuration was persisted');
+    $this->assertTrue($harness->harnessFlashed(_txt('rs.updated', array('renamed client')), 'success'),
+      'success was reported');
+    $this->assertNull($redirect, 'the edit page is shown again, as before');
+  }
+
+  /**
+   * The server accepted the edit and the client save then failed: that is
+   * reported as a failed save rather than as a field error, the refreshed
+   * DynamoDB configuration the server now holds is still persisted, and
+   * nothing is sent to the server to undo it.
+   */
+  public function testOidcClientEditFailedSaveAfterTheServerAcceptedIsReported() {
+    $this->seedOidcClientEditRows();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array('name' => 'renamed client')));
+    $harness->harnessFailWrites('saveAssociated');
+
+    $redirect = $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $this->assertEqual(1, $this->editCalls($harness), 'the server was edited exactly once, with no undo');
+    $this->assertEqual(self::ADMIN_ACCESS_KEY, $this->storedClientAccessKey(),
+      'the refreshed DynamoDB configuration the server accepted was persisted');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_oidc_client.er.edit.save'), 'error'),
+      'the failed save was reported');
+    $this->assertFalse($harness->harnessFlashed(_txt('er.fields'), 'error'),
+      'the input passed the check, so no field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertNull($redirect, 'the edit page is shown again, as on success');
+    $this->assertEqual($this->oidcClientName, $this->storedClientName(), 'premise: nothing was saved');
+  }
+
+  // ==========================================================================
   // Helpers
   // ==========================================================================
 
@@ -749,6 +920,84 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $value = $this->fx->scalar('SELECT named_config_id FROM cm_oa4mp_client_co_oidc_clients WHERE id = '
       . (int)$this->clientId);
     return ($value === null) ? null : (int)$value;
+  }
+
+  /**
+   * Give the client the rows its edit page saves through: a contact email,
+   * and a per-client DynamoDB configuration whose access key is behind the
+   * admin client's default, so an accepted edit refreshes it.
+   */
+  private function seedOidcClientEditRows() {
+    $this->contactEmailId = $this->fx->insert('cm_oa4mp_client_co_email_addresses', array(
+      'client_id' => $this->clientId,
+      'mail' => self::STORED_CONTACT
+    ));
+
+    $this->clientDynamoConfigId = $this->fx->insert('cm_oa4mp_client_dynamo_configs', array(
+      'admin_id' => null,
+      'client_id' => $this->clientId,
+      'aws_region' => 'us-east-1',
+      'aws_access_key_id' => self::STALE_ACCESS_KEY,
+      'aws_secret_access_key' => 'not-a-real-secret',
+      'table_name' => 'oa4mp-test-table',
+      'partition_key' => 'client_id',
+      'partition_key_template' => '${client_id}',
+      'partition_key_claim_name' => 'sub'
+    ));
+  }
+
+  /**
+   * The OIDC client edit form as posted, with $client overriding the stored
+   * client fields and $mail the contact email.
+   */
+  private function oidcClientEditPost($client = array(), $mail = self::STORED_CONTACT) {
+    return array(
+      'Oa4mpClientCoOidcClient' => $client + array(
+        'id' => (string)$this->clientId,
+        'admin_id' => (string)$this->adminId,
+        'oa4mp_identifier' => 'https://example.org/oidc/client/' . $this->oidcClientName,
+        'name' => $this->oidcClientName,
+        'home_url' => 'https://example.org/',
+        'public_client' => '0'
+      ),
+      'Oa4mpClientCoEmailAddress' => array(
+        0 => array(
+          'id' => (string)$this->contactEmailId,
+          'client_id' => (string)$this->clientId,
+          'mail' => $mail
+        )
+      )
+    );
+  }
+
+  private function storedClientName() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    return $this->fx->scalar('SELECT name FROM cm_oa4mp_client_co_oidc_clients WHERE id = '
+      . (int)$this->clientId);
+  }
+
+  private function storedClientHomeUrl() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    return $this->fx->scalar('SELECT home_url FROM cm_oa4mp_client_co_oidc_clients WHERE id = '
+      . (int)$this->clientId);
+  }
+
+  private function storedClientExtra() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    return $this->fx->scalar('SELECT oa4mp_server_extra FROM cm_oa4mp_client_co_oidc_clients WHERE id = '
+      . (int)$this->clientId);
+  }
+
+  private function storedContactEmail() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    return $this->fx->scalar('SELECT mail FROM cm_oa4mp_client_co_email_addresses WHERE id = '
+      . (int)$this->contactEmailId);
+  }
+
+  private function storedClientAccessKey() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    return $this->fx->scalar('SELECT aws_access_key_id FROM cm_oa4mp_client_dynamo_configs WHERE id = '
+      . (int)$this->clientDynamoConfigId);
   }
 
   private function storedLifetime() {

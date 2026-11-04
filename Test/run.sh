@@ -297,16 +297,18 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
-# Raised from 345 to 369 on 2026-11-03 for validating before the server write
-# on the refresh token, access token, access control, scopes and named
-# configuration pages, which added twenty-four in
-# Test/Case/Controller/ValidateBeforeServerWriteTest.php (348 -> 372): each
+# Raised from 345 to 375 on 2026-11-03 for validating before the server write
+# on the refresh token, access token, access control, scopes, named
+# configuration and OIDC client edit pages, which added thirty in
+# Test/Case/Controller/ValidateBeforeServerWriteTest.php (348 -> 378): each
 # page rejecting invalid input before the server is called and keeping it in
 # the form, sending and saving valid input as before, and reporting a save
 # that fails after the server accepted the change; plus a rejected post on an
 # out-of-sync client still redirecting. The named configuration page rejects
 # a selection that is neither none nor one of the admin client's own named
-# configurations.
+# configurations. The OIDC client edit page also keeps a rejected contact
+# email's error where the form reads it, and keeps a rejected post's errors
+# when the page rewrites the client's server extras before rendering.
 #
 # Raised from 334 to 345 for the URL whitespace fix (cilogon/Oa4mpClient#48),
 # which added eleven in Test/Case/Controller/UrlWhitespaceWritePathTest.php
@@ -379,7 +381,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=369
+min_tests_run=375
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

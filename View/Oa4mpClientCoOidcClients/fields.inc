@@ -179,7 +179,7 @@
           if(!empty($vv_default_contact_email)) {
             $params['default'] = $vv_default_contact_email;
           }
-          if(isset($this->validationErrors['Oa4mpClientCoEmailAddress']['mail'][0])) {
+          if(isset($this->validationErrors['Oa4mpClientCoEmailAddress'][0]['mail'][0])) {
             $params['class'] = 'form-error';
           }
           print ($e

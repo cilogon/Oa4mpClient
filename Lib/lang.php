@@ -539,6 +539,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.er.bad_client'      => 'This client has been modified outside of the Registry. Please email help@cilogon.org for assistance.',
   'pl.oa4mp_client_co_oidc_client.er.bad_signature'   => 'Client object from Oa4mp server failed signature check',
   'pl.oa4mp_client_co_oidc_client.er.callback_default'=> 'Please provide a valid callback URL',
+  'pl.oa4mp_client_co_oidc_client.er.edit.save'       => 'The client was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the client again. To bring them back into agreement, restore the client on the OA4MP server to the values Registry still holds.',
   'pl.oa4mp_client_co_oidc_client.er.id'              => 'The OIDC client with ID %1%s cannot be found',
   'pl.oa4mp_client_co_oidc_client.er.invalid_scheme'  => 'Please use a valid scheme for callback URLs',
   'pl.oa4mp_client_co_oidc_client.er.invalid_urn'     => 'The only URN allowed is the deprecated OAuth 2.0 "out of band" flow',
