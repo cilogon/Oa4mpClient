@@ -33,6 +33,18 @@
   it, but the page reported success anyway. The server and the Registry then
   disagreed, so every later edit of that client was refused as out of sync.
   Clients already in that state still need the server copy corrected by hand.
+- Check changes on the refresh token, access token, access control, scopes
+  and named configuration pages, and OIDC client edits and additions, before
+  sending them to the OA4MP server, and keep rejected input in the form. A
+  refresh token lifetime over one year, for example, was stored by the
+  server, refused by the Registry, and still reported as saved, after which
+  every edit of the client was refused as out of sync. A rejected OIDC client
+  addition left a working client on the server with no Registry record, and
+  each corrected retry created another. A save that fails after the server
+  accepted a change is now reported instead of shown as success; a failed
+  addition logs the new client ID so the leftover client can be removed from
+  the server. Clients already out of sync, and clients already left on the
+  server, still need correcting by hand.
 - Remove seven duplicated table definitions from the plugin schema. They made
   `cake database` warn "Possibly failed to update database schema" on a fresh
   install. Existing installations need no migration.

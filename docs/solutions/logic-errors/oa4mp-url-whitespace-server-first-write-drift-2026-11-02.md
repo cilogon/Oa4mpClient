@@ -110,11 +110,16 @@ for save failures that validation cannot predict.
   3. Call the server.
   4. Check `save()`.
 
-  Several controllers still have the server-first, unchecked-save shape and
-  are follow-up work: scopes, refresh tokens, access tokens, access controls,
-  and named configs. The OIDC client `edit()` also still sends to the server
-  before validating, so a `home_url` that is invalid for a reason other than
-  whitespace can still drift.
+  The same order was then applied to the remaining controllers that write to
+  the server (refresh tokens, access tokens, access controls, scopes, named
+  configs, and OIDC client add and edit) on branch
+  `fix/validate-before-server-write`; the merge is pending. Its tests are in
+  `ValidateBeforeServerWriteTest`. Two lessons from that work: wherever the
+  GET logic calls `saveField()` on the model that holds the errors (OIDC
+  client edit), `create()` clears `validationErrors`, so keep the rejected
+  input and errors in locals and restore them afterwards; and an associated
+  check with `validateAssociated()` must run on a copy, because it rewrites
+  its argument.
 - A test for such an action should assert two things:
   - the fake server never receives input the model rejects;
   - the server payload and the saved row hold the same value.

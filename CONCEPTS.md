@@ -136,6 +136,9 @@ in substance but the comparison reports a difference anyway, because the values
 were derived differently. False drift is worse than it looks: it blocks edits on
 correct data, and it trains operators to distrust the check.
 
+### Server-only client
+An OIDC client that exists on the OA4MP server but has no record in the Registry, left behind when the server created the client and the Registry then failed to save it. It is never compared by Sync verification, so it blocks nothing, but it cannot be seen, edited, or deleted from the plugin, and its client ID and any secret were never shown to anyone.
+
 ## Workflow and verification
 
 ### Landing record
