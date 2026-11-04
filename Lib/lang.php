@@ -427,6 +427,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_refresh_token.token.add.flash.success'    => 'Refresh Token Configuration Added',
   'pl.oa4mp_client_refresh_token.token.delete.flash.success' => 'Refresh Token Configuration Deleted',
   'pl.oa4mp_client_refresh_token.token.edit.flash.success'   => 'Refresh Token Configuration Updated',
+  'pl.oa4mp_client_refresh_token.er.edit.save'               => 'The refresh token configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the refresh token configuration again. To bring them back into agreement, restore the refresh token configuration on the OA4MP server to the values Registry still holds.',
 
   // View titles
   'pl.oa4mp_client_refresh_token.add.name'   => 'Add Refresh Token Configuration for %s',
@@ -448,6 +449,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_access_token.token.add.flash.success'    => 'Access Token Configuration Added',
   'pl.oa4mp_client_access_token.token.delete.flash.success' => 'Access Token Configuration Deleted',
   'pl.oa4mp_client_access_token.token.edit.flash.success'   => 'Access Token Configuration Updated',
+  'pl.oa4mp_client_access_token.er.edit.save'               => 'The access token configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the access token configuration again. To bring them back into agreement, restore the access token configuration on the OA4MP server to the values Registry still holds.',
 
   // View titles
   'pl.oa4mp_client_access_token.add.name'   => 'Add Access Token Configuration for %s',
@@ -499,6 +501,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Flash messages
   'pl.oa4mp_client_access_control.manage.flash.success' => 'Editor configuration updated',
+  'pl.oa4mp_client_access_control.er.edit.save'         => 'The editor configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the editor configuration again. To bring them back into agreement, restore the editor configuration on the OA4MP server to the values Registry still holds.',
 
   // View titles
   'pl.oa4mp_client_access_control.manage.name' => 'Editor configuration for %s',

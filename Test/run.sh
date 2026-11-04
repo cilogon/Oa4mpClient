@@ -297,6 +297,14 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
+# Raised from 345 to 357 on 2026-11-03 for validating before the server write
+# on the refresh token, access token and access control pages, which added
+# twelve in Test/Case/Controller/ValidateBeforeServerWriteTest.php
+# (348 -> 360): each page rejecting invalid input before the server is called
+# and keeping it in the form, sending and saving valid input as before, and
+# reporting a save that fails after the server accepted the change; plus a
+# rejected post on an out-of-sync client still redirecting.
+#
 # Raised from 334 to 345 for the URL whitespace fix (cilogon/Oa4mpClient#48),
 # which added eleven in Test/Case/Controller/UrlWhitespaceWritePathTest.php
 # (337 -> 348): the callback and authorization models trimming their URLs,
@@ -368,7 +376,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=345
+min_tests_run=357
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

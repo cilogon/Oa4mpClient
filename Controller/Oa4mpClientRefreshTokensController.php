@@ -46,6 +46,22 @@ class Oa4mpClientRefreshTokensController extends StandardController {
   public $requires_co = true;
 
   /**
+   * Construct the OA4MP server object the manage action talks to.
+   *
+   * The single construction point for Oa4mpClientOa4mpServer in this
+   * controller. It exists so a test subclass can substitute a fake server and
+   * drive the action without reaching the network; production behavior is
+   * unchanged. Same shape as the factory in Oa4mpClientAuthorizationsController.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
+  }
+
+  /**
    * Manage a refresh token configuration.
    *
    * @since  COmanage Registry v4.5.0
@@ -57,40 +73,67 @@ class Oa4mpClientRefreshTokensController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientRefreshToken->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientRefreshToken->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // A post that fails validation, kept for the form the GET logic renders.
+    $rejected = null;
+    $rejectedErrors = array();
+
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, array_merge($client, $this->request->data));
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      // Validate before anything is sent to the OA4MP server, and send the
+      // data validation leaves behind. Input the plugin rejects used to be
+      // stored by the server and not by the plugin, leaving the two out of
+      // sync.
+      $this->Oa4mpClientRefreshToken->create(false);
+      $this->Oa4mpClientRefreshToken->set($this->request->data);
+
+      if(!$this->Oa4mpClientRefreshToken->validates()) {
+        // Set flash and fall through to the GET logic, which renders the form
+        // again with the validation error. Nothing was sent to the server.
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
+
+        // Keep the input and errors now: the GET logic replaces the request
+        // data and may save the client, so they cannot be read back later.
+        $rejected = $this->request->data['Oa4mpClientRefreshToken'] ?? array();
+        $rejectedErrors = $this->Oa4mpClientRefreshToken->validationErrors;
       } else {
-        // Update successful so save the edit.
-        $ret = $this->Oa4mpClientRefreshToken->save($this->request->data);
+        $this->request->data['Oa4mpClientRefreshToken'] = $this->Oa4mpClientRefreshToken->data['Oa4mpClientRefreshToken'];
 
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_refresh_token.token.edit.flash.success'), array('key' => 'success'));
+        // Call out to oa4mp server.
+        // Return value of 0 indicates an error saving the edit.
+        // Return value of 2 indicates the plugin representation of the client
+        // and the Oa4mp server representation of the client are out of sync.
+        $ret = $oa4mpServer->oa4mpEditClient($admin, $client, array_merge($client, $this->request->data));
+        if($ret == 0) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+        } elseif($ret == 2) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+        } else {
+          // Update successful so save the edit. The server has already
+          // accepted it, so a failed save here leaves the two sides out of
+          // sync and must be reported, not flashed as success.
+          if(!$this->Oa4mpClientRefreshToken->save($this->request->data)) {
+            $this->Flash->set(_txt('pl.oa4mp_client_refresh_token.er.edit.save'), array('key' => 'error'));
+          } else {
+            $this->Flash->set(_txt('pl.oa4mp_client_refresh_token.token.edit.flash.success'), array('key' => 'success'));
+          }
 
-        // Redirect to the manage view.
-       $args = array();
-       $args['plugin'] = 'oa4mp_client';
-       $args['controller'] = 'oa4mp_client_refresh_tokens';
-       $args['action'] = 'manage';
-       $args['clientid'] = $clientId;
+          // Redirect to the manage view.
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_refresh_tokens';
+          $args['action'] = 'manage';
+          $args['clientid'] = $clientId;
 
-       $this->redirect($args);
+          $this->redirect($args);
+        }
       }
     }
 
@@ -134,6 +177,14 @@ class Oa4mpClientRefreshTokensController extends StandardController {
     }
 
     $this->request->data = $client;
+
+    // A post that failed validation stays in the form over the stored client,
+    // which the view still reads for the client id and name, so the subscriber
+    // can see and correct what was rejected.
+    if($rejected !== null) {
+      $this->request->data['Oa4mpClientRefreshToken'] = $rejected;
+      $this->Oa4mpClientRefreshToken->validationErrors = $rejectedErrors;
+    }
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_refresh_token.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));
