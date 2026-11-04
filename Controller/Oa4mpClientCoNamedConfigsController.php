@@ -297,9 +297,12 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
       // server. A selection the server accepted and the plugin could not
       // store used to leave the two out of sync.
       $allowed = ($selected === 'none');
-      foreach($admin['Oa4mpClientCoNamedConfig'] ?? array() as $config) {
-        if(!$allowed && is_scalar($selected) && (string)$config['id'] === (string)$selected) {
-          $allowed = true;
+      if(!$allowed && is_scalar($selected)) {
+        foreach($admin['Oa4mpClientCoNamedConfig'] ?? array() as $config) {
+          if((string)$config['id'] === (string)$selected) {
+            $allowed = true;
+            break;
+          }
         }
       }
 
