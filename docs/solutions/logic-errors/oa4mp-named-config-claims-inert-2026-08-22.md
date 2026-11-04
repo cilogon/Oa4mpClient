@@ -120,7 +120,8 @@ be months between the two acts.
 ## Current state
 
 The Claims tab is now read-only for a named-configuration client
-(`docs/plans/2026-10-14-1946-feat-named-config-read-only-tabs-plan.md`). The
+(cilogon/Oa4mpClient#39, which closed cilogon/Oa4mpClient#28; plan
+`docs/plans/2026-10-14-1946-feat-named-config-read-only-tabs-plan.md`). The
 index lists the stored claims under a notice naming the named configuration and
 saying they are ignored while it is applied; add, edit and delete are refused
 before any server call (`ClaimsWritePathTest`). The Scopes and Authorization
@@ -218,6 +219,8 @@ Recorded here so the scope is not rediscovered from scratch:
 
 ## Related Issues
 
+- cilogon/Oa4mpClient#28 (issue of record), fixed in part by
+  cilogon/Oa4mpClient#39 (read-only Claims, Scopes and Authorization tabs).
 - `docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md` -- Q1 is
   the open decision, and unit U7 is the characterization work this document
   accompanies.
