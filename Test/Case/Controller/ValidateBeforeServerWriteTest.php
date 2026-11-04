@@ -91,6 +91,10 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   }
 
   public function tearDown() {
+    // Models a test replaced through an association are shared, so put the
+    // real ones back before anything else runs.
+    Oa4mpOidcClientsControllerHarness::harnessRestoreWrites();
+
     if ($this->fx === null) {
       return;
     }
@@ -553,7 +557,10 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'the synchronization check still ran');
     $this->assertNull($redirect, 'the form is shown again rather than redirecting');
     $this->assertEqual($own, $this->storedNamedConfig(), 'the stored named configuration is unchanged');
-    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.er.selection'), 'error'),
+      'the selection error was reported where the user sees it');
+    $this->assertFalse($harness->harnessFlashed(_txt('er.fields'), 'error'),
+      'not the generic field error, since the radio list shows no field errors');
     $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
     $this->assertEqual((string)$foreign,
       $harness->request->data['Oa4mpClientCoNamedConfig']['selected_config_id'] ?? null,
@@ -577,7 +584,10 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'the OA4MP server was not edited with a configuration that does not exist');
     $this->assertNull($redirect, 'the form is shown again rather than redirecting');
     $this->assertNull($this->storedNamedConfig(), 'the client still has no named configuration');
-    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.er.selection'), 'error'),
+      'the selection error was reported where the user sees it');
+    $this->assertFalse($harness->harnessFlashed(_txt('er.fields'), 'error'),
+      'not the generic field error');
     $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
     $this->assertNotEmpty($harness->Oa4mpClientCoNamedConfig->validationErrors['selected_config_id'] ?? null,
       'the selection error is there for the form to show');
@@ -810,6 +820,34 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->assertEqual($this->oidcClientName, $this->storedClientName(), 'premise: nothing was saved');
   }
 
+  /**
+   * The server accepted the edit with the refreshed DynamoDB configuration
+   * and saving that configuration then failed. The client save still runs and
+   * succeeds, but the plugin's copy is behind the server's, so the page
+   * reports the failed save, never success.
+   */
+  public function testOidcClientEditFailedDynamoConfigSaveAfterTheServerAcceptedIsReported() {
+    $this->seedOidcClientEditRows();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array('name' => 'renamed client')));
+    // The client model is the shared registry instance; tearDown puts the
+    // real association back.
+    $harness->harnessFailWrites('save', array('Oa4mpClientCoOidcClient', 'Oa4mpClientDynamoConfig'));
+
+    $redirect = $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $this->assertEqual(1, $this->editCalls($harness), 'the server was edited exactly once, with no undo');
+    $this->assertEqual(self::STALE_ACCESS_KEY, $this->storedClientAccessKey(),
+      'premise: the refreshed DynamoDB configuration was not saved');
+    $this->assertEqual('renamed client', $this->storedClientName(), 'the client save still ran and succeeded');
+    $this->assertContains('could not be saved', implode("\n", $harness->harnessLogged),
+      'the failed DynamoDB configuration save was logged');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_oidc_client.er.edit.save'), 'error'),
+      'the failed save was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertNull($redirect, 'the edit page is shown again, as on success');
+  }
+
   // ==========================================================================
   // OIDC client add()
   // ==========================================================================
@@ -1023,9 +1061,148 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->assertEqual(0, $this->addedClientCount(), 'premise: nothing was saved');
   }
 
+  /**
+   * Valid input, and the server then created nothing: the create error is
+   * reported, nothing is stored, and the secret page is not shown.
+   */
+  public function testOidcClientAddServerCreatingNothingIsReportedAndNothingIsSaved() {
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($this->adminId));
+    $harness->harnessServer->newClientReturn = array();
+
+    $redirect = $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(1, $this->newClientCalls($harness), 'the OA4MP server was asked to create the client once');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_admin_client.er.create_error'), 'error'),
+      'the create error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual(0, $this->addedClientCount(), 'no client row was saved');
+    $this->assertFalse(in_array('secret', $harness->harnessRendered, true), 'the secret page was not shown');
+    $this->assertNull($redirect, 'the action returned without redirecting');
+  }
+
+  // ==========================================================================
+  // The server rejected a valid edit
+  // ==========================================================================
+  //
+  // Each page that edits the server reads two refusals from it: 0, the server
+  // returned an error, and 2, the client is out of sync. Either way nothing is
+  // saved, no success is reported, and the page falls through to its GET
+  // logic, which shows the page again.
+
+  public function testRefreshTokenServerRejectedEditIsNotSaved() {
+    foreach ($this->serverRejections() as $verdict => $message) {
+      $harness = Oa4mpRefreshTokensControllerHarness::build($this->clientId, $this->coId,
+        $this->refreshTokenPost('3600'));
+      $harness->harnessServer->editClientReturn = $verdict;
+
+      $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+      $this->assertServerRejectionReported($harness, $redirect, $verdict, $message);
+      $this->assertEqual(self::STORED_LIFETIME, $this->storedLifetime(),
+        "verdict $verdict: the stored lifetime is unchanged");
+    }
+  }
+
+  public function testAccessTokenServerRejectedEditIsNotSaved() {
+    foreach ($this->serverRejections() as $verdict => $message) {
+      $harness = Oa4mpAccessTokensControllerHarness::build($this->clientId, $this->coId,
+        $this->accessTokenPost('1'));
+      $harness->harnessServer->editClientReturn = $verdict;
+
+      $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+      $this->assertServerRejectionReported($harness, $redirect, $verdict, $message);
+      $this->assertFalse($this->storedIsJwt(), "verdict $verdict: the stored flag is unchanged");
+    }
+  }
+
+  public function testAccessControlServerRejectedEditIsNotSaved() {
+    foreach ($this->serverRejections() as $verdict => $message) {
+      $harness = Oa4mpAccessControlsControllerHarness::build($this->clientId, $this->coId,
+        $this->accessControlPost((string)$this->groupId));
+      $harness->harnessServer->editClientReturn = $verdict;
+
+      $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+      $this->assertServerRejectionReported($harness, $redirect, $verdict, $message);
+      $this->assertNull($this->storedEditorGroup(), "verdict $verdict: the stored group is unchanged");
+    }
+  }
+
+  public function testScopeServerRejectedEditIsNotSaved() {
+    $stored = $this->seedScopes();
+
+    foreach ($this->serverRejections() as $verdict => $message) {
+      // Add email and remove profile, so both a save and a delete are held back.
+      $harness = Oa4mpScopesControllerHarness::build($this->clientId, $this->coId,
+        $this->scopesPost($stored, array(0 => 'openid', 2 => 'email')));
+      $harness->harnessServer->editClientReturn = $verdict;
+
+      $redirect = $harness->harnessInvoke('edit_scopes', array(), 'POST');
+
+      $this->assertServerRejectionReported($harness, $redirect, $verdict, $message);
+      $this->assertEqual(array('openid', 'profile'), $this->storedScopes(),
+        "verdict $verdict: the stored scopes are unchanged");
+    }
+  }
+
+  public function testNamedConfigServerRejectedEditIsNotSaved() {
+    $own = $this->seedNamedConfig($this->adminId, 'own');
+
+    foreach ($this->serverRejections() as $verdict => $message) {
+      $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
+        $this->namedConfigPost((string)$own));
+      $harness->harnessServer->editClientReturn = $verdict;
+
+      $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+      $this->assertServerRejectionReported($harness, $redirect, $verdict, $message);
+      $this->assertNull($this->storedNamedConfig(), "verdict $verdict: the client still has no named configuration");
+    }
+  }
+
+  /** The refreshed DynamoDB configuration is not persisted either. */
+  public function testOidcClientEditServerRejectedEditIsNotSaved() {
+    $this->seedOidcClientEditRows();
+
+    foreach ($this->serverRejections() as $verdict => $message) {
+      $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+        $this->oidcClientEditPost(array('name' => 'renamed client')));
+      $harness->harnessServer->editClientReturn = $verdict;
+
+      $redirect = $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+      $this->assertServerRejectionReported($harness, $redirect, $verdict, $message);
+      $this->assertEqual($this->oidcClientName, $this->storedClientName(),
+        "verdict $verdict: the stored name is unchanged");
+      $this->assertEqual(self::STALE_ACCESS_KEY, $this->storedClientAccessKey(),
+        "verdict $verdict: the refreshed DynamoDB configuration was not persisted");
+    }
+  }
+
   // ==========================================================================
   // Helpers
   // ==========================================================================
+
+  /** The server's refusals of an edit, each with the message the page flashes. */
+  private function serverRejections() {
+    return array(
+      0 => _txt('pl.oa4mp_client_co_admin_client.er.edit_error'),
+      2 => _txt('pl.oa4mp_client_co_oidc_client.er.bad_client')
+    );
+  }
+
+  /**
+   * The page sent the edit once, reported the refusal and no success, and
+   * fell through to its GET logic, which shows the page again.
+   */
+  private function assertServerRejectionReported($harness, $redirect, $verdict, $message) {
+    $this->assertEqual(1, $this->editCalls($harness), "verdict $verdict: the server was edited once");
+    $this->assertTrue($harness->harnessFlashed($message, 'error'), "verdict $verdict: the refusal was reported");
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), "verdict $verdict: no success was reported");
+    $this->assertNull($redirect, "verdict $verdict: the page is shown again rather than redirecting");
+  }
 
   private function refreshTokenPost($lifetime) {
     return array('Oa4mpClientRefreshToken' => array(

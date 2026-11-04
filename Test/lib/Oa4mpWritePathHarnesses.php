@@ -124,6 +124,24 @@ class Oa4mpHarnessAdminRole {
 }
 
 /**
+ * The swaps harnessFailWrites() made, kept outside the harness trait because a
+ * static declared in a trait is separate for every class that uses it, and a
+ * test may swap through one harness and restore through another.
+ */
+class Oa4mpHarnessSwaps {
+
+  /** @var array Each swap as (owner, property, real model). */
+  public static $swaps = array();
+
+  public static function restore() {
+    while (!empty(self::$swaps)) {
+      list($owner, $property, $real) = array_pop(self::$swaps);
+      $owner->{$property} = $real;
+    }
+  }
+}
+
+/**
  * Makes one named write method of a real model return false without touching
  * the database, so a test can force "the server accepted the change, then the
  * Registry save failed". Every other method, the table, the associations and
@@ -305,7 +323,20 @@ trait Oa4mpWritePathHarnessTrait {
     $failing->harnessFailOn = $method;
     $owner->{$property} = $failing;
 
+    // A model reached through an association is usually the shared registry
+    // instance, so the swap would outlive this test. Record it so tearDown
+    // can put the real model back.
+    Oa4mpHarnessSwaps::$swaps[] = array($owner, $property, $real);
+
     return $failing;
+  }
+
+  /**
+   * Put back every model harnessFailWrites() replaced, newest first. Call it
+   * from tearDown so a failing model never leaks into a later test.
+   */
+  public static function harnessRestoreWrites() {
+    Oa4mpHarnessSwaps::restore();
   }
 
   public function log($msg, $type = LOG_ERR, $scope = null) {

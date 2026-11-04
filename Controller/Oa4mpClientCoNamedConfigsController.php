@@ -308,8 +308,10 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
 
       if(!$allowed) {
         // Set flash and fall through to the GET logic, which renders the form
-        // again with the error. Nothing was sent to the server.
-        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
+        // again with the error. Nothing was sent to the server. The flash
+        // carries the specific message because the view draws the choices
+        // with Form->radio(), which prints no field errors.
+        $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.selection'), array('key' => 'error'));
 
         // Keep the selection and error now: the GET logic replaces the request
         // data and may save the client, which clears validation errors.

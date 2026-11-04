@@ -435,17 +435,23 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         } else {
           // The server has accepted the refreshed configuration, so the plugin's
           // copy is moved forward to match what was sent -- before the client
-          // save below, not after it. The client save can fail on its own
-          // validation (an invalid home URL, a malformed contact address), and
-          // that failure says nothing about what the server now holds. Leaving
-          // the refresh unpersisted in that case would put the plugin's copy
-          // behind the server's, and the synchronization check would report the
+          // save below, not after it. The client save can still fail for
+          // reasons validation cannot predict (for example a database error),
+          // and that failure says nothing about what the server now holds.
+          // Leaving the refresh unpersisted in that case would put the plugin's
+          // copy behind the server's, and the synchronization check would report the
           // client as modified outside the Registry from then on -- including on
           // the next edit, which is gated by that same check, so the operator
           // could not correct the form and recover.
           //
           // The row carries its own id, so this updates in place rather than
           // inserting a second configuration row for the client.
+          //
+          // A failed save here leaves the plugin's copy behind the server's
+          // even when the client save below succeeds, so it is reported the
+          // same way as a failed client save, never as success.
+          $dynamoConfigSaved = true;
+
           if(!empty($refreshedDynamoConfig)) {
             $this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->clear();
 
@@ -453,6 +459,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
               $this->log("Oa4mpClient: the OA4MP server accepted the refreshed Oa4mpClientDynamoConfig"
                          . " for OIDC client " . $id . " but it could not be saved, so the plugin copy"
                          . " is now behind the server copy");
+              $dynamoConfigSaved = false;
             }
           }
 
@@ -464,13 +471,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
           // We use saveAssociated since we want to update the Oa4mpClientCoEmailAddress object.
           $ret = $this->Oa4mpClientCoOidcClient->saveAssociated($this->request->data);
 
-          if($ret) {
+          if($ret && $dynamoConfigSaved) {
             $clientName = $newClient['Oa4mpClientCoOidcClient']['name'];
             $this->Flash->set(_txt('rs.updated', array(filter_var($clientName,FILTER_SANITIZE_SPECIAL_CHARS))), array('key' => 'success'));
           } else {
             // The input passed the check above, so this is not a field error.
-            // The server has already accepted the edit, so the failure leaves
-            // the two sides out of sync and must be reported, not undone.
+            // The server has already accepted the edit, so a failure of either
+            // save leaves the two sides out of sync and must be reported, not
+            // undone.
             $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.edit.save'), array('key' => 'error'));
           }
 

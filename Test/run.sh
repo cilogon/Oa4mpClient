@@ -297,23 +297,26 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # bare verify form's third state. The floor sits a few below the real count on
 # purpose, per the slack rule below.
 #
-# Raised from 345 to 384 on 2026-11-03 for validating before the server write
+# Raised from 345 to 392 on 2026-11-03 for validating before the server write
 # on the refresh token, access token, access control, scopes, named
 # configuration, OIDC client edit and OIDC client add pages, which added
-# thirty-nine in Test/Case/Controller/ValidateBeforeServerWriteTest.php
-# (348 -> 387): each page rejecting invalid input before the server is called
-# and keeping it in the form, sending and saving valid input as before, and
-# reporting a save that fails after the server accepted the change; plus a
-# rejected post on an out-of-sync client still redirecting. The named
+# forty-seven in Test/Case/Controller/ValidateBeforeServerWriteTest.php
+# (348 -> 395): each page rejecting invalid input before the server is called
+# and keeping it in the form, sending and saving valid input as before,
+# reporting a save that fails after the server accepted the change, and
+# saving nothing when the server refuses a valid change; plus a rejected
+# post on an out-of-sync client still redirecting. The named
 # configuration page rejects a selection that is neither none nor one of the
 # admin client's own named configurations. The OIDC client edit page also
 # keeps a rejected contact email's error where the form reads it, and keeps a
 # rejected post's errors when the page rewrites the client's server extras
-# before rendering. The OIDC client add page checks the whole new client,
+# before rendering, and reports a refreshed DynamoDB configuration that
+# fails to save after the server accepted the edit. The OIDC client add page checks the whole new client,
 # including the configuration copied from the admin client's defaults, shows
 # a rejected form set up for the posted admin client, still creates public
 # and confidential clients as before, and on a save that fails after the
-# create logs the new client ID without the secret and leaves for the index.
+# create logs the new client ID without the secret and leaves for the index;
+# when the server creates nothing it saves nothing.
 #
 # Raised from 334 to 345 for the URL whitespace fix (cilogon/Oa4mpClient#48),
 # which added eleven in Test/Case/Controller/UrlWhitespaceWritePathTest.php
@@ -386,7 +389,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=384
+min_tests_run=392
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
