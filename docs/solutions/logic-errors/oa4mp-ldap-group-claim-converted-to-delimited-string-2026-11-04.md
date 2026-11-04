@@ -20,8 +20,8 @@ tags: [ldap, dynamodb, claim-migration, ismemberof, serialization, json-array, s
 
 cilogon/Oa4mpClient#40. When an LDAP-backed OIDC client was converted to
 DynamoDB claims, its `isMemberOf` group claim stopped reaching the relying party
-as a JSON array and arrived as a comma-delimited string. Fixed on branch
-`fix/ldap-group-claim-format`; the merge is pending.
+as a JSON array and arrived as a comma-delimited string. Fixed by
+cilogon/Oa4mpClient#60.
 
 ## Root cause
 
@@ -97,7 +97,7 @@ Tests: `Test/Case/Model/ClaimMigrationPersistenceTest.php`,
 
 ## Related Issues
 
-- cilogon/Oa4mpClient#40 (issue of record)
+- cilogon/Oa4mpClient#40 (issue of record), fixed by cilogon/Oa4mpClient#60
 - `docs/solutions/logic-errors/oa4mp-comparator-marshaller-asymmetry-2026-08-22.md`
   -- the same pair of writer and comparator, and why both must derive a value
   the same way.
