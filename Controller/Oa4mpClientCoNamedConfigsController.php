@@ -75,6 +75,22 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
   );
 
   /**
+   * Construct the OA4MP server object the manage action talks to.
+   *
+   * The single construction point for Oa4mpClientOa4mpServer in this
+   * controller. It exists so a test subclass can substitute a fake server and
+   * drive the action without reaching the network; production behavior is
+   * unchanged. Same shape as the factory in Oa4mpClientAuthorizationsController.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
+  }
+
+  /**
    * Add a named configuration
    *
    * @since COmanage Registry 4.0.2
@@ -261,52 +277,84 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // A selection that is refused, kept for the form the GET logic renders.
+    $rejected = null;
+    $rejectedErrors = array();
+
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
-      $updatedClient = $client;
-      if($this->request->data['Oa4mpClientCoNamedConfig']['selected_config_id'] == 'none') {
-        $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = null;
-      } else {
-        $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = $this->request->data['Oa4mpClientCoNamedConfig']['selected_config_id'];
+      $selected = $this->request->data['Oa4mpClientCoNamedConfig']['selected_config_id'] ?? null;
+
+      // The selection must be no named configuration or one of the admin
+      // client's own. No model rule covers it, since saveField() below skips
+      // validation, so check it here before anything is sent to the OA4MP
+      // server. A selection the server accepted and the plugin could not
+      // store used to leave the two out of sync.
+      $allowed = ($selected === 'none');
+      foreach($admin['Oa4mpClientCoNamedConfig'] ?? array() as $config) {
+        if(!$allowed && is_scalar($selected) && (string)$config['id'] === (string)$selected) {
+          $allowed = true;
+        }
       }
 
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $updatedClient);
+      if(!$allowed) {
+        // Set flash and fall through to the GET logic, which renders the form
+        // again with the error. Nothing was sent to the server.
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
 
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+        // Keep the selection and error now: the GET logic replaces the request
+        // data and may save the client, which clears validation errors.
+        $rejected = $this->request->data['Oa4mpClientCoNamedConfig'] ?? array();
+        $rejectedErrors = array(
+          'selected_config_id' => array(_txt('pl.oa4mp_client_co_named_config.er.selection'))
+        );
       } else {
-        // Update successful so save the edit.
-        $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->id = $clientId;
-        $ret = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->saveField('named_config_id', $updatedClient['Oa4mpClientCoOidcClient']['named_config_id']);
-        if(!$ret) {
-          $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.error'), array('key' => 'error'));
-          return;
+        $updatedClient = $client;
+        if($selected == 'none') {
+          $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = null;
+        } else {
+          $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = $selected;
         }
 
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), array('key' => 'success'));
+        // Call out to oa4mp server.
+        // Return value of 0 indicates an error saving the edit.
+        // Return value of 2 indicates the plugin representation of the client
+        // and the Oa4mp server representation of the client are out of sync.
+        $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $updatedClient);
 
-        // Redirect to the manage view.
-        $args = array();
-        $args['plugin'] = 'oa4mp_client';
-        $args['controller'] = 'oa4mp_client_co_named_configs';
-        $args['action'] = 'manage';
-        $args['clientid'] = $clientId;
-        $this->redirect($args);
+        if($ret == 0) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+        } elseif($ret == 2) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+        } else {
+          // Update successful so save the edit. The server has already
+          // accepted it, so a failed save here leaves the two sides out of
+          // sync and must be reported, not flashed as success.
+          $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->id = $clientId;
+          $ret = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->saveField('named_config_id', $updatedClient['Oa4mpClientCoOidcClient']['named_config_id']);
+          if(!$ret) {
+            $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), array('key' => 'error'));
+          } else {
+            // Set flash successful.
+            $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), array('key' => 'success'));
+          }
+
+          // Redirect to the manage view.
+          $args = array();
+          $args['plugin'] = 'oa4mp_client';
+          $args['controller'] = 'oa4mp_client_co_named_configs';
+          $args['action'] = 'manage';
+          $args['clientid'] = $clientId;
+          $this->redirect($args);
+        }
       }
     }
 
@@ -351,6 +399,14 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     $this->set('vv_available_configs', $admin['Oa4mpClientCoNamedConfig'] ?? array());
 
     $this->request->data = $client;
+
+    // A refused selection stays in the form over the stored client, which the
+    // view still reads for the client id and name, with its error on the
+    // selection field.
+    if($rejected !== null) {
+      $this->request->data['Oa4mpClientCoNamedConfig'] = $rejected;
+      $this->Oa4mpClientCoNamedConfig->validationErrors = $rejectedErrors;
+    }
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_named_config.manage.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));

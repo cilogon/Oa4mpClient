@@ -25,6 +25,7 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
 
   private $fx = null;
   private $coId = null;
+  private $adminId = null;
   private $clientId = null;
   private $groupId = null;
   private $refreshTokenId = null;
@@ -35,7 +36,7 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
 
   public function setUp() {
     $this->fx = null;
-    $this->coId = $this->clientId = $this->groupId = null;
+    $this->coId = $this->adminId = $this->clientId = $this->groupId = null;
     $this->refreshTokenId = $this->accessTokenId = $this->accessControlId = null;
 
     $this->fx = new Oa4mpFixtures();
@@ -43,6 +44,7 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
 
     $this->coId = $this->fx->co($tag);
     $adminId = $this->fx->adminClient($this->coId, $tag);
+    $this->adminId = $adminId;
     $this->fx->insert('cm_oa4mp_client_dynamo_configs', array(
       'admin_id' => $adminId,
       'client_id' => null,
@@ -88,6 +90,11 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       $purge['cm_oa4mp_client_access_controls'] = 'client_id = ' . (int)$this->clientId;
       $purge['cm_oa4mp_client_co_scopes'] = 'client_id = ' . (int)$this->clientId;
       $purge['cm_oa4mp_client_co_callbacks'] = 'client_id = ' . (int)$this->clientId;
+
+      // A named configuration a test seeded is removed before the client, so
+      // the client must stop pointing at it first.
+      $this->fx->query('UPDATE cm_oa4mp_client_co_oidc_clients SET named_config_id = NULL WHERE id = '
+        . (int)$this->clientId);
     }
 
     $this->fx->cleanup($purge);
@@ -490,6 +497,133 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   }
 
   // ==========================================================================
+  // Named config manage()
+  // ==========================================================================
+
+  /**
+   * A named configuration that belongs to another admin client is not one
+   * this client can use. It never reaches the server, and the form comes back
+   * with the selection and its error.
+   */
+  public function testNamedConfigOfAnotherAdminClientNeverReachesTheServer() {
+    $own = $this->seedNamedConfig($this->adminId, 'own');
+    $this->setStoredNamedConfig($own);
+
+    $tag = Oa4mpFixtures::tag('oa4mpvbsw-other');
+    $otherAdminId = $this->fx->adminClient($this->coId, $tag);
+    $foreign = $this->seedNamedConfig($otherAdminId, 'foreign');
+
+    $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
+      $this->namedConfigPost((string)$foreign));
+    // Extras that differ from the stored ones make the GET tail write the
+    // client row, which must not cost the rejected post its error.
+    $harness->harnessServer->verifyExtra = '{"harness":"extra"}';
+
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited with a configuration this client cannot use');
+    $this->assertTrue(in_array('oa4mpVerifyClient', $harness->harnessServer->callNames(), true),
+      'the synchronization check still ran');
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertEqual($own, $this->storedNamedConfig(), 'the stored named configuration is unchanged');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual((string)$foreign,
+      $harness->request->data['Oa4mpClientCoNamedConfig']['selected_config_id'] ?? null,
+      'the form re-renders with the rejected selection');
+    $this->assertEqual($this->clientId, (int)$harness->request->data['Oa4mpClientCoOidcClient']['id'],
+      'the form still has the client the manage view reads');
+    $this->assertNotEmpty($harness->Oa4mpClientCoNamedConfig->validationErrors['selected_config_id'] ?? null,
+      'the selection error is there for the form to show');
+  }
+
+  /** A named configuration id that does not exist is rejected the same way. */
+  public function testNamedConfigThatDoesNotExistNeverReachesTheServer() {
+    $own = $this->seedNamedConfig($this->adminId, 'own');
+
+    $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
+      $this->namedConfigPost((string)($own + 100000)));
+
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited with a configuration that does not exist');
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertNull($this->storedNamedConfig(), 'the client still has no named configuration');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertNotEmpty($harness->Oa4mpClientCoNamedConfig->validationErrors['selected_config_id'] ?? null,
+      'the selection error is there for the form to show');
+  }
+
+  /** One of the admin client's named configurations is sent, saved, and reported as before. */
+  public function testNamedConfigOfTheAdminClientIsSentAndSaved() {
+    $own = $this->seedNamedConfig($this->adminId, 'own');
+
+    $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
+      $this->namedConfigPost((string)$own));
+
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+    $sent = $harness->harnessServer->lastEditData();
+    $this->assertEqual((string)$own, $sent['Oa4mpClientCoOidcClient']['named_config_id'] ?? null,
+      'the OA4MP server was sent the selected configuration');
+    $this->assertEqual($own, $this->storedNamedConfig(), 'the plugin stored the same configuration');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), 'success'),
+      'success was reported');
+    $this->assertEqual('manage', $redirect['action'] ?? null, 'the action redirected to the manage view');
+    $this->assertEqual($this->clientId, $redirect['clientid'] ?? null, 'for the same client');
+  }
+
+  /** Choosing no named configuration is sent and saved as none. */
+  public function testNamedConfigNoneIsSentAndSaved() {
+    $own = $this->seedNamedConfig($this->adminId, 'own');
+    $this->setStoredNamedConfig($own);
+
+    $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
+      $this->namedConfigPost('none'));
+
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+    $sent = $harness->harnessServer->lastEditData();
+    $this->assertTrue($sent !== null, 'the OA4MP server was edited');
+    $this->assertTrue(array_key_exists('named_config_id', $sent['Oa4mpClientCoOidcClient'] ?? array())
+      && $sent['Oa4mpClientCoOidcClient']['named_config_id'] === null,
+      'the OA4MP server was sent no named configuration');
+    $this->assertNull($this->storedNamedConfig(), 'the plugin cleared the stored configuration');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), 'success'),
+      'success was reported');
+    $this->assertEqual('manage', $redirect['action'] ?? null, 'the action redirected to the manage view');
+  }
+
+  /**
+   * The server accepted the selection and the save then failed: that is
+   * reported as an error, the page redirects where success does instead of
+   * stopping without the variables its view needs, and nothing is sent to
+   * the server to undo it.
+   */
+  public function testNamedConfigFailedSaveAfterTheServerAcceptedIsReported() {
+    $own = $this->seedNamedConfig($this->adminId, 'own');
+
+    $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
+      $this->namedConfigPost((string)$own));
+    $harness->harnessFailWrites('saveField',
+      array('Oa4mpClientCoNamedConfig', 'Oa4mpClientCoAdminClient', 'Oa4mpClientCoOidcClient'));
+
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+    $this->assertEqual(1, $this->editCalls($harness), 'the server was edited exactly once, with no undo');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), 'error'),
+      'the failed save was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual('manage', $redirect['action'] ?? null,
+      'the action redirected where success does, so the next load shows the drift');
+    $this->assertEqual($this->clientId, $redirect['clientid'] ?? null, 'for the same client');
+    $this->assertNull($this->storedNamedConfig(), 'premise: nothing was saved');
+  }
+
+  // ==========================================================================
   // Helpers
   // ==========================================================================
 
@@ -586,6 +720,35 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   /** How many times the fake server was asked to edit the client. */
   private function editCalls($harness) {
     return count(array_keys($harness->harnessServer->callNames(), 'oa4mpEditClient', true));
+  }
+
+  /** The named config form as posted: 'none' or a named configuration id. */
+  private function namedConfigPost($selection) {
+    return array('Oa4mpClientCoNamedConfig' => array(
+      'selected_config_id' => $selection
+    ));
+  }
+
+  /** Store a named configuration for $adminId and return its id. */
+  private function seedNamedConfig($adminId, $name) {
+    return $this->fx->insert('cm_oa4mp_client_co_named_configs', array(
+      'admin_id' => $adminId,
+      'config_name' => $name,
+      'description' => 'hermetic test named configuration',
+      'config' => '{}'
+    ));
+  }
+
+  private function setStoredNamedConfig($namedConfigId) {
+    $this->fx->query('UPDATE cm_oa4mp_client_co_oidc_clients SET named_config_id = ' . (int)$namedConfigId
+      . ' WHERE id = ' . (int)$this->clientId);
+  }
+
+  private function storedNamedConfig() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    $value = $this->fx->scalar('SELECT named_config_id FROM cm_oa4mp_client_co_oidc_clients WHERE id = '
+      . (int)$this->clientId);
+    return ($value === null) ? null : (int)$value;
   }
 
   private function storedLifetime() {
