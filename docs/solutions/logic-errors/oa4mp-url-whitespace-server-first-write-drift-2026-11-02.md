@@ -112,14 +112,13 @@ for save failures that validation cannot predict.
 
   The same order was then applied to the remaining controllers that write to
   the server (refresh tokens, access tokens, access controls, scopes, named
-  configs, and OIDC client add and edit) on branch
-  `fix/validate-before-server-write`; the merge is pending. Its tests are in
-  `ValidateBeforeServerWriteTest`. Two lessons from that work: wherever the
-  GET logic calls `saveField()` on the model that holds the errors (OIDC
-  client edit), `create()` clears `validationErrors`, so keep the rejected
-  input and errors in locals and restore them afterwards; and an associated
-  check with `validateAssociated()` must run on a copy, because it rewrites
-  its argument.
+  configs, and OIDC client add and edit) by cilogon/Oa4mpClient#51. Its
+  tests are in `ValidateBeforeServerWriteTest`. Two lessons from that work:
+  wherever the GET logic calls `saveField()` on the model that holds the
+  errors (OIDC client edit), `create()` clears `validationErrors`, so keep
+  the rejected input and errors in locals and restore them afterwards; and
+  an associated check with `validateAssociated()` must run on a copy,
+  because it rewrites its argument.
 - A test for such an action should assert two things:
   - the fake server never receives input the model rejects;
   - the server payload and the saved row hold the same value.
@@ -133,6 +132,7 @@ for save failures that validation cannot predict.
 ## Related
 
 - cilogon/Oa4mpClient#48 (issue of record), fixed by cilogon/Oa4mpClient#49
+- cilogon/Oa4mpClient#51, the same fix for the remaining controllers
 - `docs/solutions/logic-errors/oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`
 - `docs/solutions/logic-errors/oa4mp-comparator-marshaller-asymmetry-2026-08-22.md`
 - `docs/solutions/test-failures/oa4mp-green-run-does-not-prove-a-test-can-fail.md`
