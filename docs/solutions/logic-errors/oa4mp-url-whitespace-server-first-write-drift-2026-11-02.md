@@ -22,8 +22,7 @@ tags: [sync-verification, out-of-sync, write-path, validation-order, whitespace,
 cilogon/Oa4mpClient#48. A subscriber typed or pasted a callback URL with a stray
 space around it. The OA4MP server accepted it, the Registry did not, and the
 page said it had succeeded. From then on the synchronization guard blocked every
-edit of that client. The fix is on branch `fix/url-whitespace-out-of-sync`; its
-merge is pending.
+edit of that client. Fixed by cilogon/Oa4mpClient#49.
 
 ## Root cause
 
@@ -128,7 +127,7 @@ for save failures that validation cannot predict.
 
 ## Related
 
-- cilogon/Oa4mpClient#48 (issue of record)
+- cilogon/Oa4mpClient#48 (issue of record), fixed by cilogon/Oa4mpClient#49
 - `docs/solutions/logic-errors/oa4mp-claim-migration-three-latent-bugs-2026-05-18.md`
 - `docs/solutions/logic-errors/oa4mp-comparator-marshaller-asymmetry-2026-08-22.md`
 - `docs/solutions/test-failures/oa4mp-green-run-does-not-prove-a-test-can-fail.md`
