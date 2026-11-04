@@ -314,6 +314,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   // Flash messages
   'pl.oa4mp_client_co_scope.scope.flash.success' => 'Scopes Saved',
 
+  // Error messages
+  'pl.oa4mp_client_co_scope.er.edit.save' => 'The scopes were updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the scopes again. To bring them back into agreement, restore the scopes on the OA4MP server to the values Registry still holds.',
+  'pl.oa4mp_client_co_scope.er.id'        => 'This scope does not match the scope Registry holds for this client. Reload the page and try again.',
+
   // Scope: openid
   'pl.oa4mp_client_co_scope.scope.openid.fd.name'  => 'openid',
   'pl.oa4mp_client_co_scope.scope.openid.required' => 'openid scope is required',
@@ -401,6 +405,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_named_config.fd.no_configs_available'     => 'No Named Configurations Available',
   'pl.oa4mp_client_co_named_config.fd.no_configs_available.desc'=> 'There are no named configurations available for this admin client',
   'pl.oa4mp_client_co_named_config.fd.no_description'           => 'No description available',
+  'pl.oa4mp_client_co_named_config.er.edit.save'                => 'The named configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including choosing the named configuration again. To bring them back into agreement, restore the named configuration on the OA4MP server to the one Registry still holds.',
+  'pl.oa4mp_client_co_named_config.er.selection'                => 'Choose no named configuration or one of the named configurations available for this admin client',
   'pl.oa4mp_client_co_named_config.manage.flash.error'          => 'An error occurred while updating the named configuration',
   'pl.oa4mp_client_co_named_config.manage.flash.success'        => 'Named configuration updated successfully',
   'pl.oa4mp_client_co_named_config.manage.name'                 => 'Named Configuration for %s',
@@ -427,6 +433,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_refresh_token.token.add.flash.success'    => 'Refresh Token Configuration Added',
   'pl.oa4mp_client_refresh_token.token.delete.flash.success' => 'Refresh Token Configuration Deleted',
   'pl.oa4mp_client_refresh_token.token.edit.flash.success'   => 'Refresh Token Configuration Updated',
+  'pl.oa4mp_client_refresh_token.er.edit.save'               => 'The refresh token configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the refresh token configuration again. To bring them back into agreement, restore the refresh token configuration on the OA4MP server to the values Registry still holds.',
 
   // View titles
   'pl.oa4mp_client_refresh_token.add.name'   => 'Add Refresh Token Configuration for %s',
@@ -448,6 +455,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_access_token.token.add.flash.success'    => 'Access Token Configuration Added',
   'pl.oa4mp_client_access_token.token.delete.flash.success' => 'Access Token Configuration Deleted',
   'pl.oa4mp_client_access_token.token.edit.flash.success'   => 'Access Token Configuration Updated',
+  'pl.oa4mp_client_access_token.er.edit.save'               => 'The access token configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the access token configuration again. To bring them back into agreement, restore the access token configuration on the OA4MP server to the values Registry still holds.',
 
   // View titles
   'pl.oa4mp_client_access_token.add.name'   => 'Add Access Token Configuration for %s',
@@ -499,6 +507,7 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Flash messages
   'pl.oa4mp_client_access_control.manage.flash.success' => 'Editor configuration updated',
+  'pl.oa4mp_client_access_control.er.edit.save'         => 'The editor configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the editor configuration again. To bring them back into agreement, restore the editor configuration on the OA4MP server to the values Registry still holds.',
 
   // View titles
   'pl.oa4mp_client_access_control.manage.name' => 'Editor configuration for %s',
@@ -526,10 +535,12 @@ $cm_oa4mp_client_texts['en_US'] = array(
   // Errors and Exceptions
   // ===========================================================================
 
+  'pl.oa4mp_client_co_oidc_client.er.add.save'        => 'The client was created on the OA4MP server but could not be saved by Registry, so it exists only on the OA4MP server and does not appear in Registry. It must be removed from the OA4MP server by hand; adding the client again before then creates another one there. Please email help@cilogon.org for assistance.',
   'pl.oa4mp_client_co_oidc_client.er.bad_admin_id'    => 'The selected OAuth2 server is not available',
   'pl.oa4mp_client_co_oidc_client.er.bad_client'      => 'This client has been modified outside of the Registry. Please email help@cilogon.org for assistance.',
   'pl.oa4mp_client_co_oidc_client.er.bad_signature'   => 'Client object from Oa4mp server failed signature check',
   'pl.oa4mp_client_co_oidc_client.er.callback_default'=> 'Please provide a valid callback URL',
+  'pl.oa4mp_client_co_oidc_client.er.edit.save'       => 'The client was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the client again. To bring them back into agreement, restore the client on the OA4MP server to the values Registry still holds.',
   'pl.oa4mp_client_co_oidc_client.er.id'              => 'The OIDC client with ID %1%s cannot be found',
   'pl.oa4mp_client_co_oidc_client.er.invalid_scheme'  => 'Please use a valid scheme for callback URLs',
   'pl.oa4mp_client_co_oidc_client.er.invalid_urn'     => 'The only URN allowed is the deprecated OAuth 2.0 "out of band" flow',

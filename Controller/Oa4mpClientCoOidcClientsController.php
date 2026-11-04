@@ -140,8 +140,21 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       // Build the data to save and the data to send to the Oa4mp server. A
       // confidential client requires Active Status from creation, and its
       // DynamoDB configuration starts as the admin client's default.
-      $oa4mpServer = new Oa4mpClientOa4mpServer();
+      $oa4mpServer = $this->_oa4mpServer();
       list($saveData, $marshallData) = $oa4mpServer->newClientData($adminClient, $data);
+
+      // Check the whole new client, including its contact email and the
+      // configuration copied from the admin client's defaults, before the
+      // server is asked to create it. A client the plugin then refused to
+      // save used to be left on the server with no Registry record.
+      if(!$this->clientDataValidates($saveData)) {
+        // Nothing was sent to the server. Show the add form again with the
+        // validation errors and the values entered, set up for the admin
+        // client that was posted.
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
+        $this->setAddFormData($adminClient);
+        return;
+      }
 
       // Call out to Oa4mp server to create the new client. Building the cfg
       // can throw (for example on an unreadable cfg contract) before anything
@@ -179,8 +192,21 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
       $ret = $this->Oa4mpClientCoOidcClient->saveAssociated($saveData, $args);
 
       if(!$ret) {
-        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
-        return;
+        // The input passed the check above, so this is not a field error.
+        // The server has already created the client, so the failure is
+        // reported, not undone. The client ID, never the secret, is logged so
+        // the client left on the server can be found and removed there. The
+        // add form is not shown again, since another try would create another
+        // client on the server.
+        $this->log("Oa4mpClient: the OA4MP server created OIDC client " . $newClient['clientId']
+                   . " but it could not be saved by Registry, so it exists only on the server");
+        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.add.save'), array('key' => 'error'));
+        $args = array();
+        $args['plugin'] = 'oa4mp_client';
+        $args['controller'] = 'oa4mp_client_co_oidc_clients';
+        $args['action'] = 'index';
+        $args['co'] = $this->cur_co['Co']['id'];
+        $this->redirect($args);
       }
 
       $this->set('vv_id', $this->Oa4mpClientCoOidcClient->id);
@@ -217,82 +243,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $adminClient = $adminClients[0];
       }
 
-      $this->set('vv_admin_id', $adminClient['Oa4mpClientCoAdminClient']['id']);
-      $this->set('vv_admin_issuer', $adminClient['Oa4mpClientCoAdminClient']['issuer']);
-
-      // Construct the default contact email address.
-      $mail = null;
-
-      $roles = $this->Role->calculateCMRoles();
-
-      // If actor is member of the CO get email address from CoPerson record.
-      if($roles['comember'] && !empty($roles['copersonid'])) {
-        $args = array();
-        $args['conditions']['EmailAddress.co_person_id'] = $roles['copersonid'];
-        $args['conditions']['EmailAddress.deleted'] = false;
-        $args['contain'] = false;
-
-        $emails = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoPerson->EmailAddress->find('all', $args);
-
-        if(!empty($emails)) {
-          foreach($emails as $e) {
-            // Prefer the official email address.
-            if($e['EmailAddress']['type'] == EmailAddressEnum::Official) {
-              $mail = $e['EmailAddress']['mail'];
-              break;
-            }
-          }
-          // No official email address so take whatever is first.
-          if(empty($mail)) {
-            $mail = $emails[0]['EmailAddress']['mail'];
-          }
-        }
-      }
-
-      // If actor is not a member of the CO or could not find email then
-      // find the first email of any type from any CO admin.
-      if(empty($mail)) {
-        $adminCoGroupId = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoGroup->adminCoGroupId($this->cur_co['Co']['id']);
-
-        $args = array();
-        $args['conditions']['CoGroupMember.co_group_id'] = $adminCoGroupId;
-        $args['conditions']['CoGroupMember.member'] = true;
-        $args['conditions']['AND'][] = array(
-          'OR' => array(
-            'CoGroupMember.valid_from IS NULL',
-            'CoGroupMember.valid_from < ' => date('Y-m-d H:i:s', time())
-          )
-        );
-        $args['conditions']['AND'][] = array(
-          'OR' => array(
-            'CoGroupMember.valid_through IS NULL',
-            'CoGroupMember.valid_through > ' => date('Y-m-d H:i:s', time())
-          )
-        );
-        $args['contain']['CoPerson'] = 'EmailAddress';
-
-        $admins = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoGroup->CoGroupMember->find('all', $args);
-
-        if(!empty($admins[0]['CoPerson']['EmailAddress'][0]['mail'])) {
-          $mail = $admins[0]['CoPerson']['EmailAddress'][0]['mail'];
-        }
-      }
-
-      // If still no email then fallback to the contact email for the
-      // associated admin client.
-      if(empty($mail)) {
-        if(!empty($adminClient['Oa4mpClientCoEmailAddress'][0]['mail'])) {
-          $mail = $adminClient['Oa4mpClientCoEmailAddress'][0]['mail'];
-        }
-      }
-
-      $this->set('vv_default_contact_email', $mail);
-
-      if(!empty($adminClient['Oa4mpClientCoNamedConfig'])) {
-        $this->request->data['Oa4mpClientCoNamedConfig'] = $adminClient['Oa4mpClientCoNamedConfig'];
-      } else {
-        $this->request->data['Oa4mpClientCoNamedConfig'] = array();
-      }
+      $this->setAddFormData($adminClient);
 
       parent::add();
     }
@@ -359,7 +310,7 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // The repeat of the argument $client below is correct because the
     // result of the find() above with the contain includes both the
     // OIDC client and admin client objects/arrays.
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
     if(!$oa4mpServer->oa4mpDeleteClient($client, $client)) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.delete_error'), array('key' => 'error'));
 
@@ -410,7 +361,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     // Instantiate Oa4mpServer since it will be used for both
     // GET and POST.
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
+
+    // A post that fails validation, kept for the form the GET logic renders.
+    $rejected = null;
+    $rejectedErrors = array();
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
@@ -421,84 +376,114 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $this->request->data['Oa4mpClientCoOidcClient']['home_url'] = trim($this->request->data['Oa4mpClientCoOidcClient']['home_url']);
       }
 
-      // Copy the current client to a new client and update it with
-      // the values input through the form.
-      $newClient = $client;
-      $newClient['Oa4mpClientCoOidcClient']['name'] = $this->request->data['Oa4mpClientCoOidcClient']['name'];
-      $newClient['Oa4mpClientCoOidcClient']['home_url'] = $this->request->data['Oa4mpClientCoOidcClient']['home_url'];
+      // Check everything the client save below writes before anything is
+      // sent to the OA4MP server. Input the plugin rejects used to be stored
+      // by the server and not by the plugin, leaving the two out of sync.
+      if(!$this->clientDataValidates($this->request->data)) {
+        // Set flash and fall through to the GET logic, which renders the form
+        // again with the validation errors. Nothing was sent to the server.
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
 
-      if(!empty($this->request->data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'])) {
-        $newClient['Oa4mpClientCoOidcClient']['refresh_token_lifetime'] = $this->request->data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'];
-      }
-
-      $newClient['Oa4mpClientCoEmailAddress'][0]['mail'] = $this->request->data['Oa4mpClientCoEmailAddress'][0]['mail'];
-
-      // The client's per-client Oa4mpClientDynamoConfig is a snapshot of the
-      // admin client's DefaultDynamoConfig taken when the client was created
-      // (see add()), and marshalling prefers it over the default. Bring it
-      // forward from the default so a credential rotated on the admin client
-      // reaches this client's cfg. Marshall with the refreshed values here,
-      // but persist them only after the server has accepted the edit below:
-      // writing them first would leave the plugin's copy ahead of the server's
-      // whenever the call fails, and every later edit would then report the
-      // client out of sync.
-      $refreshedDynamoConfig = $this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->refreshedFromAdminDefault($client);
-
-      if(!empty($refreshedDynamoConfig)) {
-        $newClient['Oa4mpClientDynamoConfig'] = $refreshedDynamoConfig;
-      }
-
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
-      if($ret == 0) {
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-        // Set flash and fall through to the GET logic.
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-      } else {
-        // The server has accepted the refreshed configuration, so the plugin's
-        // copy is moved forward to match what was sent -- before the client
-        // save below, not after it. The client save can fail on its own
-        // validation (an invalid home URL, a malformed contact address), and
-        // that failure says nothing about what the server now holds. Leaving
-        // the refresh unpersisted in that case would put the plugin's copy
-        // behind the server's, and the synchronization check would report the
-        // client as modified outside the Registry from then on -- including on
-        // the next edit, which is gated by that same check, so the operator
-        // could not correct the form and recover.
-        //
-        // The row carries its own id, so this updates in place rather than
-        // inserting a second configuration row for the client.
-        if(!empty($refreshedDynamoConfig)) {
-          $this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->clear();
-
-          if(!$this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->save($refreshedDynamoConfig)) {
-            $this->log("Oa4mpClient: the OA4MP server accepted the refreshed Oa4mpClientDynamoConfig"
-                       . " for OIDC client " . $id . " but it could not be saved, so the plugin copy"
-                       . " is now behind the server copy");
+        // Keep the input and errors now: the GET logic replaces the request
+        // data and may save the client, which clears the errors.
+        $rejected = array();
+        foreach(array('Oa4mpClientCoOidcClient', 'Oa4mpClientCoEmailAddress') as $section) {
+          if(isset($this->request->data[$section]) && is_array($this->request->data[$section])) {
+            $rejected[$section] = $this->request->data[$section];
           }
         }
+        $rejectedErrors = $this->Oa4mpClientCoOidcClient->validationErrors;
+      } else {
+        // Copy the current client to a new client and update it with
+        // the values input through the form.
+        $newClient = $client;
+        $newClient['Oa4mpClientCoOidcClient']['name'] = $this->request->data['Oa4mpClientCoOidcClient']['name'];
+        $newClient['Oa4mpClientCoOidcClient']['home_url'] = $this->request->data['Oa4mpClientCoOidcClient']['home_url'];
 
-        // Save the client.
+        if(!empty($this->request->data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'])) {
+          $newClient['Oa4mpClientCoOidcClient']['refresh_token_lifetime'] = $this->request->data['Oa4mpClientCoOidcClient']['refresh_token_lifetime'];
+        }
+
+        $newClient['Oa4mpClientCoEmailAddress'][0]['mail'] = $this->request->data['Oa4mpClientCoEmailAddress'][0]['mail'];
+
+        // The client's per-client Oa4mpClientDynamoConfig is a snapshot of the
+        // admin client's DefaultDynamoConfig taken when the client was created
+        // (see add()), and marshalling prefers it over the default. Bring it
+        // forward from the default so a credential rotated on the admin client
+        // reaches this client's cfg. Marshall with the refreshed values here,
+        // but persist them only after the server has accepted the edit below:
+        // writing them first would leave the plugin's copy ahead of the server's
+        // whenever the call fails, and every later edit would then report the
+        // client out of sync.
+        $refreshedDynamoConfig = $this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->refreshedFromAdminDefault($client);
+
+        if(!empty($refreshedDynamoConfig)) {
+          $newClient['Oa4mpClientDynamoConfig'] = $refreshedDynamoConfig;
+        }
+
+        // Call out to oa4mp server.
+        // Return value of 0 indicates an error saving the edit.
+        // Return value of 2 indicates the plugin representation of the client
+        // and the Oa4mp server representation of the client are out of sync.
+        $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
+        if($ret == 0) {
+          $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+          // Set flash and fall through to the GET logic.
+        } elseif($ret == 2) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+        } else {
+          // The server has accepted the refreshed configuration, so the plugin's
+          // copy is moved forward to match what was sent -- before the client
+          // save below, not after it. The client save can still fail for
+          // reasons validation cannot predict (for example a database error),
+          // and that failure says nothing about what the server now holds.
+          // Leaving the refresh unpersisted in that case would put the plugin's
+          // copy behind the server's, and the synchronization check would report the
+          // client as modified outside the Registry from then on -- including on
+          // the next edit, which is gated by that same check, so the operator
+          // could not correct the form and recover.
+          //
+          // The row carries its own id, so this updates in place rather than
+          // inserting a second configuration row for the client.
+          //
+          // A failed save here leaves the plugin's copy behind the server's
+          // even when the client save below succeeds, so it is reported the
+          // same way as a failed client save, never as success.
+          $dynamoConfigSaved = true;
+
+          if(!empty($refreshedDynamoConfig)) {
+            $this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->clear();
+
+            if(!$this->Oa4mpClientCoOidcClient->Oa4mpClientDynamoConfig->save($refreshedDynamoConfig)) {
+              $this->log("Oa4mpClient: the OA4MP server accepted the refreshed Oa4mpClientDynamoConfig"
+                         . " for OIDC client " . $id . " but it could not be saved, so the plugin copy"
+                         . " is now behind the server copy");
+              $dynamoConfigSaved = false;
+            }
+          }
+
+          // Save the client.
         
-        // For now we set proxy_limited to always be false.
-        $this->request->data['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
+          // For now we set proxy_limited to always be false.
+          $this->request->data['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
 
-        // We use saveAssociated since we want to update the Oa4mpClientCoEmailAddress object.
-        $ret = $this->Oa4mpClientCoOidcClient->saveAssociated($this->request->data);
+          // We use saveAssociated since we want to update the Oa4mpClientCoEmailAddress object.
+          $ret = $this->Oa4mpClientCoOidcClient->saveAssociated($this->request->data);
 
-        if($ret) {
-          $clientName = $newClient['Oa4mpClientCoOidcClient']['name'];
-          $this->Flash->set(_txt('rs.updated', array(filter_var($clientName,FILTER_SANITIZE_SPECIAL_CHARS))), array('key' => 'success'));
-          
+          if($ret && $dynamoConfigSaved) {
+            $clientName = $newClient['Oa4mpClientCoOidcClient']['name'];
+            $this->Flash->set(_txt('rs.updated', array(filter_var($clientName,FILTER_SANITIZE_SPECIAL_CHARS))), array('key' => 'success'));
+          } else {
+            // The input passed the check above, so this is not a field error.
+            // The server has already accepted the edit, so a failure of either
+            // save leaves the two sides out of sync and must be reported, not
+            // undone.
+            $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.edit.save'), array('key' => 'error'));
+          }
+
           // Read the client state again and fall through to the GET.
           $client = $this->Oa4mpClientCoOidcClient->current($id);
-        } else {
-          $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
         }
       }
     } 
@@ -591,6 +576,152 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     $this->set('title_for_layout', _txt('op.edit-a', array($client['Oa4mpClientCoOidcClient']['name'])));
 
     $this->request->data = $client;
+
+    // A post that failed validation stays in the form over the stored client,
+    // so the subscriber can see and correct what was rejected.
+    if($rejected !== null) {
+      foreach($rejected as $section => $values) {
+        $this->request->data[$section] = array_replace_recursive($this->request->data[$section] ?? array(), $values);
+      }
+
+      // The email errors are set on the email model too, under the row index
+      // the form input names, which is where the form looks for them.
+      $this->Oa4mpClientCoOidcClient->validationErrors = $rejectedErrors;
+      if(isset($rejectedErrors['Oa4mpClientCoEmailAddress'])) {
+        $this->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->validationErrors = $rejectedErrors['Oa4mpClientCoEmailAddress'];
+      }
+    }
+  }
+
+  /**
+   * Check client data against the validation the client save in add() or
+   * edit() runs, including every associated row that save writes (the
+   * contact email, and on add the scopes, the DynamoDB configuration and the
+   * authorization).
+   *
+   * validateAssociated() rewrites its argument, so a copy is checked; none of
+   * the models involved changes a value while validating, so the data can be
+   * sent and saved as it is. proxy_limited is required by the model and both
+   * actions set it only after the server call, so it is set on the copy to
+   * the value they will save.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  array   $data The data the client save will write
+   * @return boolean True if the save would pass validation
+   */
+
+  protected function clientDataValidates($data) {
+    $check = $data;
+    if(!isset($check['Oa4mpClientCoOidcClient']) || !is_array($check['Oa4mpClientCoOidcClient'])) {
+      $check['Oa4mpClientCoOidcClient'] = array();
+    }
+    $check['Oa4mpClientCoOidcClient']['proxy_limited'] = '0';
+
+    return (bool)$this->Oa4mpClientCoOidcClient->validateAssociated($check, array('deep' => true));
+  }
+
+  /**
+   * Set what the add form needs for the chosen admin client: its id and
+   * issuer, the default contact email, and its named configurations. Used by
+   * the GET request and by a post that failed validation, so the form shown
+   * again is complete.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  array $adminClient The admin client, as add() finds it
+   */
+
+  protected function setAddFormData($adminClient) {
+    $this->set('vv_admin_id', $adminClient['Oa4mpClientCoAdminClient']['id']);
+    $this->set('vv_admin_issuer', $adminClient['Oa4mpClientCoAdminClient']['issuer']);
+
+    // Construct the default contact email address.
+    $mail = null;
+
+    $roles = $this->Role->calculateCMRoles();
+
+    // If actor is member of the CO get email address from CoPerson record.
+    if($roles['comember'] && !empty($roles['copersonid'])) {
+      $args = array();
+      $args['conditions']['EmailAddress.co_person_id'] = $roles['copersonid'];
+      $args['conditions']['EmailAddress.deleted'] = false;
+      $args['contain'] = false;
+
+      $emails = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoPerson->EmailAddress->find('all', $args);
+
+      if(!empty($emails)) {
+        foreach($emails as $e) {
+          // Prefer the official email address.
+          if($e['EmailAddress']['type'] == EmailAddressEnum::Official) {
+            $mail = $e['EmailAddress']['mail'];
+            break;
+          }
+        }
+        // No official email address so take whatever is first.
+        if(empty($mail)) {
+          $mail = $emails[0]['EmailAddress']['mail'];
+        }
+      }
+    }
+
+    // If actor is not a member of the CO or could not find email then
+    // find the first email of any type from any CO admin.
+    if(empty($mail)) {
+      $adminCoGroupId = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoGroup->adminCoGroupId($this->cur_co['Co']['id']);
+
+      $args = array();
+      $args['conditions']['CoGroupMember.co_group_id'] = $adminCoGroupId;
+      $args['conditions']['CoGroupMember.member'] = true;
+      $args['conditions']['AND'][] = array(
+        'OR' => array(
+          'CoGroupMember.valid_from IS NULL',
+          'CoGroupMember.valid_from < ' => date('Y-m-d H:i:s', time())
+        )
+      );
+      $args['conditions']['AND'][] = array(
+        'OR' => array(
+          'CoGroupMember.valid_through IS NULL',
+          'CoGroupMember.valid_through > ' => date('Y-m-d H:i:s', time())
+        )
+      );
+      $args['contain']['CoPerson'] = 'EmailAddress';
+
+      $admins = $this->Oa4mpClientCoOidcClient->Oa4mpClientCoAdminClient->Co->CoGroup->CoGroupMember->find('all', $args);
+
+      if(!empty($admins[0]['CoPerson']['EmailAddress'][0]['mail'])) {
+        $mail = $admins[0]['CoPerson']['EmailAddress'][0]['mail'];
+      }
+    }
+
+    // If still no email then fallback to the contact email for the
+    // associated admin client.
+    if(empty($mail)) {
+      if(!empty($adminClient['Oa4mpClientCoEmailAddress'][0]['mail'])) {
+        $mail = $adminClient['Oa4mpClientCoEmailAddress'][0]['mail'];
+      }
+    }
+
+    $this->set('vv_default_contact_email', $mail);
+
+    if(!empty($adminClient['Oa4mpClientCoNamedConfig'])) {
+      $this->request->data['Oa4mpClientCoNamedConfig'] = $adminClient['Oa4mpClientCoNamedConfig'];
+    } else {
+      $this->request->data['Oa4mpClientCoNamedConfig'] = array();
+    }
+  }
+
+  /**
+   * Construct the OA4MP server object the add, delete and edit actions talk to.
+   *
+   * It exists so a test subclass can substitute a fake server and drive the
+   * actions without reaching the network; production behavior is unchanged.
+   * Same shape as the factory in Oa4mpClientRefreshTokensController.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
   }
 
   /**

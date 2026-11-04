@@ -46,6 +46,22 @@ class Oa4mpClientCoScopesController extends StandardController {
   public $requires_co = true;
 
   /**
+   * Construct the OA4MP server object the edit_scopes action talks to.
+   *
+   * The single construction point for Oa4mpClientOa4mpServer in this
+   * controller. It exists so a test subclass can substitute a fake server and
+   * drive the action without reaching the network; production behavior is
+   * unchanged. Same shape as the factory in Oa4mpClientAuthorizationsController.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @return Oa4mpClientOa4mpServer
+   */
+
+  protected function _oa4mpServer() {
+    return new Oa4mpClientOa4mpServer();
+  }
+
+  /**
    * Edit the scopes for the client.
    *
    * @since COmanage Registry 4.4.2
@@ -55,11 +71,15 @@ class Oa4mpClientCoScopesController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    $oa4mpServer = new Oa4mpClientOa4mpServer();
+    $oa4mpServer = $this->_oa4mpServer();
 
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientCoScope->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoScope->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // A post that fails validation, kept for the form the GET logic renders.
+    $rejected = null;
+    $rejectedErrors = array();
 
     // PUT request
     if($this->request->is(array('post','put'))) {
@@ -71,65 +91,94 @@ class Oa4mpClientCoScopesController extends StandardController {
         }
       );
 
-      $newClient = array_replace($client, array('Oa4mpClientCoScope' => $selectedScopes));
+      // Validate before anything is sent to the OA4MP server. A scope the
+      // plugin rejects, or a row whose id names a different stored scope, used
+      // to reach the server as posted while the save skipped it, leaving the
+      // two out of sync.
+      $scopeErrors = $this->validateSelectedScopes($client, $selectedScopes);
 
-      // Call out to oa4mp server.
-      // Return value of 0 indicates an error saving the edit.
-      // Return value of 2 indicates the plugin representation of the client
-      // and the Oa4mp server representation of the client are out of sync.
-      $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
-      if($ret == 0) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+      if(!empty($scopeErrors)) {
+        // Set flash and fall through to the GET logic, which renders the form
+        // again with the validation errors. Nothing was sent to the server.
+        $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
 
-      } elseif($ret == 2) {
-        // Set flash and fall through to the GET logic.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-
+        // Keep the input and errors now: the GET logic replaces the request
+        // data and may save the client, so they cannot be read back later.
+        $rejected = $this->request->data['Oa4mpClientCoScope'];
+        $rejectedErrors = $scopeErrors;
       } else {
-        // Update successful so save the new scope state.
+        $newClient = array_replace($client, array('Oa4mpClientCoScope' => $selectedScopes));
 
-        // First create any new scopes for this client.
-        foreach($selectedScopes as $s) {
-          if(empty($s['id'])) {
-            $this->Oa4mpClientCoScope->clear();
+        // Call out to oa4mp server.
+        // Return value of 0 indicates an error saving the edit.
+        // Return value of 2 indicates the plugin representation of the client
+        // and the Oa4mp server representation of the client are out of sync.
+        $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $newClient);
+        if($ret == 0) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
 
-            $data = array();
-            $data['Oa4mpClientCoScope']['client_id'] = $client['Oa4mpClientCoOidcClient']['id'];
-            $data['Oa4mpClientCoScope']['scope'] = $s['scope'];
+        } elseif($ret == 2) {
+          // Set flash and fall through to the GET logic.
+          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
 
-            $this->Oa4mpClientCoScope->save($data);
-          }
-        }
+        } else {
+          // Update successful so save the new scope state. The server has
+          // already accepted it, so any row that fails to save or delete
+          // leaves the two sides out of sync and must be reported, not
+          // flashed as success. Every row is still processed.
+          $saveFailed = false;
 
-        // Next delete any scopes that were deselected.
-        foreach($client['Oa4mpClientCoScope'] as $previous) {
-          $delete = true;
+          // First create any new scopes for this client.
           foreach($selectedScopes as $s) {
-            if(!empty($s['id']) && ($s['id'] == $previous['id'])) {
-              $delete = false;
+            if(empty($s['id'])) {
+              $this->Oa4mpClientCoScope->clear();
+
+              $data = array();
+              $data['Oa4mpClientCoScope']['client_id'] = $client['Oa4mpClientCoOidcClient']['id'];
+              $data['Oa4mpClientCoScope']['scope'] = $s['scope'];
+
+              if(!$this->Oa4mpClientCoScope->save($data)) {
+                $saveFailed = true;
+              }
             }
           }
-          if($delete) {
-            $this->Oa4mpClientCoScope->delete($previous['id']);
+
+          // Next delete any scopes that were deselected.
+          foreach($client['Oa4mpClientCoScope'] as $previous) {
+            $delete = true;
+            foreach($selectedScopes as $s) {
+              if(!empty($s['id']) && ($s['id'] == $previous['id'])) {
+                $delete = false;
+              }
+            }
+            if($delete) {
+              if(!$this->Oa4mpClientCoScope->delete($previous['id'])) {
+                $saveFailed = true;
+              }
+            }
           }
+
+          if($saveFailed) {
+            $this->Flash->set(_txt('pl.oa4mp_client_co_scope.er.edit.save'), array('key' => 'error'));
+          } else {
+            // Set flash successful.
+            $this->Flash->set(_txt('pl.oa4mp_client_co_scope.scope.flash.success'), array('key' => 'success'));
+          }
+
+          // If no callbacks are configured redirect to the callbacks add view.
+          if(empty($client['Oa4mpClientCoCallback'])) {
+            $args = array();
+            $args['plugin'] = 'oa4mp_client';
+            $args['controller'] = 'oa4mp_client_co_callbacks';
+            $args['action'] = 'add';
+            $args['clientid'] = $clientId;
+            $this->redirect($args);
+          }
+
+          // Read the client state again and fall through to the GET.
+          $client = $this->Oa4mpClientCoScope->Oa4mpClientCoOidcClient->current($clientId);
         }
-
-        // Set flash successful.
-        $this->Flash->set(_txt('pl.oa4mp_client_co_scope.scope.flash.success'), array('key' => 'success'));
-
-        // If no callbacks are configured redirect to the callbacks add view.
-        if(empty($client['Oa4mpClientCoCallback'])) {
-          $args = array();
-          $args['plugin'] = 'oa4mp_client';
-          $args['controller'] = 'oa4mp_client_co_callbacks';
-          $args['action'] = 'add';
-          $args['clientid'] = $clientId;
-          $this->redirect($args);
-        }
-
-        // Read the client state again and fall through to the GET.
-        $client = $this->Oa4mpClientCoScope->Oa4mpClientCoOidcClient->current($clientId);
       }
     } 
 
@@ -174,9 +223,65 @@ class Oa4mpClientCoScopesController extends StandardController {
 
     $this->request->data = $client;
 
+    // A post that failed validation stays in the form over the stored client,
+    // which the view still reads for the client name and type, so the
+    // subscriber can see and correct what was rejected.
+    if($rejected !== null) {
+      $this->request->data['Oa4mpClientCoScope'] = $rejected;
+      $this->Oa4mpClientCoScope->validationErrors = $rejectedErrors;
+    }
+
     // Set the title for the view.
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_scope.scope.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));
+  }
+
+  /**
+   * Validate the selected scope rows of a posted scopes form.
+   *
+   * Each row is checked with the model's rules against the data the save
+   * would write. A row carrying an id must name one of this client's stored
+   * scope rows and keep its stored value: the save skips rows with an id, so
+   * a changed value would reach the OA4MP server and never be stored.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  Array $client         Current client, as returned by current()
+   * @param  Array $selectedScopes Posted scope rows that are checked, keyed by form row
+   * @return Array Validation errors keyed by form row, empty if all rows are valid
+   */
+
+  private function validateSelectedScopes($client, $selectedScopes) {
+    $storedScopes = array();
+    foreach($client['Oa4mpClientCoScope'] as $stored) {
+      $storedScopes[(string)$stored['id']] = $stored['scope'];
+    }
+
+    $errors = array();
+
+    foreach($selectedScopes as $i => $s) {
+      $data = array();
+      $data['Oa4mpClientCoScope']['client_id'] = $client['Oa4mpClientCoOidcClient']['id'];
+      $data['Oa4mpClientCoScope']['scope'] = $s['scope'];
+
+      $this->Oa4mpClientCoScope->create(false);
+      $this->Oa4mpClientCoScope->set($data);
+
+      if(!$this->Oa4mpClientCoScope->validates()) {
+        $errors[$i] = $this->Oa4mpClientCoScope->validationErrors;
+        continue;
+      }
+
+      if(!empty($s['id'])) {
+        $id = (string)$s['id'];
+        if(!isset($storedScopes[$id]) || $storedScopes[$id] !== $s['scope']) {
+          $errors[$i]['scope'][] = _txt('pl.oa4mp_client_co_scope.er.id');
+        }
+      }
+    }
+
+    $this->Oa4mpClientCoScope->create(false);
+
+    return $errors;
   }
 
   /**
