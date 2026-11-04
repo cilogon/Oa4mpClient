@@ -56,11 +56,21 @@
     $is_public_client = false;
   }
 
+  // While a Named configuration is applied it supplies the client's scopes,
+  // so the stored scopes are shown disabled.
+  $is_named_config = !empty($vv_named_config);
+
   $l = 1;
 ?>
 <script type="text/javascript">
   <!-- JS specific to these fields -->
 </script>
+
+<?php if($is_named_config): ?>
+<div id="oa4mp_client_co_scopes_named_config_info" class="ui-widget">
+  <p><?php print _txt('pl.oa4mp_client_co_scope.named_config.description', array(h($vv_named_config))); ?></p>
+</div>
+<?php endif; ?>
 
 <ul id="<?php print $this->action; ?>_oa4mp_client_co_scope" class="fields form-list form-list-admin">
 
@@ -106,7 +116,7 @@
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              if($is_public_client || !$e) {
+              if($is_public_client || $is_named_config || !$e) {
                 $args['disabled'] = true;
               } else {
                 $args['disabled'] = false;
@@ -128,7 +138,7 @@
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              if($is_public_client || !$e) {
+              if($is_public_client || $is_named_config || !$e) {
                 $args['disabled'] = true;
               } else {
                 $args['disabled'] = false;
@@ -150,7 +160,7 @@
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              if($is_public_client || !$e) {
+              if($is_public_client || $is_named_config || !$e) {
                 $args['disabled'] = true;
               } else {
                 $args['disabled'] = false;
@@ -174,7 +184,7 @@
             <?php
               $args = array();
               $args['type'] = 'checkbox';
-              if($is_public_client || !$e) {
+              if($is_public_client || $is_named_config || !$e) {
                 $args['disabled'] = true;
               } else {
                 $args['disabled'] = false;
@@ -197,7 +207,7 @@
     </ul>
   </li>
 
-  <?php if(!$is_public_client): ?>
+  <?php if(!$is_public_client && !$is_named_config): ?>
     <li class="fields-submit">
       <div class="field-name"></div>
       <div class="field-info">

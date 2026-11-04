@@ -78,7 +78,9 @@ class Oa4mpHarnessFlash {
  *
  * Deliberately does NOT extend Oa4mpClientOa4mpServer: inheriting would drag
  * in the real model's constructor and leave un-overridden HTTP methods
- * reachable. The controller only ever calls the two methods below.
+ * reachable. The controller makes server calls through the two recording
+ * methods below, and asks three pure predicates that answer through the real
+ * model.
  */
 class Oa4mpHarnessOa4mpServer {
 
@@ -135,6 +137,28 @@ class Oa4mpHarnessOa4mpServer {
     }
 
     return $this->verifySynchronized;
+  }
+
+  /**
+   * The pure predicates a controller asks the server object. They make no
+   * request to the OA4MP server, so they answer through the real model and
+   * are not recorded in $calls: a guard that asks one has still made no
+   * server call.
+   */
+  public function usesNamedConfig($data) {
+    return $this->realServer()->usesNamedConfig($data);
+  }
+
+  public function namedConfigLabel($data) {
+    return $this->realServer()->namedConfigLabel($data);
+  }
+
+  public function requiresActiveStatus($data) {
+    return $this->realServer()->requiresActiveStatus($data);
+  }
+
+  private function realServer() {
+    return ClassRegistry::init('Oa4mpClient.Oa4mpClientOa4mpServer');
   }
 
   /** The ordered list of method names this fake was called with. */
