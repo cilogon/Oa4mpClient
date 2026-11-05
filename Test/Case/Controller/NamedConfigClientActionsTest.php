@@ -28,9 +28,8 @@ class NamedConfigClientActionsTest extends Oa4mpClaimsControllerTestCase {
 
   /**
    * Every client action, by controller, that must delete the leftovers right
-   * after loading the client. The Named Configuration page and the OIDC
-   * client edit page are not listed: what they do with a Named configuration
-   * is their own.
+   * after loading the client. The OIDC client edit page takes the client id
+   * as its argument, so it loads by $id rather than $clientId.
    */
   private $pruningActions = array(
     'Oa4mpClientCoScopesController' => array('edit_scopes'),
@@ -41,6 +40,7 @@ class NamedConfigClientActionsTest extends Oa4mpClaimsControllerTestCase {
     'Oa4mpClientRefreshTokensController' => array('manage'),
     'Oa4mpClientAccessControlsController' => array('manage'),
     'Oa4mpClientCoNamedConfigsController' => array('manage'),
+    'Oa4mpClientCoOidcClientsController' => array('edit'),
   );
 
   protected function fixtureTagPrefix() {
@@ -259,7 +259,8 @@ class NamedConfigClientActionsTest extends Oa4mpClaimsControllerTestCase {
           "$controller::$action() loads the client through the pruning helper");
         // A read after a save is fine; a load before the helper is not.
         $helperAt = strpos((string)$body, '$this->_currentClientPruned(');
-        $loadAt = strpos((string)$body, '->current($clientId)');
+        $loadAt = preg_match('/->current\(\$(?:clientId|id)\)/', (string)$body, $load, PREG_OFFSET_CAPTURE)
+                  ? $load[0][1] : false;
         $this->assertTrue($loadAt === false || ($helperAt !== false && $loadAt > $helperAt),
           "$controller::$action() loads the client through the helper first");
       }

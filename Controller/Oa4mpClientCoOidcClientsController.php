@@ -29,8 +29,11 @@ App::uses("StandardController", "Controller");
 App::uses("HttpSocket", "Network/Http");
 
 App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
+App::uses("Oa4mpClientNamedConfigActions", "Oa4mpClient.Controller");
 
 class Oa4mpClientCoOidcClientsController extends StandardController {
+  use Oa4mpClientNamedConfigActions;
+
   // Class name, used by Cake
   public $name = "Oa4mpClientCoOidcClients";
 
@@ -340,8 +343,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    */
 
   function edit($id) {
-    // Get the current state of the client.
-    $client = $this->Oa4mpClientCoOidcClient->current($id);
+    // Get the current state of the client, with any never-sent rows its
+    // Named configuration replaces deleted first (cilogon/Oa4mpClient#58).
+    $client = $this->_currentClientPruned($this->Oa4mpClientCoOidcClient, $id);
 
     if(empty($client)) {
       $this->Flash->set(_txt('er.notfound', array(_txt('ct.oa4mp_client_co_oidc_clients.1'), $id)), array('key' => 'error'));
@@ -503,7 +507,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // attribute with claim_id set has already been migrated and is skipped on
     // subsequent loads. Search attributes still showing claim_id == null
     // represent unmigrated or partially-recoverable state and are (re)processed.
-    $hasSearchAttr = !empty($client['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute']);
+    //
+    // A Named configuration takes the place of the client's claims, so no
+    // claim is created while one is applied (cilogon/Oa4mpClient#58). A
+    // confidential client's LDAP configuration was deleted on load above, but
+    // a public client's is kept for the maintainer, and a failed delete
+    // leaves one behind until the next visit.
+    $hasSearchAttr = !$oa4mpServer->usesNamedConfig($client)
+                     && !empty($client['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute']);
     if($hasSearchAttr) {
       foreach($client['Oa4mpClientCoLdapConfig'] as $ldapConfig) {
         foreach($ldapConfig['Oa4mpClientCoSearchAttribute'] as $searchAttr) {
