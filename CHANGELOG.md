@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Check in source that the Scopes and Claims tabs stay read-only for a
+  client with a Named configuration (cilogon/Oa4mpClient#57). The server
+  refused the writes, but nothing failed if a view change made the tabs look
+  editable again; only the Authorization tab had such a check.
 - Make claim add, edit and delete act only on the client in the URL and its
   own claims (cilogon/Oa4mpClient#56). Delete and edit took the claim id from
   the URL without checking it was one of the client's claims, and add and
