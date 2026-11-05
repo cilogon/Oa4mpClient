@@ -43,6 +43,15 @@
 trait Oa4mpClientNamedConfigActions {
 
   /**
+   * @var boolean Whether the last _currentClientPruned() left rows it should
+   *              have deleted. Removing a Named configuration reads it: once
+   *              the Named configuration is cleared, no later visit would
+   *              delete those rows, and the reset would bring them back into
+   *              force.
+   */
+  protected $namedConfigLeftoversRemain = false;
+
+  /**
    * Load a client, first deleting the rows its Named configuration replaces.
    *
    * A confidential client that had a Named configuration applied before the
@@ -62,6 +71,8 @@ trait Oa4mpClientNamedConfigActions {
    */
 
   protected function _currentClientPruned($clientModel, $clientId) {
+    $this->namedConfigLeftoversRemain = false;
+
     $client = $clientModel->current($clientId);
 
     $oa4mpServer = $this->_oa4mpServer();
@@ -72,6 +83,8 @@ trait Oa4mpClientNamedConfigActions {
     }
 
     if(!$clientModel->pruneNamedConfigLeftovers($clientId)) {
+      $this->namedConfigLeftoversRemain = true;
+
       $this->log("Oa4mpClient: could not delete every setting the Named configuration replaces for OIDC client "
                  . ($client['Oa4mpClientCoOidcClient']['oa4mp_identifier'] ?? '?')
                  . " in " . $this->name . "::" . $this->action);

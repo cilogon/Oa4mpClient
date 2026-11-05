@@ -40,6 +40,7 @@ class NamedConfigClientActionsTest extends Oa4mpClaimsControllerTestCase {
     'Oa4mpClientCoCallbacksController' => array('add', 'edit', 'delete', 'index'),
     'Oa4mpClientRefreshTokensController' => array('manage'),
     'Oa4mpClientAccessControlsController' => array('manage'),
+    'Oa4mpClientCoNamedConfigsController' => array('manage'),
   );
 
   protected function fixtureTagPrefix() {

@@ -157,6 +157,23 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 499 to 516 on 2026-11-05 for confirming before a Named
+# configuration is applied or removed (cilogon/Oa4mpClient#58,
+# cilogon/Oa4mpClient#59), which added seventeen (502 -> 519) in
+# Test/Case/Controller/NamedConfigApplyRemoveTest.php: the apply confirmation
+# with its JWT and authorization-gate sentences, the confirmation on a switch
+# and on removal, the confirmation page posting the choice back with Cancel as
+# a link, the confirmed apply sending no replaced section and deleting those
+# rows, a refused apply changing nothing, the confirmed removal resetting an
+# older client to new-client defaults, a removal not sent while leftovers
+# remain, nothing sent for the state the client is already in, re-saving with
+# an access token row confirming and deleting it, a public client and another
+# admin client's Named configuration refused, and failed writes after the
+# server accepted reported as errors. The Named-configuration cases of
+# ValidateBeforeServerWriteTest.php now post the confirmation flag, and
+# NamedConfigClientActionsTest.php holds the Named Configuration page to the
+# pruning helper too.
+#
 # Raised from 489 to 499 on 2026-11-05 for refusing the pages a Named
 # configuration replaces and deleting its leftovers on touch
 # (cilogon/Oa4mpClient#58), which added ten (492 -> 502): eight in
@@ -536,7 +553,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=499
+min_tests_run=516
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
