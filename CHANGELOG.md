@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Save only the client being edited, and its own contact email, when an OIDC
+  client is edited (cilogon/Oa4mpClient#53). The save used the client and
+  contact email ids carried in the form, so a hand-built request could rename
+  another client or move its contact email while the OA4MP server was sent
+  the client being edited, leaving both out of sync.
 - Make the Access Token and Authorization tabs read-only for public clients
   (cilogon/Oa4mpClient#47). The OA4MP server accepts no custom configuration
   on a public client, so JWT Format and the Authorization settings were never

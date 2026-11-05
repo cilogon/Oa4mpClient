@@ -370,6 +370,11 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
 
+      // Keep only the fields the form edits, under the stored identifiers.
+      // Everything below -- the check, the server call, the save, and a
+      // rejected form -- then works on the client in the URL.
+      $this->request->data = $this->editDataForStoredClient($client, $this->request->data);
+
       // Trim the home URL before it is sent to the server, so the server and
       // the plugin store the same value (cilogon/Oa4mpClient#48).
       if(isset($this->request->data['Oa4mpClientCoOidcClient']['home_url']) && is_string($this->request->data['Oa4mpClientCoOidcClient']['home_url'])) {
@@ -608,6 +613,69 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $this->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->validationErrors = $rejectedErrors['Oa4mpClientCoEmailAddress'];
       }
     }
+  }
+
+  /**
+   * Rebuild a posted edit of an OIDC client around the stored client.
+   *
+   * The edit form carries the client's id, admin client id, OA4MP identifier
+   * and contact email row id and owner as hidden fields, and the client save
+   * writes whatever rows its data names. A hand-built post could therefore
+   * rename another client, or move its contact email row, while the OA4MP
+   * server was sent the client in the URL, leaving the two out of sync
+   * (cilogon/Oa4mpClient#53). Only the fields the form edits are taken from
+   * the post; the identifiers come from the stored client, and any other
+   * posted client column is dropped.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  array $client The stored client, as current() returns it
+   * @param  array $posted The posted request data
+   * @return array The data the edit checks, sends, and saves
+   */
+
+  protected function editDataForStoredClient($client, $posted) {
+    $stored = $client['Oa4mpClientCoOidcClient'];
+
+    $postedClient = (isset($posted['Oa4mpClientCoOidcClient']) && is_array($posted['Oa4mpClientCoOidcClient']))
+                    ? $posted['Oa4mpClientCoOidcClient']
+                    : array();
+
+    if(isset($postedClient['id']) && (string)$postedClient['id'] !== (string)$stored['id']) {
+      $this->log("Oa4mpClient: an edit of OIDC client " . $stored['id'] . " posted client id "
+                 . (is_scalar($postedClient['id']) ? substr((string)$postedClient['id'], 0, 32) : gettype($postedClient['id']))
+                 . "; the stored identifiers were used instead");
+    }
+
+    $data = array();
+    $data['Oa4mpClientCoOidcClient'] = array(
+      'id' => $stored['id'],
+      'admin_id' => $stored['admin_id'],
+      'oa4mp_identifier' => $stored['oa4mp_identifier']
+    );
+
+    foreach(array('name', 'home_url', 'refresh_token_lifetime') as $field) {
+      if(array_key_exists($field, $postedClient)) {
+        $data['Oa4mpClientCoOidcClient'][$field] = $postedClient[$field];
+      }
+    }
+
+    if(isset($posted['Oa4mpClientCoEmailAddress'][0]) && is_array($posted['Oa4mpClientCoEmailAddress'][0])) {
+      $email = array();
+
+      // With no stored contact email the row is created for this client.
+      if(!empty($client['Oa4mpClientCoEmailAddress'][0]['id'])) {
+        $email['id'] = $client['Oa4mpClientCoEmailAddress'][0]['id'];
+      }
+      $email['client_id'] = $stored['id'];
+
+      if(array_key_exists('mail', $posted['Oa4mpClientCoEmailAddress'][0])) {
+        $email['mail'] = $posted['Oa4mpClientCoEmailAddress'][0]['mail'];
+      }
+
+      $data['Oa4mpClientCoEmailAddress'] = array(0 => $email);
+    }
+
+    return $data;
   }
 
   /**

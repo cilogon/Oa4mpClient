@@ -36,9 +36,11 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
   private $clientDynamoConfigId = null;
   private $addedClientName = null;
   private $postedAdminTag = null;
+  private $otherClientId = null;
 
   const STORED_LIFETIME = 86400;
   const STORED_CONTACT = 'owner@example.org';
+  const OTHER_CONTACT = 'other-owner@example.org';
   const ADMIN_ACCESS_KEY = 'AKIAEXAMPLE';
   const STALE_ACCESS_KEY = 'AKIASTALEKEY';
 
@@ -48,6 +50,7 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->refreshTokenId = $this->accessTokenId = $this->accessControlId = null;
     $this->oidcClientName = $this->contactEmailId = $this->clientDynamoConfigId = null;
     $this->addedClientName = $this->postedAdminTag = null;
+    $this->otherClientId = null;
 
     $this->fx = new Oa4mpFixtures();
     $tag = Oa4mpFixtures::tag('oa4mpvbsw');
@@ -109,6 +112,14 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
         $this->fx->query('DELETE FROM ' . $table . ' WHERE client_id IN (' . $added . ')');
       }
       $this->fx->query('DELETE FROM cm_oa4mp_client_co_oidc_clients WHERE id IN (' . $added . ')');
+    }
+
+    // A second client a test seeded may have been handed a contact email row
+    // of the client under test by a forged edit, which would stop the second
+    // client being removed. Its email rows go first, whoever seeded them.
+    if ($this->otherClientId !== null) {
+      $this->fx->query('DELETE FROM cm_oa4mp_client_co_email_addresses WHERE client_id = '
+        . (int)$this->otherClientId);
     }
 
     $purge = array();
@@ -848,6 +859,147 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->assertNull($redirect, 'the edit page is shown again, as on success');
   }
 
+  /**
+   * The edit form carries the client's id and OA4MP identifier as hidden
+   * fields, and the save used to write whatever row they named. A post that
+   * names another client edits only the client in the URL, which is the one
+   * that was authorized and sent to the server (cilogon/Oa4mpClient#53).
+   */
+  public function testOidcClientEditForgedClientIdentifiersEditOnlyTheRouteClient() {
+    $this->seedOidcClientEditRows();
+    $otherId = $this->seedOtherClient();
+    $otherEmailId = $this->seedOtherContactEmail($otherId);
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array(
+        'id' => (string)$otherId,
+        'oa4mp_identifier' => 'https://example.org/oidc/client/' . $this->otherClientName(),
+        'name' => 'renamed client'
+      )));
+
+    $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $sent = $harness->harnessServer->lastEditData();
+    $this->assertEqual($this->clientId, (int)($sent['Oa4mpClientCoOidcClient']['id'] ?? 0),
+      'the OA4MP server was sent the client in the URL');
+    $this->assertEqual('https://example.org/oidc/client/' . $this->oidcClientName,
+      $sent['Oa4mpClientCoOidcClient']['oa4mp_identifier'] ?? null,
+      'the OA4MP server was sent the stored OA4MP identifier');
+    $this->assertEqual($this->otherClientName(), $this->otherClientStoredName(),
+      'the other client was not renamed');
+    $this->assertEqual('renamed client', $this->storedClientName(), 'the client in the URL got the posted name');
+    $this->assertEqual($this->clientId, $this->contactEmailOwner($this->contactEmailId),
+      'the contact email row still belongs to the client in the URL');
+    $this->assertEqual($otherId, $this->contactEmailOwner($otherEmailId),
+      "the other client's contact email row still belongs to it");
+    $this->assertEqual(self::OTHER_CONTACT, $this->contactEmailMail($otherEmailId),
+      "the other client's contact email is unchanged");
+    $this->assertTrue($harness->harnessFlashed(_txt('rs.updated', array('renamed client')), 'success'),
+      'success was reported');
+    $this->assertContains('posted client id', implode("\n", $harness->harnessLogged),
+      'the forged client id was logged');
+  }
+
+  /**
+   * A post naming another client's id with the client's own OA4MP identifier
+   * used to collide with the unique identifier on save, an error page after
+   * the server had already accepted the edit. It now edits the client in the
+   * URL.
+   */
+  public function testOidcClientEditForgedClientIdAloneEditsTheRouteClient() {
+    $this->seedOidcClientEditRows();
+    $otherId = $this->seedOtherClient();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array('id' => (string)$otherId, 'name' => 'renamed client')));
+
+    $thrown = null;
+    try {
+      $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+    } catch (PDOException $e) {
+      $thrown = $e;
+      // The failed save leaves its transaction open; close it so the checks
+      // and cleanup below can run.
+      ConnectionManager::getDataSource('default')->rollback();
+    }
+
+    $this->assertTrue($thrown === null, 'the save did not fail with a database error: '
+      . ($thrown === null ? '' : $thrown->getMessage()));
+    $this->assertEqual('renamed client', $this->storedClientName(), 'the client in the URL got the posted name');
+    $this->assertEqual($this->otherClientName(), $this->otherClientStoredName(),
+      'the other client was not renamed');
+    $this->assertTrue($harness->harnessFlashed(_txt('rs.updated', array('renamed client')), 'success'),
+      'success was reported');
+  }
+
+  /**
+   * The contact email row id and owner are hidden fields too. A post naming
+   * another client's contact email row changes the client's own contact
+   * email and leaves the other row where and as it was.
+   */
+  public function testOidcClientEditForgedContactEmailRowIsNotMovedOrChanged() {
+    $this->seedOidcClientEditRows();
+    $otherId = $this->seedOtherClient();
+    $otherEmailId = $this->seedOtherContactEmail($otherId);
+    $post = $this->oidcClientEditPost(array(), 'changed@example.org');
+    $post['Oa4mpClientCoEmailAddress'][0]['id'] = (string)$otherEmailId;
+    $post['Oa4mpClientCoEmailAddress'][0]['client_id'] = (string)$otherId;
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId, $post);
+
+    $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $this->assertEqual($otherId, $this->contactEmailOwner($otherEmailId),
+      "the other client's contact email row still belongs to it");
+    $this->assertEqual(self::OTHER_CONTACT, $this->contactEmailMail($otherEmailId),
+      "the other client's contact email is unchanged");
+    $this->assertEqual('changed@example.org', $this->storedContactEmail(),
+      "the client's own contact email got the posted address");
+    $this->assertEqual($this->clientId, $this->contactEmailOwner($this->contactEmailId),
+      "the client's own contact email row still belongs to it");
+  }
+
+  /**
+   * The edit form offers no way to change whether the client is public or
+   * which named configuration it uses; a hand-built post carrying either
+   * leaves the stored value as it was.
+   */
+  public function testOidcClientEditPostedColumnsTheFormDoesNotEditAreNotSaved() {
+    $this->seedOidcClientEditRows();
+    $namedConfigId = $this->seedNamedConfig($this->adminId, 'vbsw-forged');
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array(
+        'public_client' => '1',
+        'named_config_id' => (string)$namedConfigId
+      )));
+
+    $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    $this->assertEqual(0, $this->fx->count('cm_oa4mp_client_co_oidc_clients', 'id = ' . (int)$this->clientId
+      . ' AND public_client = true'), 'the client is still confidential');
+    $this->assertNull($this->storedNamedConfig(), 'the client still has no named configuration');
+    $this->assertTrue($harness->harnessFlashed(_txt('rs.updated', array($this->oidcClientName)), 'success'),
+      'premise: the edit was saved');
+  }
+
+  /**
+   * A rejected post is shown again over the stored client. The identifiers
+   * in that form are the stored ones, never a forged id from the post.
+   */
+  public function testOidcClientEditRejectedPostWithAForgedIdShowsTheStoredId() {
+    $this->seedOidcClientEditRows();
+    $otherId = $this->seedOtherClient();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientEditPost(array('id' => (string)$otherId, 'name' => '')));
+
+    $redirect = $harness->harnessInvoke('edit', array($this->clientId), 'POST');
+
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'premise: the post was rejected');
+    $this->assertEqual($this->clientId, (int)$harness->request->data['Oa4mpClientCoOidcClient']['id'],
+      'the form carries the id of the client in the URL');
+    $this->assertEqual('', $harness->request->data['Oa4mpClientCoOidcClient']['name'],
+      'the form re-renders with the rejected name');
+  }
+
   // ==========================================================================
   // OIDC client add()
   // ==========================================================================
@@ -1504,6 +1656,43 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     ConnectionManager::getDataSource('default')->flushQueryCache();
     return $this->fx->scalar('SELECT mail FROM cm_oa4mp_client_co_email_addresses WHERE id = '
       . (int)$this->contactEmailId);
+  }
+
+  /** Seed a second OIDC client under the same admin client and return its id. */
+  private function seedOtherClient() {
+    $this->otherClientId = $this->fx->oidcClient($this->adminId, $this->otherClientName());
+    return $this->otherClientId;
+  }
+
+  private function otherClientName() {
+    return 'other-' . $this->oidcClientName;
+  }
+
+  /** Give the second client a contact email row and return its id. */
+  private function seedOtherContactEmail($otherId) {
+    return $this->fx->insert('cm_oa4mp_client_co_email_addresses', array(
+      'client_id' => $otherId,
+      'mail' => self::OTHER_CONTACT
+    ));
+  }
+
+  private function otherClientStoredName() {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    return $this->fx->scalar('SELECT name FROM cm_oa4mp_client_co_oidc_clients WHERE id = '
+      . (int)$this->otherClientId);
+  }
+
+  private function contactEmailOwner($emailId) {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    $value = $this->fx->scalar('SELECT client_id FROM cm_oa4mp_client_co_email_addresses WHERE id = '
+      . (int)$emailId);
+    return ($value === null) ? null : (int)$value;
+  }
+
+  private function contactEmailMail($emailId) {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    return $this->fx->scalar('SELECT mail FROM cm_oa4mp_client_co_email_addresses WHERE id = '
+      . (int)$emailId);
   }
 
   private function storedClientAccessKey() {

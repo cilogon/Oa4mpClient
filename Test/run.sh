@@ -157,6 +157,15 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 440 to 445 on 2026-11-04 for edits of an OIDC client saving only
+# that client (cilogon/Oa4mpClient#53), which added five (443 -> 448) in
+# Test/Case/Controller/ValidateBeforeServerWriteTest.php: a post carrying
+# another client's id and OA4MP identifier editing only the client in the URL,
+# another client's id alone no longer failing on the unique identifier, a
+# posted contact email row of another client left where and as it was, posted
+# public_client and named_config_id not saved, and a rejected post with a
+# forged id shown again with the stored id.
+#
 # Raised from 426 to 440 on 2026-11-04 for read-only Access Token and
 # Authorization tabs on public clients (cilogon/Oa4mpClient#47), which added
 # fourteen (429 -> 443): six in Test/Case/Model/SyncOptionalSectionsTest.php
@@ -457,7 +466,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=440
+min_tests_run=445
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
