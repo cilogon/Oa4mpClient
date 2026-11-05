@@ -76,8 +76,7 @@ Tests: the forged-identifier tests in the OIDC client edit section of
   delegated editor only groups they belong to, but saved any numeric group
   id, so a hand-built request could hand the client's editing to another
   CO's group; it also saved the row its posted hidden ids named
-  (cilogon/Oa4mpClient#54, fixed on branch `fix/access-control-group-choice`;
-  the merge is pending). Check a posted choice against the same list the page
+  (cilogon/Oa4mpClient#54, fixed by cilogon/Oa4mpClient#68). Check a posted choice against the same list the page
   offered, and take row ids from the stored record.
 - Still open with the same shape when this was written: OIDC client `add()`
   (posted data flows through `newClientData()` into `saveAssociated()`), the
@@ -90,7 +89,7 @@ Tests: the forged-identifier tests in the OIDC client edit section of
 - cilogon/Oa4mpClient#53 (issue of record), fixed by cilogon/Oa4mpClient#64
 - cilogon/Oa4mpClient#56 -- claim delete not limited to the client in the URL
 - cilogon/Oa4mpClient#65 -- OIDC client add and callback add/edit, the same pattern
-- cilogon/Oa4mpClient#54 -- the Access Control tab, an unchecked choice list plus the same posted-id pattern
+- cilogon/Oa4mpClient#54 -- the Access Control tab, an unchecked choice list plus the same posted-id pattern; fixed by cilogon/Oa4mpClient#68
 - `docs/solutions/logic-errors/oa4mp-url-whitespace-server-first-write-drift-2026-11-02.md`
   -- the same edit path, and why the server and the Registry must store the
   same values.
