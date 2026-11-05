@@ -79,6 +79,9 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $client = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // Pull the available groups.
     $args = array();
     $args['conditions']['ManageCoGroup.co_id'] = $admin['Oa4mpClientCoAdminClient']['co_id'];

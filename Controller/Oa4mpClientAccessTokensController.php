@@ -78,6 +78,9 @@ class Oa4mpClientAccessTokensController extends StandardController {
     $client = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // OA4MP rejects a custom configuration (cfg) on a public client, so the
     // plugin never sends one, and JWT Format travels only in the cfg. A saved
     // setting would never be used and would read as drift on the next

@@ -157,6 +157,14 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 481 to 489 on 2026-11-05 for client tab visibility while a Named
+# configuration is applied (cilogon/Oa4mpClient#58), which added eight
+# (484 -> 492) in Test/Case/View/ClientTabVisibilityTest.php: the tab bar
+# rendered for a Named-configuration client, a public client, an ordinary
+# client and with neither variable set; the bar testing both variables only
+# through empty(); every action that draws the bar calling the helper; and the
+# callbacks index setting the Named-configuration and public-client variables.
+#
 # Raised from 472 to 481 on 2026-11-05 for the new-client defaults and the
 # Named configuration leftover prune (cilogon/Oa4mpClient#58), which added nine
 # (475 -> 484) in Test/Case/Model/NamedConfigLeftoverPruneTest.php: the prune
@@ -514,7 +522,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=481
+min_tests_run=489
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

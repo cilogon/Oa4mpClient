@@ -283,6 +283,9 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     $client = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // A selection that is refused, kept for the form the GET logic renders.
     $rejected = null;
     $rejectedErrors = array();

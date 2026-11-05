@@ -360,6 +360,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // GET and POST.
     $oa4mpServer = $this->_oa4mpServer();
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // A post that fails validation, kept for the form the GET logic renders.
     $rejected = null;
     $rejectedErrors = array();

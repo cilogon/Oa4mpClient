@@ -796,6 +796,28 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * The view variables the client tab bar (tabs.inc) decides from. While a
+   * Named configuration is applied it replaces the client's own scopes,
+   * claims, access token and authorization settings, so their tabs are not
+   * shown; a public client gets no cfg, so it is not offered the Named
+   * Configuration tab (cilogon/Oa4mpClient#58).
+   *
+   * Every action that draws the bar passes these to set() right after
+   * loading the client. tabs.inc treats an unset variable as "show", so an
+   * action that does not set them draws the full bar.
+   *
+   * @param array $data Client data from Oa4mpClientCoOidcClient::current()
+   * @return array View variables keyed by name
+   */
+
+  function clientTabViewVars($data) {
+    return array(
+      'vv_tab_named_config_applied' => $this->usesNamedConfig($data),
+      'vv_tab_public_client' => $this->isPublicClient($data)
+    );
+  }
+
+  /**
    * The settings a newly created OIDC client starts with.
    *
    * Client creation and removing a Named configuration from a client both

@@ -176,6 +176,9 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
       // Only the URL is taken from the post; the client is the one in the URL.
@@ -345,6 +348,9 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // Only the client in the URL was authorized, so the callback must be one
     // of its own (cilogon/Oa4mpClient#65).
     $storedCallback = $this->_requireClientCallback($client, $clientId, $id);
@@ -503,6 +509,9 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.

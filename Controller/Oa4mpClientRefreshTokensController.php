@@ -79,6 +79,9 @@ class Oa4mpClientRefreshTokensController extends StandardController {
     $client = $this->Oa4mpClientRefreshToken->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientRefreshToken->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // A post that fails validation, kept for the form the GET logic renders.
     $rejected = null;
     $rejectedErrors = array();

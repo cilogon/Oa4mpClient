@@ -169,6 +169,10 @@ class Oa4mpHarnessOa4mpServer {
     return $this->realServer()->requiresActiveStatus($data);
   }
 
+  public function clientTabViewVars($data) {
+    return $this->realServer()->clientTabViewVars($data);
+  }
+
   // Not a predicate, but it also makes no request: it only builds the
   // new-client defaults. Oa4mpWritePathOa4mpServer inherits it.
   public function newClientDefaults($defaultDynamoConfig, $publicClient) {

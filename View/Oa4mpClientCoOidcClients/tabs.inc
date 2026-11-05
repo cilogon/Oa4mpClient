@@ -30,6 +30,9 @@
   $controller = $this->request->params['controller'];
   $action = $this->action;
 
+  // Tabs that do not apply to the client are left out, as decided by the
+  // view variables from Oa4mpClientOa4mpServer::clientTabViewVars(). Each is
+  // tested with empty(), so an action that did not set them draws every tab.
   $renderTabs = true;
 
   // Do not render tabs for the add action on the OIDC clients controller.
@@ -67,6 +70,8 @@
         ?>
       </li>
 
+      <?php // A Named configuration applied to the client replaces it (cilogon/Oa4mpClient#58). ?>
+      <?php if(empty($vv_tab_named_config_applied)): ?>
       <li class="nav-item">
         <?php
           // Scopes
@@ -86,6 +91,7 @@
           }
         ?>
       </li>
+      <?php endif; ?>
 
       <li class="nav-item">
         <?php
@@ -107,6 +113,8 @@
         ?>
       </li>
 
+      <?php // A Named configuration applied to the client replaces it (cilogon/Oa4mpClient#58). ?>
+      <?php if(empty($vv_tab_named_config_applied)): ?>
       <li class="nav-item">
         <?php
           // Claims
@@ -126,6 +134,7 @@
           }
         ?>
       </li>
+      <?php endif; ?>
 
       <li class="nav-item">
         <?php
@@ -148,6 +157,8 @@
       </li>
 
 
+      <?php // A Named configuration applied to the client replaces it (cilogon/Oa4mpClient#58). ?>
+      <?php if(empty($vv_tab_named_config_applied)): ?>
       <li class="nav-item">
         <?php
           // Access Tokens
@@ -167,7 +178,10 @@
           }
         ?>
       </li>
+      <?php endif; ?>
 
+      <?php // A Named configuration applied to the client replaces it (cilogon/Oa4mpClient#58). ?>
+      <?php if(empty($vv_tab_named_config_applied)): ?>
       <li class="nav-item">
         <?php
           // Authorizations
@@ -187,6 +201,7 @@
           }
         ?>
       </li>
+      <?php endif; ?>
 
       <li class="nav-item">
         <?php
@@ -210,6 +225,8 @@
         ?>
       </li>
 
+      <?php // A public client gets no cfg, so a Named configuration has nothing to supply. ?>
+      <?php if(empty($vv_tab_public_client)): ?>
       <li class="nav-item">
         <?php
           // Named Configurations
@@ -230,6 +247,7 @@
           }
         ?>
       </li>
+      <?php endif; ?>
 
     </ul>
   </nav>

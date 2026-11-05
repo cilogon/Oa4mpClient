@@ -323,6 +323,9 @@ class Oa4mpClientClaimsController extends StandardController {
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
 
@@ -605,6 +608,9 @@ class Oa4mpClientClaimsController extends StandardController {
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
 
@@ -809,6 +815,9 @@ class Oa4mpClientClaimsController extends StandardController {
     // Get the current client and admin configurations
     $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
