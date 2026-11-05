@@ -157,6 +157,17 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 462 to 472 on 2026-11-05 for OIDC client add and the callbacks
+# tab acting only on the client in the URL (cilogon/Oa4mpClient#65), which
+# added ten (465 -> 475): Test/Case/Controller/CallbackStoredIdsTest.php
+# (callback add with a forged callback id or client id adding to the URL's
+# client; edit with forged ids editing only the route's callback; editing
+# another client's callback refused on GET and POST and deleting one refused,
+# each before the server is called; and a control delete), and three in
+# Test/Case/Controller/ValidateBeforeServerWriteTest.php (an add posting
+# another client's id or contact email row id leaving that row alone, and an
+# add posting a Named configuration id neither sending nor saving it).
+#
 # Raised from 460 to 462 on 2026-11-05 for source checks of the read-only
 # Scopes and Claims views on Named-configuration clients
 # (cilogon/Oa4mpClient#57), which added two (463 -> 465):
@@ -494,7 +505,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=462
+min_tests_run=472
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

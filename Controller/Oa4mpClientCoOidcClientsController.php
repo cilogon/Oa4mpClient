@@ -104,6 +104,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
 
     // Process POST data
     if($this->request->is('post')) {
+      // Only the fields the add form edits are taken from the post, so a
+      // posted id cannot point the save at an existing row
+      // (cilogon/Oa4mpClient#65).
+      $this->request->data = $this->addDataFromPost($this->request->data);
       $data = & $this->request->data;
       
       // Verify that the admin client is available for this CO.
@@ -613,6 +617,49 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $this->Oa4mpClientCoOidcClient->Oa4mpClientCoEmailAddress->validationErrors = $rejectedErrors['Oa4mpClientCoEmailAddress'];
       }
     }
+  }
+
+  /**
+   * Build a new client's data from the fields the add form edits.
+   *
+   * The new client's data used to start from the whole post, and the save
+   * writes whatever rows its data names. A hand-built post carrying an
+   * existing client's id, or another client's contact email row id, made the
+   * save update that row after the OA4MP server had created a separate new
+   * client, leaving the existing client out of sync and the new server client
+   * with no Registry record (cilogon/Oa4mpClient#65). Only the admin client,
+   * name, home URL, client type and contact email address are taken from the
+   * post; no posted id is carried, and any other posted column or section is
+   * dropped. A posted client id is logged.
+   *
+   * @param  array $posted The posted request data
+   * @return array The data add() builds the new client from
+   */
+
+  protected function addDataFromPost($posted) {
+    $postedClient = (isset($posted['Oa4mpClientCoOidcClient']) && is_array($posted['Oa4mpClientCoOidcClient']))
+                    ? $posted['Oa4mpClientCoOidcClient']
+                    : array();
+
+    if(isset($postedClient['id']) && $postedClient['id'] !== '') {
+      $this->log("Oa4mpClient: an OIDC client add posted client id "
+                 . (is_scalar($postedClient['id']) ? substr((string)$postedClient['id'], 0, 32) : gettype($postedClient['id']))
+                 . "; it was ignored and a new client was created");
+    }
+
+    $data = array('Oa4mpClientCoOidcClient' => array());
+    foreach(array('admin_id', 'name', 'home_url', 'public_client') as $field) {
+      if(array_key_exists($field, $postedClient)) {
+        $data['Oa4mpClientCoOidcClient'][$field] = $postedClient[$field];
+      }
+    }
+
+    if(isset($posted['Oa4mpClientCoEmailAddress'][0]) && is_array($posted['Oa4mpClientCoEmailAddress'][0])
+       && array_key_exists('mail', $posted['Oa4mpClientCoEmailAddress'][0])) {
+      $data['Oa4mpClientCoEmailAddress'] = array(0 => array('mail' => $posted['Oa4mpClientCoEmailAddress'][0]['mail']));
+    }
+
+    return $data;
   }
 
   /**

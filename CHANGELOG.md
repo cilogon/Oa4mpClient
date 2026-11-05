@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Make OIDC client add and the Callbacks tab act only on the client in the
+  URL (cilogon/Oa4mpClient#65). Add saved whatever client and contact email
+  ids the post carried, so a hand-built request could rename an existing
+  client after the server created a new one; callback add and edit saved the
+  posted callback and client ids, and edit and delete accepted another
+  client's callback id, so a hand-built request could change, move or delete
+  another client's callback, leaving that client out of sync.
 - Check in source that the Scopes and Claims tabs stay read-only for a
   client with a Named configuration (cilogon/Oa4mpClient#57). The server
   refused the writes, but nothing failed if a view change made the tabs look
