@@ -17,8 +17,11 @@
  *  - saveAssociated (add, edit): a blank claim_name. The model validates it
  *    notBlank with allowEmpty false, and saveAssociated is atomic, so it
  *    returns a plain boolean false and rolls back.
- *  - delete: an id that does not exist. Model::delete() returns false from its
- *    exists() check before touching the database.
+ *  - delete: the harness swaps in a claim model whose delete() returns false
+ *    (harnessFailWrites('delete')). An id that does not exist used to serve,
+ *    since Model::delete() returns false from its exists() check, but delete()
+ *    now refuses an id that is not one of the client's claims before the
+ *    server call (cilogon/Oa4mpClient#56), so it no longer reaches that branch.
  *
  * A bogus foreign key is deliberately not used: Postgres raises a
  * PDOException that propagates as a test error rather than the false return
@@ -230,14 +233,15 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
 
   /**
    * The regression. The server dropped the claim and the local delete then
-   * failed (Model::delete() returns false for an id that does not exist).
-   * Before U9 this branch flashed "Claim Deleted".
+   * failed (the harness makes Model::delete() return false). Before U9 this
+   * branch flashed "Claim Deleted".
    */
   public function testDeleteLocalDeleteFailureReportsTheDriftAndTheRepair() {
     $harness = $this->harness();
     $harness->harnessServer->editClientReturn = 1;
+    $harness->harnessFailWrites('delete');
 
-    $harness->harnessInvoke('delete', array($this->unusedClaimId()));
+    $harness->harnessInvoke('delete', array($this->claimId));
 
     $this->assertEqual(1, $this->claimCount(), 'the local delete removed nothing');
     $this->assertFalse($this->flashedAnySuccess($harness),
@@ -268,8 +272,9 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
 
     $harness = $this->harness();
     $harness->harnessServer->editClientReturn = 1;
+    $harness->harnessFailWrites('delete');
 
-    $redirect = $harness->harnessInvoke('delete', array($this->unusedClaimId()));
+    $redirect = $harness->harnessInvoke('delete', array($this->claimId));
 
     $this->assertTrue($harness->harnessStopped, 'the action stopped at a redirect');
     $this->assertEqual(1, $harness->harnessRedirectCount, 'redirect() was called exactly once');
@@ -277,6 +282,232 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
     $this->assertEqual('oa4mp_client_claims', $redirect['controller'], 'in the claims controller');
     $this->assertEqual($this->clientId, $redirect['clientid'], 'for the same client');
     $this->assertFalse($harness->autoRender, 'no view is rendered for a redirected action');
+  }
+
+  // ==========================================================================
+  // Claims of another client (cilogon/Oa4mpClient#56)
+  //
+  // Authorization covers the client in the URL. Each action must then act on
+  // that client's own claims only, whatever claim id the route or the posted
+  // hidden fields name. The Named-configuration client's stored claim is the
+  // other client here: it is the case the issue names, a client whose claims
+  // are kept but not sent, which a cross-client write would leave out of sync.
+  // ==========================================================================
+
+  /**
+   * Deleting another client's claim through this client's URL is refused
+   * before anything is sent. Before the fix the action sent this client's
+   * claims unchanged and then deleted the other client's claim.
+   */
+  public function testDeleteOfAnotherClientsClaimIsRefusedBeforeAnyServerCall() {
+    $harness = $this->harness();
+    $harness->harnessServer->editClientReturn = 1;
+
+    $redirect = $harness->harnessInvoke('delete', array($this->namedConfigClaimId));
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the refusal came before any server call');
+    $this->assertEqual(1, $this->namedConfigClaimCount(), 'the other client\'s claim was not deleted');
+    $this->assertEqual(1, $this->claimCount(), 'this client\'s claim was not deleted');
+    $this->assertTrue($this->flashed($harness, $this->notClientClaimError()),
+      'the not-this-client\'s-claim error was flashed');
+    $this->assertFalse($this->flashedAnySuccess($harness), 'no success was reported');
+    $this->assertEqual('index', $redirect['action'] ?? null, 'the action redirected to the claims index');
+    $this->assertEqual('oa4mp_client_claims', $redirect['controller'] ?? null, 'in the claims controller');
+    $this->assertEqual($this->clientId, $redirect['clientid'] ?? null, 'for the client in the URL');
+    $this->assertNotEmpty($harness->harnessLogged, 'the refused id was logged');
+  }
+
+  /**
+   * Opening the edit form for another client's claim through this client's
+   * URL is refused before the synchronization check reaches the server.
+   */
+  public function testEditFormForAnotherClientsClaimIsRefusedBeforeAnyServerCall() {
+    $harness = $this->harness();
+
+    $redirect = $harness->harnessInvoke('edit', array($this->namedConfigClaimId), 'GET');
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the refusal came before any server call');
+    $this->assertTrue($this->flashed($harness, $this->notClientClaimError()),
+      'the not-this-client\'s-claim error was flashed');
+    $this->assertEqual('index', $redirect['action'] ?? null, 'the action redirected to the claims index');
+    $this->assertEqual($this->clientId, $redirect['clientid'] ?? null, 'for the client in the URL');
+  }
+
+  /**
+   * Posting an edit of another client's claim through this client's URL is
+   * refused before anything is sent or saved. Before the fix the post was
+   * sent as an unchanged client and then saved over the other client's claim,
+   * moving it onto this client.
+   */
+  public function testEditPostOfAnotherClientsClaimIsRefusedBeforeAnyServerCall() {
+    $data = $this->validEditData();
+    $data['Oa4mpClientClaim']['id'] = $this->namedConfigClaimId;
+    $data['Oa4mpClientClaimConstraint'] = array();
+
+    $harness = $this->harness($data);
+    $harness->harnessServer->editClientReturn = 1;
+
+    $redirect = $harness->harnessInvoke('edit', array($this->namedConfigClaimId), 'POST');
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the refusal came before any server call');
+    $this->assertTrue($this->namedConfigClaimIsUnchanged(), 'the other client\'s claim is unchanged');
+    $this->assertEqual(1, $this->claimNameCount('eppn'), 'this client\'s claim is unchanged');
+    $this->assertEqual(0, $this->claimNameCount('eppn_edited'), 'the edit was not written');
+    $this->assertTrue($this->flashed($harness, $this->notClientClaimError()),
+      'the not-this-client\'s-claim error was flashed');
+    $this->assertFalse($this->flashedAnySuccess($harness), 'no success was reported');
+    $this->assertEqual('index', $redirect['action'] ?? null, 'the action redirected to the claims index');
+  }
+
+  /**
+   * An add whose hidden id names another client's claim adds a new claim to
+   * this client. Before the fix the save updated the named claim in place.
+   */
+  public function testAddWithAForgedClaimIdAddsANewClaimForTheUrlClientOnly() {
+    $data = $this->validAddData();
+    $data['Oa4mpClientClaim']['id'] = $this->namedConfigClaimId;
+
+    $harness = $this->harness($data);
+    $harness->harnessServer->editClientReturn = 1;
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(2, $this->claimCount(), 'a new claim was added to this client');
+    $this->assertEqual(1, $this->claimNameCount('writepath_added'), 'the new claim is the posted one');
+    $this->assertTrue($this->namedConfigClaimIsUnchanged(), 'the other client\'s claim is unchanged');
+    $this->assertEqual(1, $this->namedConfigClaimCount(), 'the other client still has one claim');
+    $this->assertTrue($this->flashed($harness, _txt('pl.oa4mp_client_claim.add.flash.success')),
+      'success was reported');
+
+    $sent = $this->sentNewClaim($harness);
+    $this->assertFalse(array_key_exists('id', $sent), 'the claim sent to the server carries no posted id');
+    $this->assertEqual($this->clientId, $sent['client_id'] ?? null,
+      'the claim sent to the server is this client\'s');
+    $this->assertNotEmpty($harness->harnessLogged, 'the forged id was logged');
+  }
+
+  /**
+   * An add whose hidden client_id names another client adds the claim to the
+   * client in the URL. Before the fix it was saved onto the named client.
+   */
+  public function testAddWithAForgedClientIdAddsTheClaimToTheUrlClient() {
+    $data = $this->validAddData();
+    $data['Oa4mpClientClaim']['client_id'] = $this->namedConfigClientId;
+
+    $harness = $this->harness($data);
+    $harness->harnessServer->editClientReturn = 1;
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(1, $this->claimNameCount('writepath_added'), 'the claim was added to this client');
+    $this->assertEqual(1, $this->namedConfigClaimCount(), 'nothing was added to the other client');
+    $this->assertTrue($this->namedConfigClaimIsUnchanged(), 'the other client\'s claim is unchanged');
+
+    $sent = $this->sentNewClaim($harness);
+    $this->assertEqual($this->clientId, $sent['client_id'] ?? null,
+      'the claim sent to the server is this client\'s');
+    $this->assertNotEmpty($harness->harnessLogged, 'the forged client id was logged');
+  }
+
+  /**
+   * An add whose hidden constraint id names an existing constraint creates a
+   * new constraint. Before the fix the save moved the named constraint, here
+   * this client's own seeded one, onto the new claim.
+   */
+  public function testAddWithAForgedConstraintIdLeavesThatConstraintAlone() {
+    $data = $this->validAddData();
+    $data['Oa4mpClientClaimConstraint'][0]['id'] = $this->constraintId;
+
+    $harness = $this->harness($data);
+    $harness->harnessServer->editClientReturn = 1;
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(1, $this->claimNameCount('writepath_added'), 'the claim was added');
+    $this->assertTrue($this->constraintIs($this->constraintId, $this->claimId, 'eppn'),
+      'the named constraint still belongs to its own claim, unchanged');
+
+    // The posted constraint itself is kept, as a new row on the new claim and
+    // in what the server was sent; only its forged id is dropped.
+    $this->assertEqual(1, $this->countRows($this->fx, 'cm_oa4mp_client_claim_constraints',
+      "constraint_value = 'oidcsub' AND claim_id IN (SELECT id FROM cm_oa4mp_client_claims WHERE client_id = "
+      . (int)$this->clientId . " AND claim_name = 'writepath_added')"),
+      'the new claim was saved with the posted constraint');
+
+    $sentConstraint = null;
+    foreach ($this->sentClaims($harness) as $claim) {
+      if (($claim['claim_name'] ?? null) === 'writepath_added') {
+        $sentConstraint = $claim['Oa4mpClientClaimConstraint'][0]['constraint_value'] ?? null;
+      }
+    }
+    $this->assertEqual('oidcsub', $sentConstraint, 'the server was sent the posted constraint');
+  }
+
+  /**
+   * An edit whose hidden constraint id names another claim's constraint
+   * leaves that constraint alone, while a constraint id of the edited claim
+   * itself still updates that constraint in place.
+   */
+  public function testEditWithAForgedConstraintIdLeavesThatConstraintUnchanged() {
+    $otherConstraintId = $this->fx->insert('cm_oa4mp_client_claim_constraints', array(
+      'claim_id' => $this->namedConfigClaimId,
+      'constraint_field' => 'type',
+      'constraint_value' => 'other'
+    ));
+
+    $data = $this->validEditData();
+    $data['Oa4mpClientClaimConstraint'][0]['constraint_value'] = 'eppn_new';
+    $data['Oa4mpClientClaimConstraint'][1] = array(
+      'id' => $otherConstraintId,
+      'claim_id' => $this->namedConfigClaimId,
+      'constraint_field' => 'type',
+      'constraint_value' => 'forged'
+    );
+
+    $harness = $this->harness($data);
+    $harness->harnessServer->editClientReturn = 1;
+
+    $harness->harnessInvoke('edit', array($this->claimId), 'POST');
+
+    $this->assertEqual(1, $this->claimNameCount('eppn_edited'), 'the edit was written');
+    $this->assertTrue($this->constraintIs($otherConstraintId, $this->namedConfigClaimId, 'other'),
+      'the other claim\'s constraint is unchanged');
+    $this->assertTrue($this->constraintIs($this->constraintId, $this->claimId, 'eppn_new'),
+      'the edited claim\'s own constraint was updated in place');
+    $this->assertEqual(2, $this->countRows($this->fx, 'cm_oa4mp_client_claim_constraints',
+      'claim_id = ' . (int)$this->claimId), 'the forged constraint was added as a new one');
+
+    $sent = $this->sentClaim($harness, $this->claimId);
+    $sentIds = array();
+    foreach ($sent['Oa4mpClientClaimConstraint'] ?? array() as $c) {
+      $sentIds[] = (string)($c['id'] ?? '');
+    }
+    $this->assertFalse(in_array((string)$otherConstraintId, $sentIds, true),
+      'the constraint sent to the server carries no forged id');
+    $this->assertNotEmpty($harness->harnessLogged, 'the forged constraint id was logged');
+  }
+
+  /**
+   * An edit whose hidden claim id and client id name another client's claim,
+   * posted to this client's own claim, edits this client's claim only.
+   */
+  public function testEditWithForgedClaimAndClientIdsEditsTheRouteClaimOnly() {
+    $data = $this->validEditData();
+    $data['Oa4mpClientClaim']['id'] = $this->namedConfigClaimId;
+    $data['Oa4mpClientClaim']['client_id'] = $this->namedConfigClientId;
+    $data['Oa4mpClientClaimConstraint'] = array();
+
+    $harness = $this->harness($data);
+    $harness->harnessServer->editClientReturn = 1;
+
+    $harness->harnessInvoke('edit', array($this->claimId), 'POST');
+
+    $this->assertEqual(1, $this->claimNameCount('eppn_edited'), 'the route\'s claim was edited');
+    $this->assertEqual(1, $this->claimCount(), 'in place, on this client');
+    $this->assertTrue($this->namedConfigClaimIsUnchanged(), 'the other client\'s claim is unchanged');
   }
 
   // ==========================================================================
@@ -459,7 +690,8 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
 
     $deleteFail = $this->harness();
     $deleteFail->harnessServer->editClientReturn = 1;
-    $deleteFail->harnessInvoke('delete', array($this->unusedClaimId()));
+    $deleteFail->harnessFailWrites('delete');
+    $deleteFail->harnessInvoke('delete', array($this->claimId));
     $branches['delete local delete failure'] = $deleteFail;
 
     $publicAdd = Oa4mpClaimsControllerHarness::build($this->publicClientId, $this->coId,
@@ -666,16 +898,58 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
       'client_id = ' . (int)$this->clientId . " AND claim_name = '" . $claimName . "'");
   }
 
-  /** A claim id that is certain not to exist, so Model::delete() returns false. */
-  private function unusedClaimId() {
-    ConnectionManager::getDataSource('default')->flushQueryCache();
-    return (int)$this->fx->scalar('SELECT COALESCE(MAX(id), 0) AS m FROM cm_oa4mp_client_claims') + 1000;
-  }
-
   /** Claims stored on the Named-configuration client. */
   private function namedConfigClaimCount() {
     return $this->countRows($this->fx, 'cm_oa4mp_client_claims',
       'client_id = ' . (int)$this->namedConfigClientId);
+  }
+
+  /** The error flashed for a claim id that is not one of the URL client's claims. */
+  private function notClientClaimError() {
+    return _txt('pl.oa4mp_client_claim.er.not_client_claim');
+  }
+
+  /** Whether the Named-configuration client's seeded claim is still as seeded. */
+  private function namedConfigClaimIsUnchanged() {
+    return 1 === (int)$this->countRows($this->fx, 'cm_oa4mp_client_claims',
+      'id = ' . (int)$this->namedConfigClaimId
+      . ' AND client_id = ' . (int)$this->namedConfigClientId
+      . " AND claim_name = 'eppn'");
+  }
+
+  /** Whether a constraint belongs to the given claim with the given value. */
+  private function constraintIs($constraintId, $claimId, $value) {
+    return 1 === (int)$this->countRows($this->fx, 'cm_oa4mp_client_claim_constraints',
+      'id = ' . (int)$constraintId . ' AND claim_id = ' . (int)$claimId
+      . " AND constraint_value = '" . $value . "'");
+  }
+
+  /** The claim list the first oa4mpEditClient() call sent. */
+  private function sentClaims($harness) {
+    foreach ($harness->harnessServer->calls as $call) {
+      if ($call['method'] === 'oa4mpEditClient') {
+        return array_values($call['data']['Oa4mpClientClaim'] ?? array());
+      }
+    }
+    $this->assertTrue(false, 'the action sent an edit to the server');
+    return array();
+  }
+
+  /** The claim add() appended to the list it sent. */
+  private function sentNewClaim($harness) {
+    $claims = $this->sentClaims($harness);
+    return empty($claims) ? array() : $claims[count($claims) - 1];
+  }
+
+  /** The sent claim with the given id. */
+  private function sentClaim($harness, $claimId) {
+    foreach ($this->sentClaims($harness) as $claim) {
+      if ((string)($claim['id'] ?? '') === (string)$claimId) {
+        return $claim;
+      }
+    }
+    $this->assertTrue(false, "the claim $claimId was sent to the server");
+    return array();
   }
 
   /** The error the guard flashes, naming the fixture's configuration. */

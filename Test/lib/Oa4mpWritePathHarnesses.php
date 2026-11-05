@@ -38,6 +38,7 @@ App::uses('Oa4mpClientAccessToken', 'Oa4mpClient.Model');
 App::uses('Oa4mpClientAccessControl', 'Oa4mpClient.Model');
 App::uses('Oa4mpClientCoScope', 'Oa4mpClient.Model');
 App::uses('Oa4mpClientCoOidcClient', 'Oa4mpClient.Model');
+App::uses('Oa4mpClientClaim', 'Oa4mpClient.Model');
 App::uses('Oa4mpClientDynamoConfig', 'Oa4mpClient.Model');
 App::uses('ClassRegistry', 'Utility');
 App::uses('CakeRequest', 'Network');
@@ -244,6 +245,11 @@ class Oa4mpHarnessFailingOa4mpClientCoOidcClient extends Oa4mpClientCoOidcClient
 }
 
 class Oa4mpHarnessFailingOa4mpClientDynamoConfig extends Oa4mpClientDynamoConfig {
+  use Oa4mpHarnessFailingWrites;
+}
+
+// Installed by Oa4mpClaimsControllerHarness::harnessFailWrites().
+class Oa4mpHarnessFailingOa4mpClientClaim extends Oa4mpClientClaim {
   use Oa4mpHarnessFailingWrites;
 }
 

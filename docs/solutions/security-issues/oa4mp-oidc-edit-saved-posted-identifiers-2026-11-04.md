@@ -80,14 +80,17 @@ Tests: the forged-identifier tests in the OIDC client edit section of
   offered, and take row ids from the stored record.
 - Still open with the same shape when this was written: OIDC client `add()`
   (posted data flows through `newClientData()` into `saveAssociated()`), the
-  callback edit (route client sent to OA4MP, posted data saved), and claim
-  delete not scoped to the URL's client (cilogon/Oa4mpClient#56). The add and
-  callback paths are tracked in cilogon/Oa4mpClient#65.
+  callback edit (route client sent to OA4MP, posted data saved). The add and
+  callback paths are tracked in cilogon/Oa4mpClient#65. Claim add, edit and
+  delete had the same shape, and delete also removed any claim id whichever
+  client owned it (cilogon/Oa4mpClient#56, fixed on branch
+  `fix/claim-writes-scoped-to-client`; the merge is pending): a route id
+  needs the same ownership check as a posted one.
 
 ## Related Issues
 
 - cilogon/Oa4mpClient#53 (issue of record), fixed by cilogon/Oa4mpClient#64
-- cilogon/Oa4mpClient#56 -- claim delete not limited to the client in the URL
+- cilogon/Oa4mpClient#56 -- claim add, edit and delete not limited to the client in the URL
 - cilogon/Oa4mpClient#65 -- OIDC client add and callback add/edit, the same pattern
 - cilogon/Oa4mpClient#54 -- the Access Control tab, an unchecked choice list plus the same posted-id pattern; fixed by cilogon/Oa4mpClient#68
 - `docs/solutions/logic-errors/oa4mp-url-whitespace-server-first-write-drift-2026-11-02.md`
