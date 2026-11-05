@@ -224,7 +224,7 @@ loss of N tests only trips the gate when `159 - N < 155`, that is when N is five
 four files sat at or under four tests. The comment's own "every test file except the two
 smallest" claim was therefore false at 155, not merely out of date.
 
-Both are corrected on branch `fix/test-lock-the-count-gate` (merge pending): the floor moves
+Both are corrected by cilogon/Oa4mpClient#13: the floor moves
 to **157** against the current **160** hermetic `test*` methods across 17 files, restoring
 three tests of headroom, and the comment is rewritten to those numbers. At 160/157 the "two
 smallest" claim is true again -- a loss trips the gate when N is four or more, and the only
@@ -298,8 +298,8 @@ Prefer deriving a floor from something the suite already computes over restating
 where a literal is unavoidable, expect its justification to rot faster than the literal.
 
 **Test the gate, not just through the gate.** Three gaps were open when this was first
-written, and writing it down is what surfaced them. All three are closed on branch
-`fix/test-lock-the-count-gate` (merge pending):
+written, and writing it down is what surfaced them. All three are closed by
+cilogon/Oa4mpClient#13:
 
 - One test asserted gate 2 existed
   (`ClaimsControllerHarnessTest::testRunShRequiresTheAllTestsPassedSentinel`); **nothing

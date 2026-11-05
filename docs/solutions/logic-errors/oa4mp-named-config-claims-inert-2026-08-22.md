@@ -37,9 +37,8 @@ tags:
 
 # Claims on a named-configuration client are silently inert
 
-**Status: RESOLVED; merge pending.** The remedy is done on branch
-`feat/named-config-replaces-client-config` (cilogon/Oa4mpClient#58 and
-cilogon/Oa4mpClient#59), with the merge pending. A Named configuration now
+**Status: RESOLVED.** The remedy landed in cilogon/Oa4mpClient#75, which
+closed cilogon/Oa4mpClient#58 and cilogon/Oa4mpClient#59. A Named configuration now
 replaces the client's own claims and the other settings it supplies, and the
 replaced rows are deleted rather than kept, so nothing stored can come back
 into force when the Named configuration is removed. See Resolution. The
@@ -272,7 +271,7 @@ Recorded before the remedy; see Resolution for how each point is covered.
 - cilogon/Oa4mpClient#58 (replace and delete the client's own configuration
   when a Named configuration is applied) and cilogon/Oa4mpClient#59 (warn
   that Require Active Status and Authorized User Group stop being enforced),
-  fixed on branch `feat/named-config-replaces-client-config`; merge pending.
+  fixed by cilogon/Oa4mpClient#75.
 - `docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md` -- its
   open question on this defect is answered by the remedy above, and unit U7 is the characterization work this document
   accompanies.
