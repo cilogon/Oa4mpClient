@@ -124,6 +124,43 @@ class Oa4mpHarnessAdminRole {
 }
 
 /**
+ * Stand-in for the Role component that reports a CO member who is neither a
+ * platform nor a CO administrator, so the access controls page offers only
+ * the groups that person belongs to. Pair it with Oa4mpHarnessSession, which
+ * supplies the CO person id that page then reads.
+ */
+class Oa4mpHarnessMemberRole extends Oa4mpHarnessAdminRole {
+
+  public function calculateCMRoles() {
+    $roles = parent::calculateCMRoles();
+    $roles['cmadmin'] = false;
+    $roles['coadmin'] = false;
+    $roles['comember'] = true;
+    $roles['user'] = true;
+
+    return $roles;
+  }
+}
+
+/**
+ * Stand-in for the Session component: read() returns the value set for a
+ * key, or null.
+ */
+class Oa4mpHarnessSession {
+
+  /** @var array Key => value, e.g. 'Auth.User.co_person_id' => 42. */
+  public $values = array();
+
+  public function __construct($values = array()) {
+    $this->values = $values;
+  }
+
+  public function read($key = null) {
+    return $this->values[$key] ?? null;
+  }
+}
+
+/**
  * The swaps harnessFailWrites() made, kept outside the harness trait because a
  * static declared in a trait is separate for every class that uses it, and a
  * test may swap through one harness and restore through another.
@@ -458,12 +495,29 @@ class Oa4mpAccessTokensControllerHarness extends Oa4mpClientAccessTokensControll
 class Oa4mpAccessControlsControllerHarness extends Oa4mpClientAccessControlsController {
   use Oa4mpWritePathHarnessTrait;
 
+  /** @var Oa4mpHarnessSession|null Set by harnessAsMember(). */
+  public $Session = null;
+
   public static function build($clientId, $coId, $data = array()) {
     $harness = self::wire(new Oa4mpAccessControlsControllerHarness(new CakeRequest('/', false), new CakeResponse()),
       'oa4mp_client_access_controls', 'Oa4mpClient.Oa4mpClientAccessControl', $clientId, $coId, $data);
     $harness->Role = new Oa4mpHarnessAdminRole();
 
     return $harness;
+  }
+
+  /**
+   * Act as CO person $coPersonId, who is not an administrator, so the page
+   * offers only the groups that person is a member of.
+   *
+   * @param  integer $coPersonId CO person id the session reports
+   * @return Oa4mpAccessControlsControllerHarness This harness
+   */
+  public function harnessAsMember($coPersonId) {
+    $this->Role = new Oa4mpHarnessMemberRole();
+    $this->Session = new Oa4mpHarnessSession(array('Auth.User.co_person_id' => $coPersonId));
+
+    return $this;
   }
 }
 

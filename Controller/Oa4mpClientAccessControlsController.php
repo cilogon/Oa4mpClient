@@ -124,10 +124,30 @@ class Oa4mpClientAccessControlsController extends StandardController {
       // data validation leaves behind. Input the plugin rejects used to be
       // stored by the server and not by the plugin, leaving the two out of
       // sync.
+      $this->request->data = $this->accessControlDataForStoredClient($client, $this->request->data);
+
       $this->Oa4mpClientAccessControl->create(false);
       $this->Oa4mpClientAccessControl->set($this->request->data);
 
-      if(!$this->Oa4mpClientAccessControl->validates()) {
+      $valid = $this->Oa4mpClientAccessControl->validates();
+
+      // Only a group the page offered, or none, may be chosen. The model only
+      // checks the id is a number, so a hand-built request could hand the
+      // client's editing to any group, including another CO's
+      // (cilogon/Oa4mpClient#54).
+      $postedGroup = $this->request->data['Oa4mpClientAccessControl']['co_group_id'] ?? null;
+      if(array_key_exists('co_group_id', $this->request->data['Oa4mpClientAccessControl'])
+         && !$this->groupWasOffered($postedGroup, $availableGroups)) {
+        $this->log("Oa4mpClient: the access control of OIDC client " . $clientId . " refused posted group "
+                   . (is_scalar($postedGroup) ? substr((string)$postedGroup, 0, 32) : gettype($postedGroup)));
+
+        if(empty($this->Oa4mpClientAccessControl->validationErrors['co_group_id'])) {
+          $this->Oa4mpClientAccessControl->invalidate('co_group_id', _txt('pl.oa4mp_client_access_control.er.co_group_id.offered'));
+        }
+        $valid = false;
+      }
+
+      if(!$valid) {
         // Set flash and fall through to the GET logic, which renders the form
         // again with the validation error. Nothing was sent to the server.
         $this->Flash->set(_txt('er.fields'), array('key' => 'error'));
@@ -223,6 +243,69 @@ class Oa4mpClientAccessControlsController extends StandardController {
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_access_control.manage.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));
+  }
+
+  /**
+   * Rebuild a posted access control around the stored client.
+   *
+   * The form carries the access control row's id and client id as hidden
+   * fields, and the save writes whatever row its data names, so a hand-built
+   * post could change another client's editor group (cilogon/Oa4mpClient#54).
+   * The row id and client id come from the stored client and only the group
+   * is taken from the post; any other posted column is dropped.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  array $client The stored client, as current() returns it
+   * @param  array $posted The posted request data
+   * @return array The data the manage action checks, sends, and saves
+   */
+
+  protected function accessControlDataForStoredClient($client, $posted) {
+    $postedControl = (isset($posted['Oa4mpClientAccessControl']) && is_array($posted['Oa4mpClientAccessControl']))
+                     ? $posted['Oa4mpClientAccessControl']
+                     : array();
+
+    $control = array();
+
+    // With no stored access control row one is created for this client.
+    if(!empty($client['Oa4mpClientAccessControl']['id'])) {
+      $control['id'] = $client['Oa4mpClientAccessControl']['id'];
+    }
+    $control['client_id'] = $client['Oa4mpClientCoOidcClient']['id'];
+
+    if(array_key_exists('co_group_id', $postedControl)) {
+      $control['co_group_id'] = $postedControl['co_group_id'];
+    }
+
+    return array('Oa4mpClientAccessControl' => $control);
+  }
+
+  /**
+   * Whether a posted editor group is one the manage page offered, or blank to
+   * clear the group.
+   *
+   * @since  COmanage Registry v4.5.0
+   * @param  mixed $groupId         The posted co_group_id
+   * @param  array $availableGroups The groups the page offered, keyed by id
+   * @return boolean True if the group may be saved
+   */
+
+  protected function groupWasOffered($groupId, $availableGroups) {
+    if($groupId === null || $groupId === '') {
+      return true;
+    }
+
+    if(!is_scalar($groupId)) {
+      return false;
+    }
+
+    foreach(array_keys($availableGroups) as $offered) {
+      if((string)$offered === (string)$groupId) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /**
