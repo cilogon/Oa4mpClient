@@ -157,6 +157,14 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 516 to 521 on 2026-11-05 for the client edit page while a Named
+# configuration is applied (cilogon/Oa4mpClient#58), which added five
+# (519 -> 524) in Test/Case/Controller/NamedConfigEditPageTest.php: opening
+# the edit page creating no claim from an LDAP search attribute, the
+# conversion skipped while a Named configuration is applied and still run
+# without one, an edit save writing no per-client DynamoDB configuration, and
+# opening the edit page deleting leftovers while keeping the access token row.
+#
 # Raised from 499 to 516 on 2026-11-05 for confirming before a Named
 # configuration is applied or removed (cilogon/Oa4mpClient#58,
 # cilogon/Oa4mpClient#59), which added seventeen (502 -> 519) in
@@ -553,7 +561,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=516
+min_tests_run=521
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

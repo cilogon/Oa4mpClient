@@ -1784,11 +1784,13 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $withheldFields = array();
 
     // Client authorization configuration. A client that uses a named
-    // configuration keeps its authorization row but sends none of these args:
-    // the named configuration points at its own QDL script, which does not
-    // read them, and the Authorization tab shows them as ignored while it is
-    // applied. The args are built either way and dropped below, so the row
-    // comes back into force unchanged once the named configuration is removed.
+    // configuration sends none of these args: the named configuration
+    // replaces the client's authorization settings and points at its own QDL
+    // script, which does not read them (cilogon/Oa4mpClient#58). A confirmed
+    // apply deletes the authorization row, and an older client's leftover row
+    // is deleted when its pages are next opened or saved; until then the args
+    // are built either way and dropped below. Removal resets the client to
+    // new-client defaults rather than reviving a stored row.
     //
     // Each of the five args is CONDITIONAL: it is emitted only when the
     // authorization row carries the value it names. The conditionality lives

@@ -290,8 +290,8 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
   // Authorization covers the client in the URL. Each action must then act on
   // that client's own claims only, whatever claim id the route or the posted
   // hidden fields name. The Named-configuration client's stored claim is the
-  // other client here: it is the case the issue names, a client whose claims
-  // are kept but not sent, which a cross-client write would leave out of sync.
+  // other client here: it is the case the issue names, a client whose stored
+  // claims are not sent, which a cross-client write would leave out of sync.
   // ==========================================================================
 
   /**

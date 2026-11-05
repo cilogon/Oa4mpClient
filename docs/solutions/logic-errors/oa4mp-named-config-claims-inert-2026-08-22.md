@@ -6,7 +6,8 @@ module: Oa4mpClient plugin (OIDC client claims, cfg marshalling, sync verificati
 problem_type: logic_error
 component: rails_model
 severity: high
-status: open
+status: resolved
+last_updated: 2026-11-05
 symptoms:
   - "A claim created on a client that uses a named configuration is saved, is listed on the claims tab, and is never sent to the OA4MP server"
   - "Nothing in the interface indicates the claim is inert -- the claims tab is fully available on a named-configuration client, with no banner, no gate, and no warning on save"
@@ -14,12 +15,14 @@ symptoms:
   - "Clearing the named configuration activates every previously created claim at once, on the next edit, with no review step in between"
   - "The relying party begins receiving identity attributes at the moment the named configuration is cleared, and the change that released them looks like an unrelated configuration edit"
 root_cause: logic_error
-resolution_type: deferred_open
+resolution_type: code_fix
 related_components:
   - Model/Oa4mpClientOa4mpServer.php (oa4mpMarshallCfgQdl named-configuration branch, isClientDataSynchronized named-configuration early return)
-  - Controller/Oa4mpClientClaimsController.php (add, edit, delete -- guarded for public and, since the read-only tabs work, named-configuration clients)
-  - Test/Case/Model/NamedConfigClaimSyncTest.php (characterization lock for the comparator half)
-  - Test/Case/Model/ClaimCfgContractTest.php (cfg_shape/named_config -- characterization lock for the marshaller half)
+  - Controller/Oa4mpClientCoNamedConfigsController.php (confirmed apply and removal, delete on apply, reset to new-client defaults on removal)
+  - Controller/Oa4mpClientNamedConfigActions.php (replaced tabs refused, never-sent leftovers deleted on touch)
+  - Controller/Oa4mpClientClaimsController.php (refused while a Named configuration is applied)
+  - Test/Case/Model/NamedConfigClaimSyncTest.php (locks the comparator half)
+  - Test/Case/Model/ClaimCfgContractTest.php (cfg_shape/named_config -- locks the marshaller half)
 tags:
   - oa4mp
   - oidc
@@ -30,18 +33,17 @@ tags:
   - comparator
   - marshaller
   - inert-data
-  - open-defect
-  - deferred
 ---
 
 # Claims on a named-configuration client are silently inert
 
-**Status: OPEN, partly remedied.** This document records a defect that is
-understood and characterized by tests. The remedy is a product decision,
-tracked as open question Q1 in
-`docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md`. The
-Claims tab is now gated and the inert state is visible (see Current state);
-the bulk activation when the named configuration is cleared is still open.
+**Status: RESOLVED; merge pending.** The remedy is done on branch
+`feat/named-config-replaces-client-config` (cilogon/Oa4mpClient#58 and
+cilogon/Oa4mpClient#59), with the merge pending. A Named configuration now
+replaces the client's own claims and the other settings it supplies, and the
+replaced rows are deleted rather than kept, so nothing stored can come back
+into force when the Named configuration is removed. See Resolution. The
+sections up to Current state describe the defect as it was.
 
 ## Problem
 
@@ -117,9 +119,57 @@ be months between the two acts.
 - Clearing the named configuration releases all of the accumulated claims at
   once, silently, on the next edit.
 
-## Current state
+## Resolution
 
-The Claims tab is now read-only for a named-configuration client
+Applying a Named configuration on the Named Configuration tab, including
+switching from one to another, now asks for confirmation, and the server
+checks that the confirmation was given. The confirmation says the Named
+configuration takes the place of the client's own scopes, claims,
+authorization settings and access token settings, that those will be
+deleted, and that Require Active Status and Authorized User Group stop being
+enforced, so the Named configuration's own script must enforce them if they
+are still needed (cilogon/Oa4mpClient#59). On confirm the plugin sends only
+the Named configuration, plus the client's callbacks and refresh token
+setting, and once the server accepts it deletes the client's own scopes,
+claims, authorization, access token, LDAP configuration and DynamoDB
+configuration. While a Named configuration is applied the Scopes, Claims,
+Access Tokens and Authorization tabs are hidden and refuse requests.
+
+Removing a Named configuration also asks for confirmation and resets the
+client to the settings a new client gets: the `openid` scope, Require Active
+Status on, no claims, no JWT access tokens, and a copy of the Admin client's
+default DynamoDB configuration. Nothing stored before or during the Named
+configuration is revived.
+
+A client that already had a Named configuration when this shipped has its
+never-sent leftover rows deleted when any of its pages is next opened or
+saved. Its access token row is the exception: it is still sent, so it stays
+until the next confirmed apply or removal. Public clients never get the
+Named Configuration tab and are refused; the maintainer clears any public
+client that already has one by hand.
+
+Against the remedy list below:
+
+1. **Existing data.** Stored claims are deleted on a confirmed apply, and an
+   older client's never-sent leftovers are deleted on its next page view or
+   save.
+2. **The clearing transition.** Removal is confirmed and resets the client to
+   new-client defaults, so no stored claim can become live when the Named
+   configuration is cleared.
+3. **A visible state.** The Claims tab is hidden while a Named configuration
+   is applied, and the client holds no claims of its own there, so the plugin
+   never shows a claim that has no effect.
+
+The cfg builder and the sync check are unchanged: the builder still never
+emits a Named-configuration client's own claims or authorization args, and
+the sync check still compares only scopes for such a client.
+`NamedConfigClaimSyncTest`, the `cfg_shape/named_config` row of
+`ClaimCfgContractTest` and `NamedConfigAuthorizationCfgTest` now lock that as
+intended behavior rather than as a frozen defect.
+
+## State before the remedy
+
+The Claims tab was made read-only for a named-configuration client
 (cilogon/Oa4mpClient#39, which closed cilogon/Oa4mpClient#28; plan
 `docs/plans/2026-10-14-1946-feat-named-config-read-only-tabs-plan.md`). The
 index lists the stored claims under a notice naming the named configuration and
@@ -156,15 +206,13 @@ named-configuration URL rather than dropping the whole metadata block
 unexamined, and `Test/Case/Model/ContractVersionStampTest.php` covers the
 stamp itself.
 
-Both locks are held **provisionally**. They describe the defect, not a decision
-that the defect is correct. A Q1 remedy that changes how the marshaller or the
-comparator treats named-configuration clients is expected to change these
-tests; a maintainer who hits them red while fixing Q1 should update them and
-this document, not work around them.
+Both locks were held **provisionally** until the remedy above. They now
+describe intended behavior: a Named configuration, not the client's own rows,
+decides what the server holds.
 
 ## What a remedy has to cover
 
-Recorded here so the scope is not rediscovered from scratch:
+Recorded before the remedy; see Resolution for how each point is covered.
 
 1. **Existing data, not only future input.** Gating the tab from today forward
    leaves every already-stored inert claim in place, still armed to fire when
@@ -221,8 +269,12 @@ Recorded here so the scope is not rediscovered from scratch:
 
 - cilogon/Oa4mpClient#28 (issue of record), fixed in part by
   cilogon/Oa4mpClient#39 (read-only Claims, Scopes and Authorization tabs).
-- `docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md` -- Q1 is
-  the open decision, and unit U7 is the characterization work this document
+- cilogon/Oa4mpClient#58 (replace and delete the client's own configuration
+  when a Named configuration is applied) and cilogon/Oa4mpClient#59 (warn
+  that Require Active Status and Authorized User Group stop being enforced),
+  fixed on branch `feat/named-config-replaces-client-config`; merge pending.
+- `docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md` -- its
+  open question on this defect is answered by the remedy above, and unit U7 is the characterization work this document
   accompanies.
 - `docs/solutions/integration-issues/oa4mp-public-client-cfg-rejected-2026-08-03.md`
   -- the public-client contract, and the controller guard that is the precedent
