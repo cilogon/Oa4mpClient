@@ -108,7 +108,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       $added = 'SELECT id FROM cm_oa4mp_client_co_oidc_clients WHERE name = '
         . ConnectionManager::getDataSource('default')->value($this->addedClientName);
       foreach (array('cm_oa4mp_client_co_scopes', 'cm_oa4mp_client_co_email_addresses',
-                     'cm_oa4mp_client_dynamo_configs', 'cm_oa4mp_client_authorizations') as $table) {
+                     'cm_oa4mp_client_dynamo_configs', 'cm_oa4mp_client_authorizations',
+                     'cm_oa4mp_client_access_tokens') as $table) {
         $this->fx->query('DELETE FROM ' . $table . ' WHERE client_id IN (' . $added . ')');
       }
       $this->fx->query('DELETE FROM cm_oa4mp_client_co_oidc_clients WHERE id IN (' . $added . ')');
@@ -1343,6 +1344,80 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->assertEqual(0, $this->addedClientCount(), 'no client row was saved');
     $this->assertFalse(in_array('secret', $harness->harnessRendered, true), 'the secret page was not shown');
     $this->assertNull($redirect, 'the action returned without redirecting');
+  }
+
+  /**
+   * The add form posts no client id, but the save used to start from the
+   * whole post, so a hand-built one naming an existing client's id and OA4MP
+   * identifier updated that client after the server had created a separate
+   * one. The new client is now built from the editable fields only, and the
+   * existing client is left alone (cilogon/Oa4mpClient#65).
+   */
+  public function testOidcClientAddWithAForgedClientIdCreatesANewClientAndLeavesTheOtherAlone() {
+    $otherId = $this->seedOtherClient();
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($this->adminId, array(
+        'id' => (string)$otherId,
+        'oa4mp_identifier' => 'https://example.org/oidc/client/forged'
+      )));
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual($this->otherClientName(), $this->otherClientStoredName(),
+      'the other client was not renamed');
+    $this->assertEqual(1, $this->addedClientCount(), 'one new client row was saved');
+    $stored = $this->addedClient();
+    $this->assertTrue(($stored['id'] ?? null) !== $otherId, 'the new client is a new row');
+    $this->assertEqual('harness-client-id', $stored['oa4mp_identifier'] ?? null,
+      'the new client stores the identifier the server returned');
+    $this->assertContains('posted client id', implode("\n", $harness->harnessLogged),
+      'the forged client id was logged');
+  }
+
+  /**
+   * A posted contact email row id and owner naming another client's row
+   * leave that row where and as it was; the new client gets its own row.
+   */
+  public function testOidcClientAddWithAForgedContactEmailRowLeavesThatRowAlone() {
+    $otherId = $this->seedOtherClient();
+    $otherEmailId = $this->seedOtherContactEmail($otherId);
+    $post = $this->oidcClientAddPost($this->adminId);
+    $post['Oa4mpClientCoEmailAddress'][0]['id'] = (string)$otherEmailId;
+    $post['Oa4mpClientCoEmailAddress'][0]['client_id'] = (string)$otherId;
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId, $post);
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual($otherId, $this->contactEmailOwner($otherEmailId),
+      "the other client's contact email row still belongs to it");
+    $this->assertEqual(self::OTHER_CONTACT, $this->contactEmailMail($otherEmailId),
+      "the other client's contact email is unchanged");
+    $stored = $this->addedClient();
+    $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_co_email_addresses',
+      'client_id = ' . (int)($stored['id'] ?? 0) . " AND mail = 'contact@example.org'"),
+      'the new client has its own contact email row');
+  }
+
+  /**
+   * A client column the add form never posts is neither sent nor saved: a
+   * posted Named configuration id does not give the new client a Named
+   * configuration.
+   */
+  public function testOidcClientAddIgnoresAPostedNamedConfigId() {
+    $namedConfigId = $this->seedNamedConfig($this->adminId, 'posted-' . $this->addedClientName);
+    $harness = Oa4mpOidcClientsControllerHarness::build(null, $this->coId,
+      $this->oidcClientAddPost($this->adminId, array('named_config_id' => (string)$namedConfigId)));
+
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(1, $this->addedClientCount(), 'the new client was created');
+    $sent = $harness->harnessServer->lastNewClientData();
+    $this->assertTrue(empty($sent['Oa4mpClientCoOidcClient']['named_config_id']),
+      'the OA4MP server was not sent the posted Named configuration');
+    $stored = $this->addedClient();
+    $this->assertEqual(0, $this->fx->count('cm_oa4mp_client_co_oidc_clients',
+      'id = ' . (int)($stored['id'] ?? 0) . ' AND named_config_id IS NOT NULL'),
+      'the new client has no Named configuration');
   }
 
   // ==========================================================================

@@ -62,6 +62,104 @@ class Oa4mpClientCoCallbacksController extends StandardController {
   }
 
   /**
+   * Require that a callback id names one of the client's own callbacks.
+   *
+   * edit() and delete() take the callback id from the URL, and only the
+   * client in the URL was authorized, so an id naming another client's
+   * callback is refused before anything is sent to the OA4MP server
+   * (cilogon/Oa4mpClient#65). The refusal is logged, flashed, and redirected
+   * to the callbacks index.
+   *
+   * @param  array   $client   The stored client, as current() returns it
+   * @param  integer $clientId The client id from the URL
+   * @param  mixed   $id       The callback id from the URL
+   * @return array   The stored callback
+   */
+
+  private function _requireClientCallback($client, $clientId, $id) {
+    if(is_scalar($id) && !empty($client['Oa4mpClientCoCallback'])) {
+      foreach($client['Oa4mpClientCoCallback'] as $c) {
+        if((string)$c['id'] === (string)$id) {
+          return $c;
+        }
+      }
+    }
+
+    $this->log("Oa4mpClient: refused callback id " . $this->_postedIdForLog($id)
+               . " in " . $this->name . "::" . $this->action
+               . ", not a callback of OIDC client " . $client['Oa4mpClientCoOidcClient']['id']);
+
+    $this->Flash->set(_txt('pl.oa4mp_client_co_callback.er.not_client_callback'), array('key' => 'error'));
+
+    $args = array();
+    $args['plugin'] = 'oa4mp_client';
+    $args['controller'] = 'oa4mp_client_co_callbacks';
+    $args['action'] = 'index';
+    $args['clientid'] = $clientId;
+
+    $this->redirect($args);
+  }
+
+  /**
+   * Rebuild a posted callback around the stored client.
+   *
+   * The form carries the callback id and client id as hidden fields, and
+   * save() writes whatever row its data names, so a hand-built post could
+   * change another client's callback or attach one to another client
+   * (cilogon/Oa4mpClient#65). The client id comes from the URL's client, the
+   * callback id from the stored callback on edit and none on add, and only
+   * the URL is taken from the post. The result is both sent to the OA4MP
+   * server and saved, so the two match. A mismatched posted id is logged.
+   *
+   * @param  array      $client         The stored client, as current() returns it
+   * @param  array      $posted         The posted request data
+   * @param  array|null $storedCallback The stored callback being edited, or null on add
+   * @return array      The data the action validates, sends and saves
+   */
+
+  protected function callbackDataForStoredClient($client, $posted, $storedCallback = null) {
+    $clientId = $client['Oa4mpClientCoOidcClient']['id'];
+
+    $postedCallback = (isset($posted['Oa4mpClientCoCallback']) && is_array($posted['Oa4mpClientCoCallback']))
+                      ? $posted['Oa4mpClientCoCallback']
+                      : array();
+
+    $storedId = ($storedCallback === null) ? null : $storedCallback['id'];
+    if(isset($postedCallback['id']) && $postedCallback['id'] !== '' && (string)$postedCallback['id'] !== (string)$storedId) {
+      $this->log("Oa4mpClient: a callback " . $this->action . " for OIDC client " . $clientId
+                 . " posted callback id " . $this->_postedIdForLog($postedCallback['id'])
+                 . "; the stored identifiers were used instead");
+    }
+    if(isset($postedCallback['client_id']) && (string)$postedCallback['client_id'] !== (string)$clientId) {
+      $this->log("Oa4mpClient: a callback " . $this->action . " for OIDC client " . $clientId
+                 . " posted client id " . $this->_postedIdForLog($postedCallback['client_id'])
+                 . "; the client in the URL was used instead");
+    }
+
+    $callback = array('client_id' => $clientId);
+    if($storedId !== null) {
+      $callback['id'] = $storedId;
+    }
+    if(array_key_exists('url', $postedCallback)) {
+      $callback['url'] = $postedCallback['url'];
+    }
+
+    return array('Oa4mpClientCoCallback' => $callback);
+  }
+
+  /**
+   * Render an id taken from a request for a log line, without echoing
+   * arbitrary input.
+   *
+   * @param  mixed  $id The id from the request
+   * @return string The id, or a placeholder when it is not a plain integer
+   */
+
+  private function _postedIdForLog($id) {
+    return (is_int($id) || (is_string($id) && ctype_digit($id))) ? (string)$id : '(not an id)';
+  }
+
+  /**
    * Add a callback.
    *
    * @since  COmanage Registry v4.4.2
@@ -80,6 +178,8 @@ class Oa4mpClientCoCallbacksController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
+      // Only the URL is taken from the post; the client is the one in the URL.
+      $this->request->data = $this->callbackDataForStoredClient($client, $this->request->data);
 
       if(!$this->_validatePostedCallback()) {
         // Set flash and fall through to the GET logic, which renders the form
@@ -183,6 +283,10 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // Only the client in the URL was authorized, so the callback must be one
+    // of its own (cilogon/Oa4mpClient#65).
+    $this->_requireClientCallback($client, $clientId, $id);
+
     $oa4mpServer = $this->_oa4mpServer();
 
     $newClient = $client;
@@ -241,8 +345,15 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // Only the client in the URL was authorized, so the callback must be one
+    // of its own (cilogon/Oa4mpClient#65).
+    $storedCallback = $this->_requireClientCallback($client, $clientId, $id);
+
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
+      // Only the URL is taken from the post; the ids are the stored ones.
+      $this->request->data = $this->callbackDataForStoredClient($client, $this->request->data, $storedCallback);
+
       if(!$this->_validatePostedCallback()) {
         // Set flash and fall through to the GET logic, which renders the form
         // again with the validation error. Nothing was sent to the server.
