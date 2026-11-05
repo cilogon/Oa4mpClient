@@ -162,9 +162,11 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
         "this control is not disabled while a Named configuration is applied: $line");
     }
 
-    $this->assertContains("\$readOnly = \$is_named_config ? array('disabled' => true) : array();", $source,
+    $this->assertContains('$is_read_only = $is_public_client || $is_named_config;', $source,
+      'a Named configuration makes the form read-only');
+    $this->assertContains("\$readOnly = \$is_read_only ? array('disabled' => true) : array();", $source,
       'the read-only options disable the control');
-    $this->assertTrue((bool)preg_match('/<\?php if\(!\$is_named_config\): \?>\s*<li class="fields-submit">/', $source),
+    $this->assertTrue((bool)preg_match('/<\?php if\(!\$is_read_only\): \?>\s*<li class="fields-submit">/', $source),
       'the submit block is left out while a Named configuration is applied');
     $this->assertTrue((bool)preg_match('/<\?php else: \?>\s*<script type="text\/javascript">\s*function js_local_onload\(\)/', $source),
       'the hide-and-clear script runs only when no Named configuration is applied');

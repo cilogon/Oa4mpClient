@@ -156,4 +156,113 @@ class SyncOptionalSectionsTest extends Oa4mpTestCase {
     $this->assertFalse($this->server()->isClientDataSynchronized($cur, $server),
       'a server access token configuration the plugin does not have is drift');
   }
+
+  /**
+   * A public client with a saved access token and authorization configuration,
+   * and the server copy of it: public, and with neither section, because a
+   * public client is sent no cfg and those settings live only in the cfg.
+   */
+  private function publicClientPair() {
+    $cur = $this->minimalData();
+    $cur['Oa4mpClientCoOidcClient']['public_client'] = true;
+    $cur['Oa4mpClientAccessToken'] = array('is_jwt' => true);
+    $cur['Oa4mpClientAuthorization'] = array(
+      'id' => 5,
+      'require_active' => true,
+      'authz_co_group_id' => 7,
+      'authz_group_redirect_url' => 'https://example.org/not-in-group',
+      'require_active_redirect_url' => 'https://example.org/inactive',
+      'no_record_redirect_url' => 'https://example.org/enroll'
+    );
+
+    $server = $this->minimalData();
+    $server['Oa4mpClientCoOidcClient']['public_client'] = true;
+
+    return array($cur, $server);
+  }
+
+  /**
+   * cilogon/Oa4mpClient#47. A public client saved with JWT Format on reads in
+   * sync with a server copy that has no access token section. The JWT setting
+   * is never sent, so the server can never have it, and reading the absence
+   * as drift blocked every later edit of the client.
+   */
+  public function testPublicClientJwtAccessTokenReadsInSyncWithoutAServerSection() {
+    list($cur, $server) = $this->publicClientPair();
+    unset($cur['Oa4mpClientAuthorization']);
+
+    list($synchronized, $warnings) = $this->captureWarnings(
+      function() use ($cur, $server) {
+        return $this->server()->isClientDataSynchronized($cur, $server);
+      });
+
+    $this->assertTrue($synchronized,
+      'a public client\'s JWT setting is never sent, so its absence on the server is not drift');
+    $this->assertEqual(array(), $warnings, 'and it must stay silent');
+  }
+
+  /**
+   * cilogon/Oa4mpClient#47. A public client saved with Require Active Status
+   * and an Authorized User Group reads in sync with a server copy that has no
+   * authorization, for the same reason.
+   */
+  public function testPublicClientRequireActiveAuthorizationReadsInSyncWithoutAServerAuthorization() {
+    list($cur, $server) = $this->publicClientPair();
+    unset($cur['Oa4mpClientAccessToken']);
+
+    list($synchronized, $warnings) = $this->captureWarnings(
+      function() use ($cur, $server) {
+        return $this->server()->isClientDataSynchronized($cur, $server);
+      });
+
+    $this->assertTrue($synchronized,
+      'a public client\'s authorization settings are never sent, so their absence on the server is not drift');
+    $this->assertEqual(array(), $warnings, 'and it must stay silent');
+  }
+
+  /**
+   * The control for the two above: a confidential client is sent its cfg, so
+   * a JWT setting the server does not have is still drift.
+   */
+  public function testConfidentialClientJwtAccessTokenStillReadsOutOfSyncWithoutAServerSection() {
+    list($cur, $server) = $this->publicClientPair();
+    unset($cur['Oa4mpClientAuthorization']);
+    $cur['Oa4mpClientCoOidcClient']['public_client'] = false;
+    $server['Oa4mpClientCoOidcClient']['public_client'] = false;
+
+    $this->assertFalse($this->server()->isClientDataSynchronized($cur, $server),
+      'a confidential client\'s JWT setting missing on the server is drift');
+  }
+
+  /** And a Require Active Status the server does not have is still drift. */
+  public function testConfidentialClientRequireActiveStillReadsOutOfSyncWithoutAServerAuthorization() {
+    list($cur, $server) = $this->publicClientPair();
+    unset($cur['Oa4mpClientAccessToken']);
+    $cur['Oa4mpClientCoOidcClient']['public_client'] = false;
+    $server['Oa4mpClientCoOidcClient']['public_client'] = false;
+
+    $this->assertFalse($this->server()->isClientDataSynchronized($cur, $server),
+      'a confidential client\'s Require Active Status missing on the server is drift');
+  }
+
+  /**
+   * Only the cfg-borne settings are skipped for a public client. A client
+   * type that differs between the two sides is still drift.
+   */
+  public function testPublicClientWhosePublicFlagDiffersStillReadsOutOfSync() {
+    list($cur, $server) = $this->publicClientPair();
+    $server['Oa4mpClientCoOidcClient']['public_client'] = false;
+
+    $this->assertFalse($this->server()->isClientDataSynchronized($cur, $server),
+      'a public client the server holds as confidential is drift');
+  }
+
+  /** So are callbacks that differ. */
+  public function testPublicClientWhoseCallbacksDifferStillReadsOutOfSync() {
+    list($cur, $server) = $this->publicClientPair();
+    $server['Oa4mpClientCoCallback'] = array(array('url' => 'https://example.org/elsewhere'));
+
+    $this->assertFalse($this->server()->isClientDataSynchronized($cur, $server),
+      'a public client whose callbacks differ on the server is drift');
+  }
 }
