@@ -23,8 +23,7 @@ tags: [authorization, mass-assignment, saveassociated, hidden-fields, oidc-clien
 cilogon/Oa4mpClient#53. `Oa4mpClientCoOidcClientsController::edit($id)`
 authorized and loaded the client named in the URL, and sent OA4MP that client
 with the posted name, home URL and contact email. It then saved with
-`saveAssociated($this->request->data)`. Fixed on branch
-`fix/oidc-edit-stored-identifiers`; the merge is pending.
+`saveAssociated($this->request->data)`. Fixed by cilogon/Oa4mpClient#64.
 
 ## Root cause
 
@@ -74,12 +73,14 @@ Tests: the forged-identifier tests in the OIDC client edit section of
 - Still open with the same shape when this was written: OIDC client `add()`
   (posted data flows through `newClientData()` into `saveAssociated()`), the
   callback edit (route client sent to OA4MP, posted data saved), and claim
-  delete not scoped to the URL's client (cilogon/Oa4mpClient#56).
+  delete not scoped to the URL's client (cilogon/Oa4mpClient#56). The add and
+  callback paths are tracked in cilogon/Oa4mpClient#65.
 
 ## Related Issues
 
-- cilogon/Oa4mpClient#53 (issue of record)
+- cilogon/Oa4mpClient#53 (issue of record), fixed by cilogon/Oa4mpClient#64
 - cilogon/Oa4mpClient#56 -- claim delete not limited to the client in the URL
+- cilogon/Oa4mpClient#65 -- OIDC client add and callback add/edit, the same pattern
 - `docs/solutions/logic-errors/oa4mp-url-whitespace-server-first-write-drift-2026-11-02.md`
   -- the same edit path, and why the server and the Registry must store the
   same values.
