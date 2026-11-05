@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Make claim add, edit and delete act only on the client in the URL and its
+  own claims (cilogon/Oa4mpClient#56). Delete and edit took the claim id from
+  the URL without checking it was one of the client's claims, and add and
+  edit saved the claim, client and constraint ids carried in the form, so a
+  hand-built request could delete or change another client's claims,
+  including a Named-configuration client's retained claims, leaving it out of
+  sync.
 - Accept only the groups the Access Control tab lists as a client's editor
   group (cilogon/Oa4mpClient#54). The tab checked only that the posted group
   id was a number and saved the access control row the form named, so a

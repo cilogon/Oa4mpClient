@@ -119,6 +119,194 @@ class Oa4mpClientClaimsController extends StandardController {
   }
 
   /**
+   * Return the client's own claim with the given id, or redirect to the
+   * claims index with an error when the id is not one of the client's claims.
+   *
+   * Authorization covers the client in the URL, not the claim id in the
+   * route, so without this a request could edit or delete another client's
+   * claim through a client it may manage (cilogon/Oa4mpClient#56).
+   *
+   * @param  array   $client   Current client data (with Oa4mpClientClaim)
+   * @param  integer $clientId Oa4mpClientCoOidcClient ID
+   * @param  mixed   $id       Oa4mpClientClaim ID from the route
+   * @return array   The stored claim, with its Oa4mpClientClaimConstraint rows
+   */
+
+  private function _requireClientClaim($client, $clientId, $id) {
+    if(is_scalar($id) && !empty($client['Oa4mpClientClaim'])) {
+      foreach($client['Oa4mpClientClaim'] as $c) {
+        if((string)$c['id'] === (string)$id) {
+          return $c;
+        }
+      }
+    }
+
+    $this->log("Oa4mpClient: refused claim id " . $this->_postedIdForLog($id)
+               . " in " . $this->name . "::" . $this->action
+               . ", not a claim of OIDC client " . $client['Oa4mpClientCoOidcClient']['id']);
+
+    $this->Flash->set(_txt('pl.oa4mp_client_claim.er.not_client_claim'), array('key' => 'error'));
+
+    $args = array();
+    $args['plugin'] = 'oa4mp_client';
+    $args['controller'] = 'oa4mp_client_claims';
+    $args['action'] = 'index';
+    $args['clientid'] = $clientId;
+
+    $this->redirect($args);
+  }
+
+  /**
+   * Rebuild a posted claim and its constraints around the stored client.
+   *
+   * The form carries the claim id, its client id and the constraint ids as
+   * hidden fields, and saveAssociated() writes whatever rows its data names,
+   * so a hand-built post could change or move another client's claim or
+   * constraint (cilogon/Oa4mpClient#56). The ids come from the stored client
+   * and claim and only the editable fields are taken from the post. The
+   * result is both sent to the OA4MP server and saved, so the two match.
+   *
+   * @param  array      $client      The stored client, as current() returns it
+   * @param  array      $posted      The posted request data
+   * @param  array|null $storedClaim The stored claim being edited, or null on add
+   * @return array      The data the action sends and saves
+   */
+
+  protected function claimDataForStoredClient($client, $posted, $storedClaim = null) {
+    $clientId = $client['Oa4mpClientCoOidcClient']['id'];
+    $claimId = ($storedClaim === null) ? null : $storedClaim['id'];
+
+    $postedClaim = (isset($posted['Oa4mpClientClaim']) && is_array($posted['Oa4mpClientClaim']))
+                   ? $posted['Oa4mpClientClaim']
+                   : array();
+    $postedConstraints = (isset($posted['Oa4mpClientClaimConstraint']) && is_array($posted['Oa4mpClientClaimConstraint']))
+                         ? $posted['Oa4mpClientClaimConstraint']
+                         : array();
+
+    // Ids posted that did not belong to this client or claim, for the log.
+    $foreign = array();
+
+    $claim = array();
+
+    // On add there is no id, so the save inserts a new claim.
+    if($claimId !== null) {
+      $claim['id'] = $claimId;
+    }
+    $claim['client_id'] = $clientId;
+
+    if(!$this->_postedIdMatches($postedClaim, 'id', $claimId)) {
+      $foreign[] = "claim id " . $this->_postedIdForLog($postedClaim['id']);
+    }
+    if(!$this->_postedIdMatches($postedClaim, 'client_id', $clientId)) {
+      $foreign[] = "client id " . $this->_postedIdForLog($postedClaim['client_id']);
+    }
+
+    $claimFields = array(
+      'claim_name',
+      'source_model',
+      'source_model_claim_value_field',
+      'claim_value_selection',
+      'claim_value_json_format',
+      'claim_multiple_value_serialization',
+      'claim_value_string_serialization_delimiter'
+    );
+
+    foreach($claimFields as $f) {
+      if(array_key_exists($f, $postedClaim)) {
+        $claim[$f] = $postedClaim[$f];
+      }
+    }
+
+    $storedConstraintIds = array();
+    if(!empty($storedClaim['Oa4mpClientClaimConstraint'])) {
+      foreach($storedClaim['Oa4mpClientClaimConstraint'] as $sc) {
+        $storedConstraintIds[] = (string)$sc['id'];
+      }
+    }
+
+    // Keys are kept: the form posts constraints at fixed indexes.
+    $constraints = array();
+
+    foreach($postedConstraints as $k => $pc) {
+      if(!is_array($pc)) {
+        continue;
+      }
+
+      $constraint = array();
+
+      // A posted constraint id is kept only when it is one of the edited
+      // claim's own constraints; otherwise the save adds a new constraint.
+      if(isset($pc['id']) && $pc['id'] !== '') {
+        if(is_scalar($pc['id']) && in_array((string)$pc['id'], $storedConstraintIds, true)) {
+          $constraint['id'] = $pc['id'];
+        } else {
+          $foreign[] = "constraint id " . $this->_postedIdForLog($pc['id']);
+        }
+      }
+
+      if(array_key_exists('claim_id', $pc)) {
+        if(!$this->_postedIdMatches($pc, 'claim_id', $claimId)) {
+          $foreign[] = "constraint claim id " . $this->_postedIdForLog($pc['claim_id']);
+        }
+        // On add saveAssociated() sets it to the new claim's id.
+        if($claimId !== null) {
+          $constraint['claim_id'] = $claimId;
+        }
+      }
+
+      foreach(array('constraint_field', 'constraint_value') as $f) {
+        if(array_key_exists($f, $pc)) {
+          $constraint[$f] = $pc[$f];
+        }
+      }
+
+      $constraints[$k] = $constraint;
+    }
+
+    if(!empty($foreign)) {
+      $this->log("Oa4mpClient: ignored posted " . implode(", ", $foreign)
+                 . " in " . $this->name . "::" . $this->action
+                 . " for OIDC client " . $clientId
+                 . ($claimId === null ? "" : " claim " . $claimId));
+    }
+
+    return array(
+      'Oa4mpClientClaim' => $claim,
+      'Oa4mpClientClaimConstraint' => $constraints
+    );
+  }
+
+  /**
+   * Whether a posted id is absent, blank, or equal to the expected id.
+   *
+   * @param  array $posted   Posted row
+   * @param  string $key     Key of the id in the row
+   * @param  mixed $expected The id the row must carry, or null for none
+   * @return boolean True if the posted id does not name some other row
+   */
+
+  private function _postedIdMatches($posted, $key, $expected) {
+    if(!isset($posted[$key]) || $posted[$key] === '') {
+      return true;
+    }
+
+    return $expected !== null
+           && is_scalar($posted[$key])
+           && (string)$posted[$key] === (string)$expected;
+  }
+
+  /**
+   * An id from the request as it may be written to the log.
+   *
+   * @param  mixed $id Posted or route id
+   * @return string The id, or a placeholder for a value that is not an id
+   */
+
+  private function _postedIdForLog($id) {
+    return (is_int($id) || (is_string($id) && ctype_digit($id))) ? (string)$id : '(not an id)';
+  }
+
+  /**
    * Add a claim.
    *
    * @since  COmanage Registry v4.4.2
@@ -143,6 +331,10 @@ class Oa4mpClientClaimsController extends StandardController {
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
+      // Send and save only a new claim of this client, whatever ids the post
+      // carries (cilogon/Oa4mpClient#56).
+      $this->request->data = $this->claimDataForStoredClient($client, $this->request->data);
+
       $claims = $client['Oa4mpClientClaim'];
 
       $newClaim = $this->request->data['Oa4mpClientClaim'];
@@ -317,6 +509,11 @@ class Oa4mpClientClaimsController extends StandardController {
     // Nor can a client while a Named configuration supplies its claims.
     $this->_blockIfNamedConfigClient($client, $clientId);
 
+    // Only one of this client's own claims may be deleted through its URL.
+    // Without this the server was sent this client's claims unchanged and
+    // then another client's claim was deleted (cilogon/Oa4mpClient#56).
+    $this->_requireClientClaim($client, $clientId, $id);
+
     $oa4mpServer = $this->_oa4mpServer();
 
     $newClient = $client;
@@ -414,8 +611,16 @@ class Oa4mpClientClaimsController extends StandardController {
     // Nor can a client while a Named configuration supplies its claims.
     $this->_blockIfNamedConfigClient($client, $clientId);
 
+    // Only one of this client's own claims may be edited through its URL
+    // (cilogon/Oa4mpClient#56).
+    $storedClaim = $this->_requireClientClaim($client, $clientId, $id);
+
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
+      // Send and save only this claim and its own constraints, whatever ids
+      // the post carries (cilogon/Oa4mpClient#56).
+      $this->request->data = $this->claimDataForStoredClient($client, $this->request->data, $storedClaim);
+
       $newClient = $client;
 
       foreach($client['Oa4mpClientClaim'] as $i => $c) {

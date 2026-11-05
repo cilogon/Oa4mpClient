@@ -294,6 +294,46 @@ class Oa4mpClaimsControllerHarness extends Oa4mpClientClaimsController {
   }
 
   /**
+   * Replace this harness' claim model with one whose $method write returns
+   * false while everything else behaves as the real model, so a test can
+   * force "the server accepted the change, then the Registry write failed"
+   * on a claim the client really owns.
+   *
+   * Only this harness' own reference is replaced, and the harness is built
+   * fresh for each test, so nothing needs restoring. The failing subclass
+   * lives in Oa4mpWritePathHarnesses.php with the trait it uses; that file
+   * loads after this one, so the class is named only when this is called.
+   *
+   * @param  string $method 'save', 'saveAssociated', 'saveField' or 'delete'
+   * @return Model  The installed replacement
+   */
+  public function harnessFailWrites($method) {
+    if (!in_array($method, array('save', 'saveAssociated', 'saveField', 'delete'), true)) {
+      throw new InvalidArgumentException("harnessFailWrites: unsupported write method '$method'");
+    }
+
+    $real = $this->Oa4mpClientClaim;
+    $failing = new Oa4mpHarnessFailingOa4mpClientClaim(array(
+      'alias' => $real->alias,
+      'plugin' => $real->plugin,
+      'table' => $real->useTable,
+      'ds' => $real->useDbConfig
+    ));
+
+    // Keep the failing model out of the registry so it cannot leak into a
+    // later test; see Oa4mpWritePathHarnessTrait::harnessFailWrites().
+    if (ClassRegistry::getObject($real->alias) === $failing) {
+      ClassRegistry::removeObject($real->alias);
+      ClassRegistry::addObject($real->alias, $real);
+    }
+
+    $failing->harnessFailOn = $method;
+    $this->Oa4mpClientClaim = $failing;
+
+    return $failing;
+  }
+
+  /**
    * Return the fake instead of a real Oa4mpClientOa4mpServer. This is the
    * whole point of the production factory.
    */
