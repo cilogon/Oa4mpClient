@@ -1242,6 +1242,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'the OA4MP server was sent the posted name');
     $this->assertTrue(!empty($sent['Oa4mpClientAuthorization']['require_active']),
       'the OA4MP server was sent Require Active Status');
+    $this->assertEqual(array(array('scope' => 'openid')), $sent['Oa4mpClientCoScope'] ?? null,
+      'the OA4MP server was sent the openid scope only');
     $this->assertFalse(isset($sent['Oa4mpClientCoOidcClient']['proxy_limited']),
       'the check ran on a copy, so the create request is built as before');
     $this->assertNull($redirect, 'the action did not redirect');
@@ -1256,6 +1258,9 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_authorizations',
       'client_id = ' . (int)$stored['id'] . ' AND require_active = true'),
       'the stored client requires Active Status');
+    $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_co_scopes',
+      'client_id = ' . (int)$stored['id'] . " AND scope = 'openid'"),
+      'the stored client has the openid scope');
     $this->assertEqual(self::ADMIN_ACCESS_KEY, $this->fx->scalar('SELECT aws_access_key_id FROM cm_oa4mp_client_dynamo_configs'
       . ' WHERE client_id = ' . (int)$stored['id']),
       'the stored client has the admin client\'s default DynamoDB configuration');

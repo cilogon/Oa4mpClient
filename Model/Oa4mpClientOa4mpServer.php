@@ -796,6 +796,46 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * The settings a newly created OIDC client starts with.
+   *
+   * Client creation and removing a Named configuration from a client both
+   * start from these, so a client reset after its Named configuration is
+   * removed gets exactly what a new client gets (cilogon/Oa4mpClient#58).
+   *
+   * @param array   $defaultDynamoConfig The admin client's DefaultDynamoConfig row
+   * @param boolean $publicClient        Whether the client is a public client
+   * @return array Association data keyed by model: Oa4mpClientCoScope,
+   *               Oa4mpClientDynamoConfig and, for a confidential client only,
+   *               Oa4mpClientAuthorization
+   */
+
+  function newClientDefaults($defaultDynamoConfig, $publicClient) {
+    $defaults = array();
+
+    // The only scope set initially is openid. OA4MP does not require this,
+    // but without the openid scope set we cannot determine from what OA4MP
+    // returns whether or not the client is a public client. We can only
+    // infer it and that inference requires at least the openid scope be set.
+    $defaults['Oa4mpClientCoScope'] = array(
+      array('scope' => Oa4mpClientScopeEnum::OpenId)
+    );
+
+    // The DynamoDB configuration starts as a copy of the admin client's
+    // default, so the copy is saved as the client's own row.
+    $defaults['Oa4mpClientDynamoConfig'] = $defaultDynamoConfig;
+    unset($defaults['Oa4mpClientDynamoConfig']['id']);
+    unset($defaults['Oa4mpClientDynamoConfig']['admin_id']);
+
+    // A confidential client requires Active Status from creation. A public
+    // client cannot carry a cfg, so it gets no authorization row.
+    if(!$publicClient) {
+      $defaults['Oa4mpClientAuthorization'] = array('require_active' => true);
+    }
+
+    return $defaults;
+  }
+
+  /**
    * Build the data for a new OIDC client from the posted Add form data.
    *
    * Returns the data to save with saveAssociated() and a copy to marshal for
@@ -809,17 +849,15 @@ class Oa4mpClientOa4mpServer extends AppModel {
   function newClientData($adminClient, $data) {
     $saveData = $data;
 
-    // The DynamoDB configuration starts as the admin client's default.
-    $saveData['Oa4mpClientDynamoConfig'] = $adminClient['DefaultDynamoConfig'];
-    unset($saveData['Oa4mpClientDynamoConfig']['id']);
-    unset($saveData['Oa4mpClientDynamoConfig']['admin_id']);
+    $defaults = $this->newClientDefaults($adminClient['DefaultDynamoConfig'], $this->isPublicClient($data));
 
-    // A confidential client requires Active Status from creation. A public
-    // client cannot carry a cfg, so it gets no authorization row.
+    $saveData['Oa4mpClientCoScope'] = $defaults['Oa4mpClientCoScope'];
+    $saveData['Oa4mpClientDynamoConfig'] = $defaults['Oa4mpClientDynamoConfig'];
+
     unset($saveData['Oa4mpClientAuthorization']);
 
-    if(!$this->isPublicClient($data)) {
-      $saveData['Oa4mpClientAuthorization'] = array('require_active' => true);
+    if(isset($defaults['Oa4mpClientAuthorization'])) {
+      $saveData['Oa4mpClientAuthorization'] = $defaults['Oa4mpClientAuthorization'];
     }
 
     // Marshall from the shape a later edit marshalls from (current()): with

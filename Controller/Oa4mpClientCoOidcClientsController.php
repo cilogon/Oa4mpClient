@@ -133,17 +133,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $data['Oa4mpClientCoOidcClient']['home_url'] = trim($data['Oa4mpClientCoOidcClient']['home_url']);
       }
 
-      // For all new clients the only scope set initially is openid. OA4MP does
-      // not require this, but without the openid scope set we cannot determine
-      // from what OA4MP returns whether or not the client is a public client.
-      // We can only infer it and that inference requires at least the 
-      // openid scope be set.
-      $data['Oa4mpClientCoScope'] = array();
-      $data['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::OpenId;
-
-      // Build the data to save and the data to send to the Oa4mp server. A
-      // confidential client requires Active Status from creation, and its
-      // DynamoDB configuration starts as the admin client's default.
+      // Build the data to save and the data to send to the Oa4mp server. The
+      // new client starts with the new-client defaults: the openid scope only,
+      // Require Active Status for a confidential client, and a copy of the
+      // admin client's default DynamoDB configuration.
       $oa4mpServer = $this->_oa4mpServer();
       list($saveData, $marshallData) = $oa4mpServer->newClientData($adminClient, $data);
 

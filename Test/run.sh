@@ -157,6 +157,15 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 472 to 481 on 2026-11-05 for the new-client defaults and the
+# Named configuration leftover prune (cilogon/Oa4mpClient#58), which added nine
+# (475 -> 484) in Test/Case/Model/NamedConfigLeftoverPruneTest.php: the prune
+# deleting every replaced row but the access token, leaving a client with no
+# Named configuration, a public client, another client and the Named
+# configuration's own scopes alone, and reporting a failed claim delete after
+# the LDAP rows are gone; and the new-client defaults for a confidential and a
+# public client, and newClientData() taking the openid scope from them.
+#
 # Raised from 462 to 472 on 2026-11-05 for OIDC client add and the callbacks
 # tab acting only on the client in the URL (cilogon/Oa4mpClient#65), which
 # added ten (465 -> 475): Test/Case/Controller/CallbackStoredIdsTest.php
@@ -505,7 +514,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=472
+min_tests_run=481
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
