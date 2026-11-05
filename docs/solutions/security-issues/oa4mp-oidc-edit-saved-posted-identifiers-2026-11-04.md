@@ -13,6 +13,7 @@ symptoms:
 root_cause: missing_validation
 resolution_type: code_fix
 severity: high
+last_updated: 2026-11-05
 tags: [authorization, mass-assignment, saveassociated, hidden-fields, oidc-client, out-of-sync, cakephp]
 ---
 
@@ -70,6 +71,14 @@ Tests: the forged-identifier tests in the OIDC client edit section of
   identifiers and the editable fields only, or pass a `fieldList` and set the
   id yourself.
 - Treat every hidden field, especially ids and foreign keys, as untrusted.
+- A choice list a form renders is not a server-side check either. The Access
+  Control tab offered only active groups in the client's CO, and for a
+  delegated editor only groups they belong to, but saved any numeric group
+  id, so a hand-built request could hand the client's editing to another
+  CO's group; it also saved the row its posted hidden ids named
+  (cilogon/Oa4mpClient#54, fixed on branch `fix/access-control-group-choice`;
+  the merge is pending). Check a posted choice against the same list the page
+  offered, and take row ids from the stored record.
 - Still open with the same shape when this was written: OIDC client `add()`
   (posted data flows through `newClientData()` into `saveAssociated()`), the
   callback edit (route client sent to OA4MP, posted data saved), and claim
@@ -81,6 +90,7 @@ Tests: the forged-identifier tests in the OIDC client edit section of
 - cilogon/Oa4mpClient#53 (issue of record), fixed by cilogon/Oa4mpClient#64
 - cilogon/Oa4mpClient#56 -- claim delete not limited to the client in the URL
 - cilogon/Oa4mpClient#65 -- OIDC client add and callback add/edit, the same pattern
+- cilogon/Oa4mpClient#54 -- the Access Control tab, an unchecked choice list plus the same posted-id pattern
 - `docs/solutions/logic-errors/oa4mp-url-whitespace-server-first-write-drift-2026-11-02.md`
   -- the same edit path, and why the server and the Registry must store the
   same values.

@@ -515,6 +515,9 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_access_control.fd.co_group_id.desc'         => 'Group whose members may edit this OIDC client configuration. Default is CO admins and delegated client managers',
   'pl.oa4mp_client_access_control.fd.co_group_id.select.empty' => '-- Select Group (or leave for no group) --',
 
+  // Error messages
+  'pl.oa4mp_client_access_control.er.co_group_id.offered' => 'Choose one of the groups listed',
+
   // Flash messages
   'pl.oa4mp_client_access_control.manage.flash.success' => 'Editor configuration updated',
   'pl.oa4mp_client_access_control.er.edit.save'         => 'The editor configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the editor configuration again. To bring them back into agreement, restore the editor configuration on the OA4MP server to the values Registry still holds.',

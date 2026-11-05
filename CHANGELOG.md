@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Accept only the groups the Access Control tab lists as a client's editor
+  group (cilogon/Oa4mpClient#54). The tab checked only that the posted group
+  id was a number and saved the access control row the form named, so a
+  hand-built request could hand a client's editing to any group, including
+  another CO's, or change another client's editor group.
 - Save only the client being edited, and its own contact email, when an OIDC
   client is edited (cilogon/Oa4mpClient#53). The save used the client and
   contact email ids carried in the form, so a hand-built request could rename

@@ -120,6 +120,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     if ($this->otherClientId !== null) {
       $this->fx->query('DELETE FROM cm_oa4mp_client_co_email_addresses WHERE client_id = '
         . (int)$this->otherClientId);
+      $this->fx->query('DELETE FROM cm_oa4mp_client_access_controls WHERE client_id = '
+        . (int)$this->otherClientId);
     }
 
     $purge = array();
@@ -322,6 +324,116 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'the form re-renders with the rejected input');
     $this->assertEqual($this->clientId, (int)$harness->request->data['Oa4mpClientCoOidcClient']['id'],
       'the form still has the client the manage view reads');
+  }
+
+  /**
+   * A group of another CO is refused before the server is touched, so a
+   * hand-built request cannot hand the client's editing to that group.
+   */
+  public function testAccessControlGroupOfAnotherCoIsRefused() {
+    $otherCo = $this->fx->co('other ' . $this->oidcClientName);
+    $otherGroup = $this->fx->group($otherCo, 'other editors ' . $this->oidcClientName);
+
+    $this->assertAccessControlGroupRefused((string)$otherGroup);
+  }
+
+  /** A suspended group of the client's own CO is not offered, so it is refused. */
+  public function testAccessControlSuspendedGroupIsRefused() {
+    $suspended = $this->fx->group($this->coId, 'suspended ' . $this->oidcClientName, array('status' => 'S'));
+
+    $this->assertAccessControlGroupRefused((string)$suspended);
+  }
+
+  /** A group id that names no group is refused. */
+  public function testAccessControlNonexistentGroupIsRefused() {
+    $missing = (int)$this->fx->scalar('SELECT COALESCE(MAX(id), 0) + 1000 AS id FROM cm_co_groups');
+
+    $this->assertAccessControlGroupRefused((string)$missing);
+  }
+
+  /**
+   * An editor who is not an administrator is offered only their own groups,
+   * so a group of the CO they are not a member of is refused.
+   */
+  public function testAccessControlEditorIsRefusedAGroupTheyAreNotIn() {
+    $personId = $this->fx->person($this->coId);
+    $this->fx->member($this->groupId, $personId);
+    $notTheirs = $this->fx->group($this->coId, 'not theirs ' . $this->oidcClientName);
+
+    $this->assertAccessControlGroupRefused((string)$notTheirs, $personId);
+  }
+
+  /** An editor who is not an administrator may choose a group they are in. */
+  public function testAccessControlEditorMayChooseAGroupTheyAreIn() {
+    $personId = $this->fx->person($this->coId);
+    $this->fx->member($this->groupId, $personId);
+
+    $harness = Oa4mpAccessControlsControllerHarness::build($this->clientId, $this->coId,
+      $this->accessControlPost((string)$this->groupId))->harnessAsMember($personId);
+
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+    $sent = $harness->harnessServer->lastEditData();
+    $this->assertEqual((string)$this->groupId, $sent['Oa4mpClientAccessControl']['co_group_id'] ?? null,
+      'the OA4MP server was sent the posted group');
+    $this->assertEqual($this->groupId, $this->storedEditorGroup(), 'the plugin stored the same group');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_access_control.manage.flash.success'), 'success'),
+      'success was reported');
+    $this->assertEqual('manage', $redirect['action'] ?? null, 'the action redirected to the manage view');
+  }
+
+  /**
+   * A post naming another client's access control row by id and client id
+   * leaves that row alone and saves the row of the client in the URL.
+   */
+  public function testAccessControlForgedRowIdsSaveOnlyThisClientsRow() {
+    $otherId = $this->seedOtherClient();
+    $otherRow = $this->fx->insert('cm_oa4mp_client_access_controls', array(
+      'client_id' => $otherId,
+      'co_group_id' => null
+    ));
+
+    $post = $this->accessControlPost((string)$this->groupId);
+    $post['Oa4mpClientAccessControl']['id'] = $otherRow;
+    $post['Oa4mpClientAccessControl']['client_id'] = $otherId;
+
+    $harness = Oa4mpAccessControlsControllerHarness::build($this->clientId, $this->coId, $post);
+
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+    $this->assertEqual(array($otherId, null), $this->accessControlRow($otherRow),
+      'the other client\'s row kept its client and group');
+    $this->assertEqual($this->groupId, $this->storedEditorGroup(), 'this client\'s row got the group');
+    $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_access_controls', 'client_id = ' . (int)$this->clientId),
+      'this client still has one access control row');
+    $this->assertEqual('manage', $redirect['action'] ?? null, 'the action redirected to the manage view');
+  }
+
+  /**
+   * With no stored access control row, a post naming another client's row
+   * creates one for the client in the URL instead.
+   */
+  public function testAccessControlForgedRowIdWithNoStoredRowCreatesThisClientsRow() {
+    $this->fx->query('DELETE FROM cm_oa4mp_client_access_controls WHERE id = ' . (int)$this->accessControlId);
+
+    $otherId = $this->seedOtherClient();
+    $otherRow = $this->fx->insert('cm_oa4mp_client_access_controls', array(
+      'client_id' => $otherId,
+      'co_group_id' => null
+    ));
+
+    $post = $this->accessControlPost((string)$this->groupId);
+    $post['Oa4mpClientAccessControl']['id'] = $otherRow;
+    $post['Oa4mpClientAccessControl']['client_id'] = $otherId;
+
+    $harness = Oa4mpAccessControlsControllerHarness::build($this->clientId, $this->coId, $post);
+
+    $harness->harnessInvoke('manage', array(), 'POST');
+
+    $this->assertEqual(array($otherId, null), $this->accessControlRow($otherRow),
+      'the other client\'s row kept its client and group');
+    $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_access_controls', 'client_id = ' . (int)$this->clientId
+      . ' AND co_group_id = ' . (int)$this->groupId), 'a row with the group was created for this client');
   }
 
   /** Choosing an editor group is sent, saved, and reported as before. */
@@ -1712,6 +1824,54 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     ConnectionManager::getDataSource('default')->flushQueryCache();
     return $this->fx->count('cm_oa4mp_client_access_tokens', 'id = ' . (int)$this->accessTokenId
       . ' AND is_jwt = true') === 1;
+  }
+
+  /**
+   * Post $groupId as the editor group, as an administrator or, with
+   * $coPersonId, as that non-administrator CO person, and check it is refused:
+   * nothing is sent, the stored group is unchanged, the form comes back with
+   * the posted group and its error, and the refusal is logged.
+   */
+  private function assertAccessControlGroupRefused($groupId, $coPersonId = null) {
+    $harness = Oa4mpAccessControlsControllerHarness::build($this->clientId, $this->coId,
+      $this->accessControlPost($groupId));
+    if ($coPersonId !== null) {
+      $harness->harnessAsMember($coPersonId);
+    }
+
+    $redirect = $harness->harnessInvoke('manage', array(), 'POST');
+
+    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
+      'the OA4MP server was not edited with a group the page did not offer');
+    $this->assertNull($redirect, 'the form is shown again rather than redirecting');
+    $this->assertNull($this->storedEditorGroup(), 'the stored group is unchanged');
+    $this->assertTrue($harness->harnessFlashed(_txt('er.fields'), 'error'), 'the field error was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+    $this->assertEqual($groupId, $harness->request->data['Oa4mpClientAccessControl']['co_group_id'] ?? null,
+      'the form re-renders with the refused group');
+    $this->assertTrue(in_array(_txt('pl.oa4mp_client_access_control.er.co_group_id.offered'),
+      (array)($harness->Oa4mpClientAccessControl->validationErrors['co_group_id'] ?? array()), true),
+      'the group field carries the error');
+    $logged = false;
+    foreach ($harness->harnessLogged as $line) {
+      $logged = $logged || strpos($line, 'refused posted group ' . $groupId) !== false;
+    }
+    $this->assertTrue($logged, 'the refused group was logged');
+  }
+
+  /** The client id and group of one access control row, as integers or null. */
+  private function accessControlRow($id) {
+    ConnectionManager::getDataSource('default')->flushQueryCache();
+    $rows = $this->fx->query('SELECT client_id, co_group_id FROM cm_oa4mp_client_access_controls WHERE id = '
+      . (int)$id);
+    if (empty($rows)) {
+      return null;
+    }
+    $row = $rows[0][0] ?? reset($rows[0]);
+    return array(
+      ($row['client_id'] === null) ? null : (int)$row['client_id'],
+      ($row['co_group_id'] === null) ? null : (int)$row['co_group_id']
+    );
   }
 
   private function storedEditorGroup() {
