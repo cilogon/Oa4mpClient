@@ -244,22 +244,43 @@ class Oa4mpClientCoOidcClient extends AppModel {
     $pruned = true;
 
     foreach($models as $m) {
-      $model = $this->{$m};
-
-      $args = array();
-      $args['conditions'][$model->alias . '.client_id'] = $id;
-      $args['fields'] = array($model->alias . '.id');
-      $args['order'] = array($model->alias . '.id ASC');
-      $args['contain'] = false;
-
-      foreach($model->find('all', $args) as $row) {
-        if(!$model->delete($row[$model->alias]['id'], true)) {
-          $pruned = false;
-        }
+      if(!$this->deleteClientRows($this->{$m}, $id)) {
+        $pruned = false;
       }
     }
 
     return $pruned;
+  }
+
+  /**
+   * Delete every row of an associated model that belongs to a client.
+   *
+   * Rows are found by the stored client id, not by an id from a request, and
+   * deleted one at a time with their dependent rows. A failed delete does not
+   * stop the rest.
+   *
+   * @param  Model   $model An association of this model, such as Oa4mpClientClaim
+   * @param  Integer $id    ID for the Oa4mpClientCoOidcClient object
+   * @return Boolean True if every delete succeeded or there was nothing to
+   *                 delete, false if any delete failed
+   */
+
+  public function deleteClientRows($model, $id) {
+    $args = array();
+    $args['conditions'][$model->alias . '.client_id'] = $id;
+    $args['fields'] = array($model->alias . '.id');
+    $args['order'] = array($model->alias . '.id ASC');
+    $args['contain'] = false;
+
+    $deleted = true;
+
+    foreach($model->find('all', $args) as $row) {
+      if(!$model->delete($row[$model->alias]['id'], true)) {
+        $deleted = false;
+      }
+    }
+
+    return $deleted;
   }
 
   /**

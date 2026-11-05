@@ -426,12 +426,7 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     if($oa4mpServer->isPublicClient($client)) {
       $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.public'), array('key' => 'error'));
 
-      $args = array();
-      $args['plugin'] = 'oa4mp_client';
-      $args['controller'] = 'oa4mp_client_co_oidc_clients';
-      $args['action'] = 'edit';
-      $args[] = $clientId;
-      $this->redirect($args);
+      $this->_redirectToEdit($clientId);
       return true;
     }
 
@@ -585,7 +580,7 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     // With the Named configuration stored, the prune deletes exactly the rows
     // it replaces, LDAP before claims, found by the stored client id.
     $pruned = $clientModel->pruneNamedConfigLeftovers($clientId);
-    $tokenDeleted = $this->_deleteClientRows($clientModel->Oa4mpClientAccessToken, $clientId);
+    $tokenDeleted = $clientModel->deleteClientRows($clientModel->Oa4mpClientAccessToken, $clientId);
 
     if(!$tokenDeleted) {
       $this->_logWriteFailure($client, 'delete the access token setting');
@@ -616,7 +611,7 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
    */
 
   protected function _writeRemoval($clientModel, $clientId, $client, $defaults) {
-    if(!$this->_deleteClientRows($clientModel->Oa4mpClientAccessToken, $clientId)) {
+    if(!$clientModel->deleteClientRows($clientModel->Oa4mpClientAccessToken, $clientId)) {
       $this->_logWriteFailure($client, 'delete the access token setting');
       $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), array('key' => 'error'));
       return;
@@ -660,34 +655,6 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     } else {
       $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), array('key' => 'success'));
     }
-  }
-
-  /**
-   * Delete every row of $model that belongs to the client, one at a time,
-   * found by the stored client id: some clients hold more than one row of a
-   * hasOne model.
-   *
-   * @param  Model   $model    A model with a client_id column
-   * @param  integer $clientId Oa4mpClientCoOidcClient ID
-   * @return boolean true if every row was deleted
-   */
-
-  protected function _deleteClientRows($model, $clientId) {
-    $args = array();
-    $args['conditions'][$model->alias . '.client_id'] = $clientId;
-    $args['fields'] = array($model->alias . '.id');
-    $args['order'] = array($model->alias . '.id ASC');
-    $args['contain'] = false;
-
-    $deleted = true;
-
-    foreach($model->find('all', $args) as $row) {
-      if(!$model->delete($row[$model->alias]['id'], true)) {
-        $deleted = false;
-      }
-    }
-
-    return $deleted;
   }
 
   /**
@@ -741,22 +708,6 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     $this->set('title_for_layout', $title);
 
     $this->render('confirm');
-  }
-
-  /**
-   * Redirect to the client's Named Configuration page.
-   *
-   * @param  integer $clientId Oa4mpClientCoOidcClient ID
-   * @return void
-   */
-
-  protected function _redirectToManage($clientId) {
-    $args = array();
-    $args['plugin'] = 'oa4mp_client';
-    $args['controller'] = 'oa4mp_client_co_named_configs';
-    $args['action'] = 'manage';
-    $args['clientid'] = $clientId;
-    $this->redirect($args);
   }
 
   /**

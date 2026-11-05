@@ -122,19 +122,43 @@ trait Oa4mpClientNamedConfigActions {
                            array($oa4mpServer->namedConfigLabel($client))),
                       array('key' => 'error'));
 
+    if($oa4mpServer->isPublicClient($client)) {
+      $this->_redirectToEdit($clientId);
+    } else {
+      $this->_redirectToManage($clientId);
+    }
+  }
+
+  /**
+   * Redirect to the client's Named Configuration page.
+   *
+   * @param  integer $clientId Oa4mpClientCoOidcClient ID
+   * @return void
+   */
+
+  protected function _redirectToManage($clientId) {
     $args = array();
     $args['plugin'] = 'oa4mp_client';
+    $args['controller'] = 'oa4mp_client_co_named_configs';
+    $args['action'] = 'manage';
+    $args['clientid'] = $clientId;
+    $this->redirect($args);
+  }
 
-    if($oa4mpServer->isPublicClient($client)) {
-      $args['controller'] = 'oa4mp_client_co_oidc_clients';
-      $args['action'] = 'edit';
-      $args[] = $clientId;
-    } else {
-      $args['controller'] = 'oa4mp_client_co_named_configs';
-      $args['action'] = 'manage';
-      $args['clientid'] = $clientId;
-    }
+  /**
+   * Redirect to the client's edit page, the page a public client is sent to
+   * since it cannot open its Named Configuration page.
+   *
+   * @param  integer $clientId Oa4mpClientCoOidcClient ID
+   * @return void
+   */
 
+  protected function _redirectToEdit($clientId) {
+    $args = array();
+    $args['plugin'] = 'oa4mp_client';
+    $args['controller'] = 'oa4mp_client_co_oidc_clients';
+    $args['action'] = 'edit';
+    $args[] = $clientId;
     $this->redirect($args);
   }
 }
