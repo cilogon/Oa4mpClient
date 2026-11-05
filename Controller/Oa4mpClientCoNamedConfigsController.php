@@ -288,6 +288,17 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
     // also deletes the rows a Named configuration replaces that an older
     // client still holds, before anything is sent.
     $client = $this->_currentClientPruned($clientModel, $clientId);
+
+    // A public client gets no cfg, so a Named configuration has nothing to
+    // supply, and the tab is not offered to it. Refuse every request, not only
+    // a selection, so a hand-built URL neither changes the client nor shows
+    // the admin client's Named configurations.
+    if($oa4mpServer->isPublicClient($client)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.public'), array('key' => 'error'));
+      $this->_redirectToEdit($clientId);
+      return;
+    }
+
     $admin = $clientModel->admin($clientId);
 
     // The tab bar hides the tabs that do not apply to this client.
@@ -396,10 +407,11 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
   }
 
   /**
-   * Act on a manage() selection that passed the allow-list: refuse a public
-   * client, do nothing when the client is already in the chosen state, ask
-   * for confirmation, or send the confirmed change and then bring the
-   * Registry rows in line with it (cilogon/Oa4mpClient#58).
+   * Act on a manage() selection that passed the allow-list, for a client
+   * that is not public (manage() refuses those first): do nothing when the
+   * client is already in the chosen state, ask for confirmation, or send the
+   * confirmed change and then bring the Registry rows in line with it
+   * (cilogon/Oa4mpClient#58).
    *
    * A Named configuration takes the place of the client's own scopes,
    * claims, authorization settings, access token settings, LDAP
@@ -419,16 +431,6 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
 
   protected function _manageSelection($oa4mpServer, $clientModel, $clientId, $client, $admin, $selectedConfig) {
     $removing = ($selectedConfig === null);
-
-    // A public client gets no cfg, so a Named configuration has nothing to
-    // supply. The tab is not offered to it, so only a hand-built request
-    // gets here.
-    if($oa4mpServer->isPublicClient($client)) {
-      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.public'), array('key' => 'error'));
-
-      $this->_redirectToEdit($clientId);
-      return true;
-    }
 
     // Choosing the state the client is already in sends nothing. The one
     // exception is re-saving the applied Named configuration on a client

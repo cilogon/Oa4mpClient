@@ -401,6 +401,28 @@ class NamedConfigApplyRemoveTest extends Oa4mpTestCase {
     }
   }
 
+  /**
+   * Opening the Named Configuration page of a public client is refused too:
+   * the tab is not offered to it, and the form would list the admin client's
+   * Named configurations.
+   */
+  public function testPublicClientManagePageIsRefused() {
+    $harness = Oa4mpNamedConfigsControllerHarness::build($this->publicClientId, $this->coId);
+    $harness->harnessInvoke('manage', array(), 'GET');
+
+    $this->assertEmpty($harness->harnessServer->calls, 'nothing was sent to the OA4MP server');
+    $this->assertEmpty($harness->harnessRendered, 'nothing was rendered');
+    $this->assertFalse(array_key_exists('vv_available_configs', $harness->viewVars),
+      'the Named configurations were not listed');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.er.public'), 'error'),
+      'the refusal was reported');
+    $redirect = $harness->harnessRedirect;
+    $this->assertEqual('oa4mp_client_co_oidc_clients', $redirect['controller'] ?? null,
+      "sent to the client's edit page");
+    $this->assertEqual('edit', $redirect['action'] ?? null, 'the edit action');
+    $this->assertEqual($this->publicClientId, $redirect[0] ?? null, 'of the same client');
+  }
+
   /** A confirmed post is checked again: another admin client's Named configuration is refused. */
   public function testConfirmedPostNamingAnotherAdminClientsNamedConfigIsRefused() {
     $otherAdminId = $this->fx->adminClient($this->coId, Oa4mpFixtures::tag('oa4mpncar-other'));
@@ -463,6 +485,50 @@ class NamedConfigApplyRemoveTest extends Oa4mpTestCase {
     $this->assertNull($this->storedNamedConfig(), 'the Named configuration was removed');
     $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.er.cleanup.remove'), 'error'),
       'the incomplete cleanup was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+  }
+
+  /**
+   * An access token delete that fails after the server accepted the removal
+   * stops there: the Named configuration stays stored, so a later apply or
+   * removal still deletes the row, and no new-client settings are created.
+   */
+  public function testAccessTokenDeleteFailingAfterAnAcceptedRemovalKeepsTheNamedConfig() {
+    $this->setStoredNamedConfig($this->configA);
+
+    $harness = $this->harness($this->clientId, 'none', true);
+    $harness->harnessFailWrites('delete', $this->clientModelPath('Oa4mpClientAccessToken'));
+    $harness->harnessInvoke('manage', array(), 'POST');
+
+    $this->assertEqual(1, $this->editCalls($harness), 'the server was edited once, with no undo');
+    $this->assertEqual(1, $this->rowCounts()['access tokens'], 'premise: the access token row is still there');
+    $this->assertEqual($this->configA, $this->storedNamedConfig(), 'the Named configuration is still stored');
+    $this->assertEqual(array(), $this->storedScopes(), 'no new-client scope was created');
+    $this->assertEqual(0, $this->rowCounts()['authorizations'], 'no new-client authorization settings were created');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), 'error'),
+      'the failed write was reported');
+    $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
+  }
+
+  /**
+   * Clearing the stored Named configuration failing after the server
+   * accepted the removal is reported, and no new-client settings are created.
+   */
+  public function testClearingTheNamedConfigFailingAfterAnAcceptedRemovalIsReported() {
+    $this->setStoredNamedConfig($this->configA);
+
+    $harness = $this->harness($this->clientId, 'none', true);
+    $harness->harnessFailWrites('saveField',
+      array('Oa4mpClientCoNamedConfig', 'Oa4mpClientCoAdminClient', 'Oa4mpClientCoOidcClient'));
+    $harness->harnessInvoke('manage', array(), 'POST');
+
+    $this->assertEqual(1, $this->editCalls($harness), 'the server was edited once, with no undo');
+    $this->assertEqual($this->configA, $this->storedNamedConfig(), 'premise: the Named configuration is still stored');
+    $this->assertEqual(0, $this->rowCounts()['access tokens'], 'the access token row was deleted first');
+    $this->assertEqual(array(), $this->storedScopes(), 'no new-client scope was created');
+    $this->assertEqual(0, $this->rowCounts()['authorizations'], 'no new-client authorization settings were created');
+    $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), 'error'),
+      'the failed write was reported');
     $this->assertFalse($harness->harnessFlashedAnySuccess(), 'no success was reported');
   }
 
