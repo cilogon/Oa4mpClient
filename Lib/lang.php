@@ -460,6 +460,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_access_token.token.delete.flash.success' => 'Access Token Configuration Deleted',
   'pl.oa4mp_client_access_token.token.edit.flash.success'   => 'Access Token Configuration Updated',
   'pl.oa4mp_client_access_token.er.edit.save'               => 'The access token configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the access token configuration again. To bring them back into agreement, restore the access token configuration on the OA4MP server to the values Registry still holds.',
+  'pl.oa4mp_client_access_token.er.public_client'           => 'JWT Format cannot be set for this client. Public clients cannot have a custom configuration, so this setting cannot be used.',
+  'pl.oa4mp_client_access_token.public_client.description'  => 'Public clients cannot have a custom configuration, so JWT Format cannot be used. A setting saved earlier is kept but not used.',
 
   // View titles
   'pl.oa4mp_client_access_token.add.name'   => 'Add Access Token Configuration for %s',
@@ -474,6 +476,8 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_authorization.tab.name' => 'Authorization',
   'pl.oa4mp_client_authorization.er.named_config' => 'Authorization settings cannot be changed while the Named Configuration "%1$s" is applied to this client.',
   'pl.oa4mp_client_authorization.named_config.description' => 'This client uses the Named Configuration "%1$s", whose own script decides who may log in. The settings below are not sent to the server while it is applied, so Require Active Status and the Authorized User Group are not enforced. They take effect again if it is removed.',
+  'pl.oa4mp_client_authorization.er.public_client' => 'Authorization settings cannot be set for this client. Public clients cannot have a custom configuration, so these settings cannot be used.',
+  'pl.oa4mp_client_authorization.public_client.description' => 'Public clients cannot have a custom configuration, so these settings cannot be used: Require Active Status, the Authorized User Group and the redirect URLs are not enforced for this client. Settings saved earlier are kept but not used.',
 
   // Field definitions
   'pl.oa4mp_client_authorization.fd.authz_co_group_id'              => 'Authorized User Group',

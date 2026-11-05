@@ -157,6 +157,10 @@ class Oa4mpHarnessOa4mpServer {
     return $this->realServer()->usesNamedConfig($data);
   }
 
+  public function isPublicClient($data) {
+    return $this->realServer()->isPublicClient($data);
+  }
+
   public function namedConfigLabel($data) {
     return $this->realServer()->namedConfigLabel($data);
   }

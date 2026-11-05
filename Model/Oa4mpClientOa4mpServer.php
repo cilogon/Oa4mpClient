@@ -1142,6 +1142,17 @@ class Oa4mpClientOa4mpServer extends AppModel {
       return true;
     }
 
+    // A public client is sent no cfg, because OA4MP rejects a custom
+    // configuration on a public client, and the access token and
+    // authorization settings travel only in the cfg. Whatever the plugin
+    // holds for them never reaches the server, so leave both sections out of
+    // the comparison below rather than report drift no edit could repair
+    // (cilogon/Oa4mpClient#47). Everything else is still compared.
+    if($this->isPublicClient($curData)) {
+      unset($curData['Oa4mpClientAccessToken'], $curData['Oa4mpClientAuthorization']);
+      unset($oa4mpServerData['Oa4mpClientAccessToken'], $oa4mpServerData['Oa4mpClientAuthorization']);
+    }
+
     // Compare access token configuration. Optional on both sides for the same
     // reason as the refresh token above: an omitted section is "no access
     // token configuration", which is what the three tests below already

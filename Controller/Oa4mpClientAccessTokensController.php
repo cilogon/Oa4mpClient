@@ -78,6 +78,22 @@ class Oa4mpClientAccessTokensController extends StandardController {
     $client = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->current($clientId);
     $admin = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->admin($clientId);
 
+    // OA4MP rejects a custom configuration (cfg) on a public client, so the
+    // plugin never sends one, and JWT Format travels only in the cfg. A saved
+    // setting would never be used and would read as drift on the next
+    // synchronization check, so refuse the write before anything is sent or
+    // saved, and show the read-only page again (cilogon/Oa4mpClient#47).
+    if($this->request->is(array('post','put')) && $oa4mpServer->isPublicClient($client)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_access_token.er.public_client'), array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_access_tokens';
+      $args['action'] = 'manage';
+      $args['clientid'] = $clientId;
+      $this->redirect($args);
+    }
+
     // A post that fails validation, kept for the form the GET logic renders.
     $rejected = null;
     $rejectedErrors = array();
@@ -186,6 +202,10 @@ class Oa4mpClientAccessTokensController extends StandardController {
       $this->request->data['Oa4mpClientAccessToken'] = $rejected;
       $this->Oa4mpClientAccessToken->validationErrors = $rejectedErrors;
     }
+
+    // Whether the client is public. While it is, the view shows the saved
+    // setting disabled under a notice.
+    $this->set('vv_public_client', $oa4mpServer->isPublicClient($client));
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_access_token.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));

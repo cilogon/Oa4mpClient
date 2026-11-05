@@ -434,7 +434,8 @@ authorized to use the client.
 
 The **Access Token** tab has one setting, **JWT Format** -- whether access
 tokens for this client are issued in JWT format. Check or clear it and select
-**Save**.
+**Save**. The tab is read-only for a public client, because the OA4MP
+server accepts no custom configuration on a public client.
 
 ### Refresh Token
 
@@ -445,7 +446,9 @@ lifetime in seconds. Enter a value and select **Save**.
 
 The **Authorization** tab controls *who may use* the client -- as distinct from
 the **Editors** tab (Chapter 2), which controls who may *edit its
-configuration*. It has these settings:
+configuration*. The tab is read-only for a public client, because the OA4MP
+server accepts no custom configuration on a public client. It has these
+settings:
 
 - **Authorized User Group** -- a CO group whose members may access this client.
   Leave it unset to place no group restriction on use.

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Make the Access Token and Authorization tabs read-only for public clients
+  (cilogon/Oa4mpClient#47). The OA4MP server accepts no custom configuration
+  on a public client, so JWT Format and the Authorization settings were never
+  sent, yet both tabs saved them, and a saved JWT Format or Require Active
+  Status then left the client out of sync and blocked every later edit. A
+  public client already stuck out of sync for this reason reads in sync
+  again. Its stored settings are kept but not used.
 - Keep sending the isMemberOf group claim as a JSON array when an LDAP-backed
   client is converted to DynamoDB claims (cilogon/Oa4mpClient#40). The
   conversion set the claim to a comma-delimited string, so relying parties

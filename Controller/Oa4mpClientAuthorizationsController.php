@@ -97,6 +97,25 @@ class Oa4mpClientAuthorizationsController extends StandardController {
 
     $this->set('vv_available_groups', $availableGroupsWithBlank);
 
+    // OA4MP rejects a custom configuration (cfg) on a public client, so the
+    // plugin never sends one, and the authorization settings travel only in
+    // the cfg. Saved settings would never be enforced, and Require Active
+    // Status would read as drift on the next synchronization check, so refuse
+    // the write before anything is sent or saved, and show the read-only page
+    // again (cilogon/Oa4mpClient#47). Checked before the Named configuration
+    // guard below: a public client is sent no cfg at all, Named configuration
+    // included, so this is the reason that applies.
+    if($this->request->is(array('post','put')) && $oa4mpServer->isPublicClient($client)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_authorization.er.public_client'), array('key' => 'error'));
+
+      $args = array();
+      $args['plugin'] = 'oa4mp_client';
+      $args['controller'] = 'oa4mp_client_authorizations';
+      $args['action'] = 'manage';
+      $args['clientid'] = $clientId;
+      $this->redirect($args);
+    }
+
     // While a Named configuration is applied its own script decides who may
     // log in, so the client's authorization settings are kept but not sent
     // and cannot be changed. Refuse the write before anything is sent or
@@ -234,6 +253,10 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $this->set('vv_named_config', $oa4mpServer->usesNamedConfig($client)
                                   ? $oa4mpServer->namedConfigLabel($client)
                                   : null);
+
+    // Whether the client is public. While it is, the view shows the saved
+    // settings disabled under a notice.
+    $this->set('vv_public_client', $oa4mpServer->isPublicClient($client));
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_authorization.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));

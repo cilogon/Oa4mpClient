@@ -48,6 +48,11 @@
 
   $access_token = $this->request->data['Oa4mpClientAccessToken'];
 
+  // A public client cannot have a custom configuration, so the saved setting
+  // is shown disabled and is not sent.
+  $is_public_client = !empty($vv_public_client);
+  $readOnly = $is_public_client ? array('disabled' => true) : array();
+
   if(file_exists(APP . "Plugin/" . $this->plugin . "/View/Oa4mpClientAccessTokens/tabs.inc")) {
     include(APP . "Plugin/" . $this->plugin . "/View/Oa4mpClientAccessTokens/tabs.inc");
   } elseif(file_exists(LOCAL . "Plugin/" . $this->plugin . "/View/Oa4mpClientAccessTokens/tabs.inc")) {
@@ -58,6 +63,12 @@
 
 <script type="text/javascript">
 </script>
+
+<?php if($is_public_client): ?>
+<div id="oa4mp_client_access_token_public_client_info" class="ui-widget">
+  <p><?php print _txt('pl.oa4mp_client_access_token.public_client.description'); ?></p>
+</div>
+<?php endif; ?>
 
 <?php
 print $this->Form->create('Oa4mpClientAccessToken', array('inputDefaults' => array('label' => false, 'div' => false)));
@@ -79,11 +90,12 @@ if(!empty($access_token['id'])) {
     </div>
     <div class="field-info">
       <span class="field-info-prefix">
-        <?php print $this->Form->input('is_jwt', array('type' => 'checkbox', 'value' => 1)) ?>
+        <?php print $this->Form->input('is_jwt', array('type' => 'checkbox', 'value' => 1) + $readOnly) ?>
       </span>
     </div>
   </li> 
 
+<?php if(!$is_public_client): ?>
 <li class="fields-submit">
   <div class="field-name"></div>
   <div class="field-info">
@@ -93,6 +105,7 @@ if(!empty($access_token['id'])) {
     ?>
   </div>
 </li>
+<?php endif; ?>
 
 </ul>
 

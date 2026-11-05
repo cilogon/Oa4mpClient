@@ -157,6 +157,18 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 426 to 440 on 2026-11-04 for read-only Access Token and
+# Authorization tabs on public clients (cilogon/Oa4mpClient#47), which added
+# fourteen (429 -> 443): six in Test/Case/Model/SyncOptionalSectionsTest.php
+# (a public client's JWT Format and its Require Active Status with a group
+# reading in sync against a server copy without them, the same settings still
+# reading out of sync on a confidential client, and a public client whose
+# client type or callbacks differ still reading out of sync); and eight in
+# Test/Case/Controller/PublicClientTabGuardTest.php (each tab refusing a
+# public client's save before any server call, rendering its page with the
+# public flag set, leaving the flag clear for a confidential client, and
+# tying its form controls and submit to the read-only flag in source).
+#
 # Raised from 411 to 426 on 2026-11-04 for converting isMemberOf to a JSON
 # array claim (cilogon/Oa4mpClient#40), which added fifteen (414 -> 429):
 # seven in Test/Case/Model/ClaimMigrationPersistenceTest.php (a list-valued and
@@ -445,7 +457,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=426
+min_tests_run=440
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

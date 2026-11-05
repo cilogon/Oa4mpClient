@@ -49,9 +49,12 @@
   $authorization = $this->request->data['Oa4mpClientAuthorization'];
 
   // While a Named configuration is applied its own script decides who may
-  // log in, so the saved settings are shown disabled and are not sent.
+  // log in, and a public client cannot have a custom configuration at all, so
+  // in either case the saved settings are shown disabled and are not sent.
   $is_named_config = !empty($vv_named_config);
-  $readOnly = $is_named_config ? array('disabled' => true) : array();
+  $is_public_client = !empty($vv_public_client);
+  $is_read_only = $is_public_client || $is_named_config;
+  $readOnly = $is_read_only ? array('disabled' => true) : array();
 
   if(file_exists(APP . "Plugin/" . $this->plugin . "/View/Oa4mpClientAuthorizations/tabs.inc")) {
     include(APP . "Plugin/" . $this->plugin . "/View/Oa4mpClientAuthorizations/tabs.inc");
@@ -61,7 +64,11 @@
 
 ?>
 
-<?php if($is_named_config): ?>
+<?php if($is_public_client): ?>
+<div id="oa4mp_client_authorizations_public_client_info" class="ui-widget">
+  <p><?php print _txt('pl.oa4mp_client_authorization.public_client.description'); ?></p>
+</div>
+<?php elseif($is_named_config): ?>
 <div id="oa4mp_client_authorizations_named_config_info" class="ui-widget">
   <p><?php print _txt('pl.oa4mp_client_authorization.named_config.description', array(h($vv_named_config))); ?></p>
 </div>
@@ -198,7 +205,7 @@ if(!empty($authorization['id'])) {
     </div>
   </li>
 
-<?php if(!$is_named_config): ?>
+<?php if(!$is_read_only): ?>
 <li class="fields-submit">
   <div class="field-name">
     <span class="required"><?php print _txt('fd.req'); ?></span>
