@@ -26,9 +26,12 @@
  */
 
 App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
+App::uses("Oa4mpClientNamedConfigActions", "Oa4mpClient.Controller");
 App::uses("StandardController", "Controller");
 
 class Oa4mpClientAccessControlsController extends StandardController {
+  use Oa4mpClientNamedConfigActions;
+
   // Class name, used by Cake
   public $name = "Oa4mpClientAccessControls";
 
@@ -74,8 +77,9 @@ class Oa4mpClientAccessControlsController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientAccessControl->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientAccessControl->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientAccessControl->Oa4mpClientCoOidcClient->admin($clientId);
 
     // The tab bar hides the tabs that do not apply to this client.

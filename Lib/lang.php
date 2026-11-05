@@ -207,7 +207,6 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_oidc_client.claims.edit.name'=> 'Edit Claim for %1$s',
   'pl.oa4mp_client_co_oidc_client.claims.tab.name' => 'Claims',
   'pl.oa4mp_client_co_oidc_client.claims.public_client.description' => 'Public clients release only the standard sub claim, so additional claims cannot be configured.',
-  'pl.oa4mp_client_co_oidc_client.claims.named_config.description' => 'This client uses the Named Configuration "%1$s", which supplies its claims. The claims below are ignored while it is applied and take effect again if it is removed.',
 
   // Field definitions
   'pl.oa4mp_client_co_oidc_client.claims.fd.add_button'         => 'Add another claim',
@@ -298,7 +297,6 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_claim.er.delete.remove'     => 'The claim was removed from the OA4MP server but could not be deleted by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including deleting the claim again. To bring them back into agreement, restore the claim on the OA4MP server with the values Registry still holds.',
   'pl.oa4mp_client_claim.er.edit.save'         => 'The claim was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the claim again. To bring them back into agreement, restore the claim on the OA4MP server to the values Registry still holds.',
   'pl.oa4mp_client_claim.er.public_client'     => 'Claims cannot be configured for a public client. A public client releases only the standard sub claim.',
-  'pl.oa4mp_client_claim.er.named_config'      => 'Claims cannot be changed while the Named Configuration "%1$s" is applied to this client.',
   'pl.oa4mp_client_claim.er.not_client_claim'  => 'That claim does not belong to this client.',
 
   // ===========================================================================
@@ -317,8 +315,6 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Flash messages
   'pl.oa4mp_client_co_scope.scope.flash.success' => 'Scopes Saved',
-  'pl.oa4mp_client_co_scope.er.named_config'     => 'Scopes cannot be changed while the Named Configuration "%1$s" is applied to this client.',
-  'pl.oa4mp_client_co_scope.named_config.description' => 'This client uses the Named Configuration "%1$s", which supplies its scopes. The scopes below are ignored while it is applied and take effect again if it is removed.',
 
   // Error messages
   'pl.oa4mp_client_co_scope.er.edit.save' => 'The scopes were updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the scopes again. To bring them back into agreement, restore the scopes on the OA4MP server to the values Registry still holds.',
@@ -412,7 +408,9 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_co_named_config.fd.no_configs_available.desc'=> 'There are no named configurations available for this admin client',
   'pl.oa4mp_client_co_named_config.fd.no_description'           => 'No description available',
   'pl.oa4mp_client_co_named_config.er.edit.save'                => 'The named configuration was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including choosing the named configuration again. To bring them back into agreement, restore the named configuration on the OA4MP server to the one Registry still holds.',
+  'pl.oa4mp_client_co_named_config.er.prune'                    => 'Settings this client held before its Named Configuration was applied could not all be deleted. They are not sent to the OA4MP server, and deleting them will be tried again the next time this client is opened.',
   'pl.oa4mp_client_co_named_config.er.selection'                => 'Choose no named configuration or one of the named configurations available for this admin client',
+  'pl.oa4mp_client_co_named_config.er.tab_replaced'             => 'This page is not available while the Named Configuration "%1$s" is applied to this client, because the Named Configuration supplies the client\'s scopes, claims, access token settings and authorization settings.',
   'pl.oa4mp_client_co_named_config.manage.flash.error'          => 'An error occurred while updating the named configuration',
   'pl.oa4mp_client_co_named_config.manage.flash.success'        => 'Named configuration updated successfully',
   'pl.oa4mp_client_co_named_config.manage.name'                 => 'Named Configuration for %s',
@@ -476,8 +474,6 @@ $cm_oa4mp_client_texts['en_US'] = array(
 
   // Tab name
   'pl.oa4mp_client_authorization.tab.name' => 'Authorization',
-  'pl.oa4mp_client_authorization.er.named_config' => 'Authorization settings cannot be changed while the Named Configuration "%1$s" is applied to this client.',
-  'pl.oa4mp_client_authorization.named_config.description' => 'This client uses the Named Configuration "%1$s", whose own script decides who may log in. The settings below are not sent to the server while it is applied, so Require Active Status and the Authorized User Group are not enforced. They take effect again if it is removed.',
   'pl.oa4mp_client_authorization.er.public_client' => 'Authorization settings cannot be set for this client. Public clients cannot have a custom configuration, so these settings cannot be used.',
   'pl.oa4mp_client_authorization.public_client.description' => 'Public clients cannot have a custom configuration, so these settings cannot be used: Require Active Status, the Authorized User Group and the redirect URLs are not enforced for this client. Settings saved earlier are kept but not used.',
 

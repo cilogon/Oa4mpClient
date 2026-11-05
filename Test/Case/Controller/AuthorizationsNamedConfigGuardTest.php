@@ -1,20 +1,20 @@
 <?php
 /**
- * The Authorization tab is read-only while a Named configuration is applied.
+ * The Authorization page is refused while a Named configuration is applied
+ * (cilogon/Oa4mpClient#58).
  *
- * manage() handles the page and the save in one action, so only the POST is
- * refused -- redirected back to the same action, whose GET renders the saved
- * settings disabled under a notice. Driven through
+ * A Named configuration points the client at its own QDL script, which
+ * decides who may log in, so the client's own authorization settings are
+ * deleted and the Authorization tab is hidden. Opening the page directly or
+ * posting to it is refused before anything is sent, and the client is sent
+ * to its Named Configuration page. Driven through
  * Oa4mpAuthorizationsControllerHarness, whose fake server records every
- * server call. The disabled form itself cannot be rendered by the thin
- * runner, so it is checked in source, as AuthorizationNoRecordFieldTest does.
+ * server call. The form itself cannot be rendered by the thin runner, so it
+ * is checked in source, as AuthorizationNoRecordFieldTest does.
  *
  * The client graph is the claims controller fixture's, which already seeds a
  * Named-configuration client and an ordinary one; this file adds a saved
  * authorization row to the Named-configuration client.
- *
- * See docs/plans/2026-10-14-1946-feat-named-config-read-only-tabs-plan.md
- * (R1-R3, AE2, U4).
  */
 
 class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
@@ -79,8 +79,15 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
     return false;
   }
 
-  private function namedConfigError() {
-    return _txt('pl.oa4mp_client_authorization.er.named_config', array(self::NAMED_CONFIG_NAME));
+  private function refusal() {
+    return _txt('pl.oa4mp_client_co_named_config.er.tab_replaced', array(self::NAMED_CONFIG_NAME));
+  }
+
+  /** Whether $redirect is the Named Configuration page of the client. */
+  private function isNamedConfigPage($redirect, $clientId) {
+    return ($redirect['controller'] ?? null) === 'oa4mp_client_co_named_configs'
+      && ($redirect['action'] ?? null) === 'manage'
+      && (int)($redirect['clientid'] ?? 0) === (int)$clientId;
   }
 
   private function template() {
@@ -90,7 +97,11 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
     return file_get_contents($path);
   }
 
-  /** A changed setting is refused before anything is sent or saved. */
+  /**
+   * A changed setting is refused before anything is sent, and the client is
+   * sent to its Named Configuration page. The prune deletes the leftover
+   * authorization row on the way in, and the posted settings are not saved.
+   */
   public function testNamedConfigClientAuthorizationSaveIsRefused() {
     $harness = Oa4mpAuthorizationsControllerHarness::build($this->namedConfigClientId, $this->coId,
       $this->changedSettings($this->namedConfigClientId, $this->authorizationId));
@@ -99,32 +110,30 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
 
     $this->assertEmpty($harness->harnessServer->calls,
       'the guard stopped the save before any server call');
-    $this->assertEqual('manage', $redirect['action'] ?? null,
-      'the guard redirected back to the Authorization page');
-    $this->assertEqual(1, $this->countRows($this->fx, 'cm_oa4mp_client_authorizations',
-      'id = ' . (int)$this->authorizationId . ' AND require_active = true'
-      . ' AND no_record_redirect_url IS NULL'),
-      'the saved settings are unchanged');
-    $this->assertTrue($this->flashed($harness, $this->namedConfigError()),
-      'the Named-configuration error was flashed');
+    $this->assertTrue($this->isNamedConfigPage($redirect, $this->namedConfigClientId),
+      'the guard redirected to the client\'s Named Configuration page');
+    $this->assertEqual(0, $this->countRows($this->fx, 'cm_oa4mp_client_authorizations',
+      'client_id = ' . (int)$this->namedConfigClientId
+      . " AND no_record_redirect_url = 'https://example.org/enroll'"),
+      'the posted settings were not saved');
+    $this->assertTrue($this->flashed($harness, $this->refusal()),
+      'the refusal was flashed');
     $this->assertFalse($this->flashed($harness, _txt('pl.oa4mp_client_authorization.edit.flash.success')),
       'no success was reported');
   }
 
-  /**
-   * Covers AE2, tab half. The page still renders, with the saved Require
-   * Active Status and the configuration's name for the notice.
-   */
-  public function testNamedConfigClientAuthorizationPageRenders() {
+  /** Opening the page is refused the same way, with nothing sent. */
+  public function testNamedConfigClientAuthorizationPageIsRefused() {
     $harness = Oa4mpAuthorizationsControllerHarness::build($this->namedConfigClientId, $this->coId);
 
     $redirect = $harness->harnessInvoke('manage', array(), 'GET');
 
-    $this->assertNull($redirect, 'the Authorization page rendered');
-    $this->assertEqual(self::NAMED_CONFIG_NAME, $harness->viewVars['vv_named_config'] ?? null,
-      'the view receives the Named configuration\'s name');
-    $this->assertTrue($harness->viewVars['vv_require_active'] ?? null,
-      'the saved Require Active Status is still shown');
+    $this->assertTrue($this->isNamedConfigPage($redirect, $this->namedConfigClientId),
+      'the page redirected to the client\'s Named Configuration page');
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the refusal came before the synchronization check');
+    $this->assertTrue($this->flashed($harness, $this->refusal()),
+      'the refusal was flashed');
   }
 
   /**
@@ -139,14 +148,16 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
 
     $this->assertTrue(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
       'an ordinary client\'s save was sent to the server');
-    $this->assertFalse($this->flashed($harness, $this->namedConfigError()),
-      'no Named-configuration error for an ordinary client');
+    $this->assertFalse($this->flashed($harness, $this->refusal()),
+      'no refusal for an ordinary client');
   }
 
   /**
-   * Every form control is disabled by the read-only flag, the submit block is
-   * left out, and the script that hides and clears the redirect URL fields
-   * does not run, so a disabled form shows every saved value.
+   * Every form control is disabled by the read-only flag, which only a
+   * public client sets now that a Named-configuration client never reaches
+   * the form; the submit block is left out while it is set, and the script
+   * that hides and clears the redirect URL fields does not run, so a
+   * disabled form shows every saved value.
    */
   public function testEveryAuthorizationInputIsTiedToTheReadOnlyFlag() {
     $source = $this->template();
@@ -159,16 +170,18 @@ class AuthorizationsNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
 
     foreach ($controls as $line) {
       $this->assertContains('$readOnly', $line,
-        "this control is not disabled while a Named configuration is applied: $line");
+        "this control is not disabled while the form is read-only: $line");
     }
 
-    $this->assertContains('$is_read_only = $is_public_client || $is_named_config;', $source,
-      'a Named configuration makes the form read-only');
+    $this->assertFalse(strpos($source, 'named_config') !== false,
+      'the form no longer reads the Named configuration');
+    $this->assertContains('$is_read_only = $is_public_client;', $source,
+      'only a public client makes the form read-only');
     $this->assertContains("\$readOnly = \$is_read_only ? array('disabled' => true) : array();", $source,
       'the read-only options disable the control');
     $this->assertTrue((bool)preg_match('/<\?php if\(!\$is_read_only\): \?>\s*<li class="fields-submit">/', $source),
-      'the submit block is left out while a Named configuration is applied');
+      'the submit block is left out while read-only');
     $this->assertTrue((bool)preg_match('/<\?php else: \?>\s*<script type="text\/javascript">\s*function js_local_onload\(\)/', $source),
-      'the hide-and-clear script runs only when no Named configuration is applied');
+      'the hide-and-clear script runs only when the form is editable');
   }
 }

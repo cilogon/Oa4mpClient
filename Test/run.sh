@@ -157,6 +157,20 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 489 to 499 on 2026-11-05 for refusing the pages a Named
+# configuration replaces and deleting its leftovers on touch
+# (cilogon/Oa4mpClient#58), which added ten (492 -> 502): eight in
+# Test/Case/Controller/NamedConfigClientActionsTest.php (the Access Tokens
+# page and save refused, the ordinary-client control, Callbacks and Refresh
+# Tokens saves still sent, opening Callbacks deleting a leftover claim and
+# keeping the access token row, a failed delete reported without blocking the
+# page, and every client action loading through the pruning helper); one in
+# Test/Case/Controller/ScopesNamedConfigGuardTest.php (a public client with a
+# Named configuration sent to its edit page); and one in
+# Test/Case/Controller/ClaimsWritePathTest.php (the claim edit form refused).
+# The read-only page tests of those files and
+# AuthorizationsNamedConfigGuardTest.php were rewritten to assert refusal.
+#
 # Raised from 481 to 489 on 2026-11-05 for client tab visibility while a Named
 # configuration is applied (cilogon/Oa4mpClient#58), which added eight
 # (484 -> 492) in Test/Case/View/ClientTabVisibilityTest.php: the tab bar
@@ -522,7 +536,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=489
+min_tests_run=499
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

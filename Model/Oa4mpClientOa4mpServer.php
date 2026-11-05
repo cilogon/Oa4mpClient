@@ -760,10 +760,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
   /**
    * Whether client data describes a client that uses a Named configuration.
-   * The marshaller and the Claims, Scopes and Authorization tabs all ask this
-   * one question: while it holds, the client's own claims, scopes and
-   * authorization settings are kept but not sent, and those tabs are
-   * read-only.
+   * The marshaller and the client pages all ask this one question: while it
+   * holds, the client's own claims, scopes and authorization settings are not
+   * sent, and the Scopes, Claims, Access Tokens and Authorization pages are
+   * refused.
    *
    * A client with no Named configuration is read by Containable with an
    * array of null-valued fields for the association, so this tests the
@@ -778,10 +778,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
-   * How the read-only Claims, Scopes and Authorization tabs name the Named
-   * configuration a client uses: its configuration name, or its id when the
-   * configuration is no longer found. The value is unescaped; a view escapes
-   * it once when printing it.
+   * How the plugin names the Named configuration a client uses: its
+   * configuration name, or its id when the configuration is no longer found.
+   * The value is unescaped; whatever prints it escapes it once.
    *
    * @param array $data Client data from Oa4mpClientCoOidcClient::current()
    * @return string
