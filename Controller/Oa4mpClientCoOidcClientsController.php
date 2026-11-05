@@ -29,8 +29,11 @@ App::uses("StandardController", "Controller");
 App::uses("HttpSocket", "Network/Http");
 
 App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
+App::uses("Oa4mpClientNamedConfigActions", "Oa4mpClient.Controller");
 
 class Oa4mpClientCoOidcClientsController extends StandardController {
+  use Oa4mpClientNamedConfigActions;
+
   // Class name, used by Cake
   public $name = "Oa4mpClientCoOidcClients";
 
@@ -133,17 +136,10 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
         $data['Oa4mpClientCoOidcClient']['home_url'] = trim($data['Oa4mpClientCoOidcClient']['home_url']);
       }
 
-      // For all new clients the only scope set initially is openid. OA4MP does
-      // not require this, but without the openid scope set we cannot determine
-      // from what OA4MP returns whether or not the client is a public client.
-      // We can only infer it and that inference requires at least the 
-      // openid scope be set.
-      $data['Oa4mpClientCoScope'] = array();
-      $data['Oa4mpClientCoScope'][]['scope'] = Oa4mpClientScopeEnum::OpenId;
-
-      // Build the data to save and the data to send to the Oa4mp server. A
-      // confidential client requires Active Status from creation, and its
-      // DynamoDB configuration starts as the admin client's default.
+      // Build the data to save and the data to send to the Oa4mp server. The
+      // new client starts with the new-client defaults: the openid scope only,
+      // Require Active Status for a confidential client, and a copy of the
+      // admin client's default DynamoDB configuration.
       $oa4mpServer = $this->_oa4mpServer();
       list($saveData, $marshallData) = $oa4mpServer->newClientData($adminClient, $data);
 
@@ -347,8 +343,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
    */
 
   function edit($id) {
-    // Get the current state of the client.
-    $client = $this->Oa4mpClientCoOidcClient->current($id);
+    // Get the current state of the client, with any never-sent rows its
+    // Named configuration replaces deleted first (cilogon/Oa4mpClient#58).
+    $client = $this->_currentClientPruned($this->Oa4mpClientCoOidcClient, $id);
 
     if(empty($client)) {
       $this->Flash->set(_txt('er.notfound', array(_txt('ct.oa4mp_client_co_oidc_clients.1'), $id)), array('key' => 'error'));
@@ -366,6 +363,9 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // Instantiate Oa4mpServer since it will be used for both
     // GET and POST.
     $oa4mpServer = $this->_oa4mpServer();
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
 
     // A post that fails validation, kept for the form the GET logic renders.
     $rejected = null;
@@ -507,7 +507,14 @@ class Oa4mpClientCoOidcClientsController extends StandardController {
     // attribute with claim_id set has already been migrated and is skipped on
     // subsequent loads. Search attributes still showing claim_id == null
     // represent unmigrated or partially-recoverable state and are (re)processed.
-    $hasSearchAttr = !empty($client['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute']);
+    //
+    // A Named configuration takes the place of the client's claims, so no
+    // claim is created while one is applied (cilogon/Oa4mpClient#58). A
+    // confidential client's LDAP configuration was deleted on load above, but
+    // a public client's is kept for the maintainer, and a failed delete
+    // leaves one behind until the next visit.
+    $hasSearchAttr = !$oa4mpServer->usesNamedConfig($client)
+                     && !empty($client['Oa4mpClientCoLdapConfig'][0]['Oa4mpClientCoSearchAttribute']);
     if($hasSearchAttr) {
       foreach($client['Oa4mpClientCoLdapConfig'] as $ldapConfig) {
         foreach($ldapConfig['Oa4mpClientCoSearchAttribute'] as $searchAttr) {

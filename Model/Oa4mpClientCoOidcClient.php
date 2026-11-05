@@ -192,6 +192,98 @@ class Oa4mpClientCoOidcClient extends AppModel {
   }
 
   /**
+   * Delete the rows a Named configuration replaces that a client still holds.
+   *
+   * While a Named configuration is applied the client's own scopes, claims,
+   * authorization settings, LDAP configuration and DynamoDB configuration are
+   * not sent to the OA4MP server, so deleting them changes nothing on the
+   * server. Kept, they would come back into force when the Named
+   * configuration is removed (cilogon/Oa4mpClient#58). Clients that had a
+   * Named configuration before these rows were deleted on apply still hold
+   * them, and lose them the next time they are touched.
+   *
+   * The access token row is not deleted: it is still sent for such a client,
+   * so deleting it here would change what the server is sent. A public client
+   * cannot use a Named configuration and is cleared by the maintainer, so it
+   * is left alone.
+   *
+   * Rows are found by the stored client id, since some clients hold more
+   * than one DynamoDB row, and deleted one at a time. A failed delete does
+   * not stop the rest.
+   *
+   * @param  Integer $id ID for the Oa4mpClientCoOidcClient object
+   * @return Boolean True if every delete succeeded or there was nothing to
+   *                 delete, false if any delete failed
+   */
+
+  public function pruneNamedConfigLeftovers($id) {
+    $args = array();
+    $args['conditions']['Oa4mpClientCoOidcClient.id'] = $id;
+    $args['contain'] = false;
+
+    $client = $this->find('first', $args);
+
+    if(empty($client)
+       || empty($client['Oa4mpClientCoOidcClient']['named_config_id'])
+       || !empty($client['Oa4mpClientCoOidcClient']['public_client'])) {
+      return true;
+    }
+
+    // The LDAP configuration goes first. The edit page converts LDAP search
+    // attributes into claims, so deleting claims before it could let a
+    // half-finished prune recreate them. Deleting an LDAP configuration also
+    // deletes its search attributes, and deleting a claim its constraints.
+    $models = array(
+      'Oa4mpClientCoLdapConfig',
+      'Oa4mpClientClaim',
+      'Oa4mpClientCoScope',
+      'Oa4mpClientAuthorization',
+      'Oa4mpClientDynamoConfig'
+    );
+
+    $pruned = true;
+
+    foreach($models as $m) {
+      if(!$this->deleteClientRows($this->{$m}, $id)) {
+        $pruned = false;
+      }
+    }
+
+    return $pruned;
+  }
+
+  /**
+   * Delete every row of an associated model that belongs to a client.
+   *
+   * Rows are found by the stored client id, not by an id from a request, and
+   * deleted one at a time with their dependent rows. A failed delete does not
+   * stop the rest.
+   *
+   * @param  Model   $model An association of this model, such as Oa4mpClientClaim
+   * @param  Integer $id    ID for the Oa4mpClientCoOidcClient object
+   * @return Boolean True if every delete succeeded or there was nothing to
+   *                 delete, false if any delete failed
+   */
+
+  public function deleteClientRows($model, $id) {
+    $args = array();
+    $args['conditions'][$model->alias . '.client_id'] = $id;
+    $args['fields'] = array($model->alias . '.id');
+    $args['order'] = array($model->alias . '.id ASC');
+    $args['contain'] = false;
+
+    $deleted = true;
+
+    foreach($model->find('all', $args) as $row) {
+      if(!$model->delete($row[$model->alias]['id'], true)) {
+        $deleted = false;
+      }
+    }
+
+    return $deleted;
+  }
+
+  /**
    * Get the current canonical representation of the OIDC client.
    *
    * @since  COmanage Registry 4.4.2

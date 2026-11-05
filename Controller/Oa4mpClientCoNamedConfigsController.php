@@ -27,8 +27,11 @@
 
 App::uses("StandardController", "Controller");
 App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
+App::uses("Oa4mpClientNamedConfigActions", "Oa4mpClient.Controller");
 
 class Oa4mpClientCoNamedConfigsController extends StandardController {
+  use Oa4mpClientNamedConfigActions;
+
   // Class name, used by Cake
   public $name = "Oa4mpClientCoNamedConfigs";
 
@@ -279,9 +282,27 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->current($clientId);
-    $admin = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->admin($clientId);
+    $clientModel = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient;
+
+    // Get the current client and admin configurations. Loading the client
+    // also deletes the rows a Named configuration replaces that an older
+    // client still holds, before anything is sent.
+    $client = $this->_currentClientPruned($clientModel, $clientId);
+
+    // A public client gets no cfg, so a Named configuration has nothing to
+    // supply, and the tab is not offered to it. Refuse every request, not only
+    // a selection, so a hand-built URL neither changes the client nor shows
+    // the admin client's Named configurations.
+    if($oa4mpServer->isPublicClient($client)) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.public'), array('key' => 'error'));
+      $this->_redirectToEdit($clientId);
+      return;
+    }
+
+    $admin = $clientModel->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
 
     // A selection that is refused, kept for the form the GET logic renders.
     $rejected = null;
@@ -295,12 +316,15 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
       // client's own. No model rule covers it, since saveField() below skips
       // validation, so check it here before anything is sent to the OA4MP
       // server. A selection the server accepted and the plugin could not
-      // store used to leave the two out of sync.
+      // store used to leave the two out of sync. The confirmation page posts
+      // the selection again, and it is checked again here, never trusted.
       $allowed = ($selected === 'none');
+      $selectedConfig = null;
       if(!$allowed && is_scalar($selected)) {
         foreach($admin['Oa4mpClientCoNamedConfig'] ?? array() as $config) {
           if((string)$config['id'] === (string)$selected) {
             $allowed = true;
+            $selectedConfig = $config;
             break;
           }
         }
@@ -320,45 +344,10 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
           'selected_config_id' => array(_txt('pl.oa4mp_client_co_named_config.er.selection'))
         );
       } else {
-        $updatedClient = $client;
-        if($selected == 'none') {
-          $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = null;
-        } else {
-          $updatedClient['Oa4mpClientCoOidcClient']['named_config_id'] = $selected;
-        }
-
-        // Call out to oa4mp server.
-        // Return value of 0 indicates an error saving the edit.
-        // Return value of 2 indicates the plugin representation of the client
-        // and the Oa4mp server representation of the client are out of sync.
-        $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $updatedClient);
-
-        if($ret == 0) {
-          // Set flash and fall through to the GET logic.
-          $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
-        } elseif($ret == 2) {
-          // Set flash and fall through to the GET logic.
-          $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
-        } else {
-          // Update successful so save the edit. The server has already
-          // accepted it, so a failed save here leaves the two sides out of
-          // sync and must be reported, not flashed as success.
-          $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->id = $clientId;
-          $ret = $this->Oa4mpClientCoNamedConfig->Oa4mpClientCoAdminClient->Oa4mpClientCoOidcClient->saveField('named_config_id', $updatedClient['Oa4mpClientCoOidcClient']['named_config_id']);
-          if(!$ret) {
-            $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), array('key' => 'error'));
-          } else {
-            // Set flash successful.
-            $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), array('key' => 'success'));
-          }
-
-          // Redirect to the manage view.
-          $args = array();
-          $args['plugin'] = 'oa4mp_client';
-          $args['controller'] = 'oa4mp_client_co_named_configs';
-          $args['action'] = 'manage';
-          $args['clientid'] = $clientId;
-          $this->redirect($args);
+        // A refused or out-of-sync server edit falls through to the GET
+        // logic; everything else has redirected or rendered.
+        if($this->_manageSelection($oa4mpServer, $clientModel, $clientId, $client, $admin, $selectedConfig)) {
+          return;
         }
       }
     }
@@ -415,6 +404,312 @@ class Oa4mpClientCoNamedConfigsController extends StandardController {
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_named_config.manage.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));
+  }
+
+  /**
+   * Act on a manage() selection that passed the allow-list, for a client
+   * that is not public (manage() refuses those first): do nothing when the
+   * client is already in the chosen state, ask for confirmation, or send the
+   * confirmed change and then bring the Registry rows in line with it
+   * (cilogon/Oa4mpClient#58).
+   *
+   * A Named configuration takes the place of the client's own scopes,
+   * claims, authorization settings, access token settings, LDAP
+   * configuration and DynamoDB configuration. Applying one deletes them;
+   * removing one starts the client over with the settings a new client gets,
+   * so nothing kept from before can come back into force unreviewed.
+   *
+   * @param  Oa4mpClientOa4mpServer $oa4mpServer    OA4MP server object
+   * @param  Model                  $clientModel    The Oa4mpClientCoOidcClient model
+   * @param  integer                $clientId       Oa4mpClientCoOidcClient ID
+   * @param  array                  $client         The client, as current() returns it
+   * @param  array                  $admin          The admin client, as admin() returns it
+   * @param  array|null             $selectedConfig The chosen Named configuration, or null for none
+   * @return boolean true once the request has rendered or redirected; false
+   *                 when the server refused the change and the form is shown again
+   */
+
+  protected function _manageSelection($oa4mpServer, $clientModel, $clientId, $client, $admin, $selectedConfig) {
+    $removing = ($selectedConfig === null);
+
+    // Choosing the state the client is already in sends nothing. The one
+    // exception is re-saving the applied Named configuration on a client
+    // that still holds an access token row, which an older client kept and
+    // still sends: that runs the confirmed apply, which deletes it.
+    $currentId = $client['Oa4mpClientCoOidcClient']['named_config_id'] ?? null;
+    $unchanged = $removing
+                 ? empty($currentId)
+                 : ((string)$currentId === (string)$selectedConfig['id']
+                    && empty($client['Oa4mpClientAccessToken']['id']));
+
+    if($unchanged) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.flash.unchanged'), array('key' => 'information'));
+      $this->_redirectToManage($clientId);
+      return true;
+    }
+
+    // Nothing is sent until the user has seen what the change deletes and
+    // confirmed it. The confirmation page posts the selection back with the
+    // flag, and it passes the allow-list above again.
+    if(empty($this->request->data['Oa4mpClientCoNamedConfig']['confirmed'])) {
+      $this->_renderConfirmation($oa4mpServer, $client, $selectedConfig);
+      return true;
+    }
+
+    // Once the Named configuration is cleared, no later visit deletes the
+    // rows it replaced, and the reset below would bring them back into
+    // force. So a removal is not sent while any are left.
+    if($removing && $this->namedConfigLeftoversRemain) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.remove_blocked'), array('key' => 'error'));
+      $this->_redirectToManage($clientId);
+      return true;
+    }
+
+    $defaults = null;
+    if($removing) {
+      $defaults = $oa4mpServer->newClientDefaults($admin['DefaultDynamoConfig'] ?? array(), false);
+      $updatedClient = $this->_removedClient($client, $defaults);
+    } else {
+      $updatedClient = $this->_appliedClient($client, $selectedConfig);
+    }
+
+    // Call out to oa4mp server.
+    // Return value of 0 indicates an error saving the edit.
+    // Return value of 2 indicates the plugin representation of the client
+    // and the Oa4mp server representation of the client are out of sync.
+    $ret = $oa4mpServer->oa4mpEditClient($admin, $client, $updatedClient);
+
+    if($ret == 0) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_admin_client.er.edit_error'), array('key' => 'error'));
+      return false;
+    }
+
+    if($ret == 2) {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_oidc_client.er.bad_client'), array('key' => 'error'));
+      return false;
+    }
+
+    // The server accepted the change, so nothing here undoes it. A failed
+    // write is reported as an error, never as success.
+    if($removing) {
+      $this->_writeRemoval($clientModel, $clientId, $client, $defaults);
+    } else {
+      $this->_writeApply($clientModel, $clientId, $client, $selectedConfig);
+    }
+
+    $this->_redirectToManage($clientId);
+    return true;
+  }
+
+  /**
+   * The client as sent when a Named configuration is applied: the Named
+   * configuration, and none of the client's own sections it replaces.
+   *
+   * The sections are emptied rather than left out: current() reads a missing
+   * hasOne row as an array of null-valued fields, which the marshaller would
+   * still see as present.
+   *
+   * @param  array $client The client, as current() returns it
+   * @param  array $config The Named configuration row, from the admin client
+   * @return array
+   */
+
+  protected function _appliedClient($client, $config) {
+    $updated = $client;
+    $updated['Oa4mpClientCoOidcClient']['named_config_id'] = $config['id'];
+    // The cfg names the Named configuration's edit page from this row, which
+    // must be the one being applied, not the one being replaced.
+    $updated['Oa4mpClientCoNamedConfig'] = $config;
+
+    foreach(array('Oa4mpClientCoScope', 'Oa4mpClientClaim', 'Oa4mpClientCoLdapConfig',
+                  'Oa4mpClientAuthorization', 'Oa4mpClientAccessToken', 'Oa4mpClientDynamoConfig') as $m) {
+      $updated[$m] = array();
+    }
+
+    return $updated;
+  }
+
+  /**
+   * The client as sent when its Named configuration is removed: no Named
+   * configuration, and the settings a new confidential client starts with in
+   * place of anything it held before.
+   *
+   * @param  array $client   The client, as current() returns it
+   * @param  array $defaults From Oa4mpClientOa4mpServer::newClientDefaults()
+   * @return array
+   */
+
+  protected function _removedClient($client, $defaults) {
+    $updated = $client;
+    $updated['Oa4mpClientCoOidcClient']['named_config_id'] = null;
+    $updated['Oa4mpClientCoNamedConfig'] = array();
+    $updated['Oa4mpClientClaim'] = array();
+    $updated['Oa4mpClientCoLdapConfig'] = array();
+    $updated['Oa4mpClientAccessToken'] = array();
+    $updated['Oa4mpClientCoScope'] = $defaults['Oa4mpClientCoScope'];
+    $updated['Oa4mpClientAuthorization'] = $defaults['Oa4mpClientAuthorization'];
+    $updated['Oa4mpClientDynamoConfig'] = $defaults['Oa4mpClientDynamoConfig'];
+
+    return $updated;
+  }
+
+  /**
+   * After the server accepted an apply: store the Named configuration, then
+   * delete the client's own rows it replaces, and the access token row last.
+   *
+   * The rows were not sent, so a delete that fails leaves nothing wrong on the
+   * server and the next visit tries again. The access token row is the
+   * exception: an older client's row is still sent, so a failure there asks
+   * the user to apply the Named configuration again.
+   *
+   * @param  Model   $clientModel The Oa4mpClientCoOidcClient model
+   * @param  integer $clientId    Oa4mpClientCoOidcClient ID
+   * @param  array   $client      The client, as current() returns it
+   * @param  array   $config      The Named configuration applied
+   * @return void
+   */
+
+  protected function _writeApply($clientModel, $clientId, $client, $config) {
+    $clientModel->id = $clientId;
+    if(!$clientModel->saveField('named_config_id', $config['id'])) {
+      // Nothing else is written: the Registry still describes the client as
+      // it was before, which the out-of-sync message tells the user to restore.
+      $this->_logWriteFailure($client, 'store the Named configuration');
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), array('key' => 'error'));
+      return;
+    }
+
+    // With the Named configuration stored, the prune deletes exactly the rows
+    // it replaces, LDAP before claims, found by the stored client id.
+    $pruned = $clientModel->pruneNamedConfigLeftovers($clientId);
+    $tokenDeleted = $clientModel->deleteClientRows($clientModel->Oa4mpClientAccessToken, $clientId);
+
+    if(!$tokenDeleted) {
+      $this->_logWriteFailure($client, 'delete the access token setting');
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.cleanup.access_token',
+                             array($config['config_name'])),
+                        array('key' => 'error'));
+    } elseif(!$pruned) {
+      $this->_logWriteFailure($client, 'delete the settings the Named configuration replaces');
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.cleanup.apply'), array('key' => 'error'));
+    } else {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), array('key' => 'success'));
+    }
+  }
+
+  /**
+   * After the server accepted a removal: delete the access token row, clear
+   * the Named configuration, then create the new-client settings.
+   *
+   * The access token row goes first and a failure stops there: it is still
+   * sent while the Named configuration stays stored, but once that is
+   * cleared nothing would delete it, and the next edit would send it again.
+   *
+   * @param  Model   $clientModel The Oa4mpClientCoOidcClient model
+   * @param  integer $clientId    Oa4mpClientCoOidcClient ID
+   * @param  array   $client      The client, as current() returns it
+   * @param  array   $defaults    From Oa4mpClientOa4mpServer::newClientDefaults()
+   * @return void
+   */
+
+  protected function _writeRemoval($clientModel, $clientId, $client, $defaults) {
+    if(!$clientModel->deleteClientRows($clientModel->Oa4mpClientAccessToken, $clientId)) {
+      $this->_logWriteFailure($client, 'delete the access token setting');
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), array('key' => 'error'));
+      return;
+    }
+
+    $clientModel->id = $clientId;
+    if(!$clientModel->saveField('named_config_id', null)) {
+      $this->_logWriteFailure($client, 'clear the Named configuration');
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.edit.save'), array('key' => 'error'));
+      return;
+    }
+
+    // One row at a time, and every one attempted, so a single failure leaves
+    // as little as possible missing. Validation is skipped: these are the
+    // plugin's own defaults and the server has already accepted them.
+    $rows = array();
+    foreach($defaults['Oa4mpClientCoScope'] as $scope) {
+      $rows[] = array($clientModel->Oa4mpClientCoScope, $scope);
+    }
+    $rows[] = array($clientModel->Oa4mpClientAuthorization, $defaults['Oa4mpClientAuthorization']);
+    // An admin client with no default DynamoDB configuration has nothing to
+    // copy, and the client then reads the admin client's default.
+    if(!empty($defaults['Oa4mpClientDynamoConfig']['aws_region'])) {
+      $rows[] = array($clientModel->Oa4mpClientDynamoConfig, $defaults['Oa4mpClientDynamoConfig']);
+    }
+
+    $created = true;
+    foreach($rows as $r) {
+      list($model, $fields) = $r;
+      $fields['client_id'] = $clientId;
+
+      $model->create();
+      if(!$model->save(array($model->alias => $fields), false)) {
+        $created = false;
+      }
+    }
+
+    if(!$created) {
+      $this->_logWriteFailure($client, 'create the settings a new client starts with');
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.er.cleanup.remove'), array('key' => 'error'));
+    } else {
+      $this->Flash->set(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), array('key' => 'success'));
+    }
+  }
+
+  /**
+   * Log a Registry write that failed after the OA4MP server accepted a
+   * Named configuration change.
+   *
+   * @param  array  $client The client, as current() returns it
+   * @param  string $what   What could not be done
+   * @return void
+   */
+
+  protected function _logWriteFailure($client, $what) {
+    $this->log("Oa4mpClient: the OA4MP server accepted the Named configuration change for OIDC client "
+               . ($client['Oa4mpClientCoOidcClient']['oa4mp_identifier'] ?? '?')
+               . " but Registry could not " . $what);
+  }
+
+  /**
+   * Show the confirmation for applying or removing a Named configuration.
+   * Nothing has been sent or written.
+   *
+   * @param  Oa4mpClientOa4mpServer $oa4mpServer    OA4MP server object
+   * @param  array                  $client         The client, as current() returns it
+   * @param  array|null             $selectedConfig The chosen Named configuration, or null for none
+   * @return void
+   */
+
+  protected function _renderConfirmation($oa4mpServer, $client, $selectedConfig) {
+    $text = array();
+
+    if($selectedConfig === null) {
+      $label = $oa4mpServer->namedConfigLabel($client);
+      $title = _txt('pl.oa4mp_client_co_named_config.confirm.remove.title', array($label));
+      $text[] = _txt('pl.oa4mp_client_co_named_config.confirm.remove.text', array($label));
+      $selected = 'none';
+    } else {
+      $label = $selectedConfig['config_name'];
+      $title = _txt('pl.oa4mp_client_co_named_config.confirm.apply.title', array($label));
+      $text[] = _txt('pl.oa4mp_client_co_named_config.confirm.apply.text', array($label));
+      // The client's authorization settings are not sent while a Named
+      // configuration is applied (cilogon/Oa4mpClient#59).
+      $text[] = _txt('pl.oa4mp_client_co_named_config.confirm.apply.authz');
+      if(!empty($client['Oa4mpClientAccessToken']['is_jwt'])) {
+        $text[] = _txt('pl.oa4mp_client_co_named_config.confirm.apply.jwt');
+      }
+      $selected = (string)$selectedConfig['id'];
+    }
+
+    $this->set('vv_confirm_text', $text);
+    $this->set('vv_selected_config_id', $selected);
+    $this->set('title_for_layout', $title);
+
+    $this->render('confirm');
   }
 
   /**

@@ -26,9 +26,12 @@
  */
 
 App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
+App::uses("Oa4mpClientNamedConfigActions", "Oa4mpClient.Controller");
 App::uses("StandardController", "Controller");
 
 class Oa4mpClientAuthorizationsController extends StandardController {
+  use Oa4mpClientNamedConfigActions;
+
   // Class name, used by Cake
   public $name = "Oa4mpClientAuthorizations";
 
@@ -75,9 +78,18 @@ class Oa4mpClientAuthorizationsController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientAuthorization->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
+    // While a Named configuration is applied its own script decides who may
+    // log in, so this page is refused, GET and POST alike, before anything is
+    // sent (cilogon/Oa4mpClient#58).
+    $this->_refuseWhileNamedConfigApplied($client, $clientId);
 
     // Pull the available groups.
     $args = array();
@@ -102,29 +114,9 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     // the cfg. Saved settings would never be enforced, and Require Active
     // Status would read as drift on the next synchronization check, so refuse
     // the write before anything is sent or saved, and show the read-only page
-    // again (cilogon/Oa4mpClient#47). Checked before the Named configuration
-    // guard below: a public client is sent no cfg at all, Named configuration
-    // included, so this is the reason that applies.
+    // again (cilogon/Oa4mpClient#47).
     if($this->request->is(array('post','put')) && $oa4mpServer->isPublicClient($client)) {
       $this->Flash->set(_txt('pl.oa4mp_client_authorization.er.public_client'), array('key' => 'error'));
-
-      $args = array();
-      $args['plugin'] = 'oa4mp_client';
-      $args['controller'] = 'oa4mp_client_authorizations';
-      $args['action'] = 'manage';
-      $args['clientid'] = $clientId;
-      $this->redirect($args);
-    }
-
-    // While a Named configuration is applied its own script decides who may
-    // log in, so the client's authorization settings are kept but not sent
-    // and cannot be changed. Refuse the write before anything is sent or
-    // saved, and show the read-only page again. Only the write is refused:
-    // the GET below is the page that says why.
-    if($this->request->is(array('post','put')) && $oa4mpServer->usesNamedConfig($client)) {
-      $this->Flash->set(_txt('pl.oa4mp_client_authorization.er.named_config',
-                             array($oa4mpServer->namedConfigLabel($client))),
-                        array('key' => 'error'));
 
       $args = array();
       $args['plugin'] = 'oa4mp_client';
@@ -247,12 +239,6 @@ class Oa4mpClientAuthorizationsController extends StandardController {
     $this->set('vv_require_active', $oa4mpServer->requiresActiveStatus($rejected !== null
                                       ? array('Oa4mpClientAuthorization' => $rejected)
                                       : $client));
-
-    // The Named configuration in force, or null. While it is set the view
-    // shows the saved settings disabled under a notice naming it.
-    $this->set('vv_named_config', $oa4mpServer->usesNamedConfig($client)
-                                  ? $oa4mpServer->namedConfigLabel($client)
-                                  : null);
 
     // Whether the client is public. While it is, the view shows the saved
     // settings disabled under a notice.

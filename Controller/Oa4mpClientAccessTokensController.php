@@ -26,9 +26,12 @@
  */
 
 App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
+App::uses("Oa4mpClientNamedConfigActions", "Oa4mpClient.Controller");
 App::uses("StandardController", "Controller");
 
 class Oa4mpClientAccessTokensController extends StandardController {
+  use Oa4mpClientNamedConfigActions;
+
   // Class name, used by Cake
   public $name = "Oa4mpClientAccessTokens";
 
@@ -74,9 +77,18 @@ class Oa4mpClientAccessTokensController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientAccessToken->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
+    // While a Named configuration is applied it supplies the client's access
+    // token format, so this page is refused, GET and POST alike, before
+    // anything is sent (cilogon/Oa4mpClient#58).
+    $this->_refuseWhileNamedConfigApplied($client, $clientId);
 
     // OA4MP rejects a custom configuration (cfg) on a public client, so the
     // plugin never sends one, and JWT Format travels only in the cfg. A saved

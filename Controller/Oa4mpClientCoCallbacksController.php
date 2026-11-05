@@ -26,9 +26,12 @@
  */
 
 App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
+App::uses("Oa4mpClientNamedConfigActions", "Oa4mpClient.Controller");
 App::uses("StandardController", "Controller");
 
 class Oa4mpClientCoCallbacksController extends StandardController {
+  use Oa4mpClientNamedConfigActions;
+
   // Class name, used by Cake
   public $name = "Oa4mpClientCoCallbacks";
 
@@ -172,9 +175,13 @@ class Oa4mpClientCoCallbacksController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
@@ -279,8 +286,9 @@ class Oa4mpClientCoCallbacksController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
 
     // Only the client in the URL was authorized, so the callback must be one
@@ -341,9 +349,13 @@ class Oa4mpClientCoCallbacksController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
 
     // Only the client in the URL was authorized, so the callback must be one
     // of its own (cilogon/Oa4mpClient#65).
@@ -500,9 +512,13 @@ class Oa4mpClientCoCallbacksController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientCoCallback->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Make a Named configuration replace the client's own configuration
+  instead of keeping it unsent (cilogon/Oa4mpClient#58, #59). Applying or
+  removing a Named configuration now asks for confirmation, and applying one
+  warns that Require Active Status and Authorized User Group stop being
+  enforced. A confirmed apply deletes the client's own scopes, claims,
+  authorization, access token, LDAP and DynamoDB configuration, and hides the
+  Scopes, Claims, Access Tokens and Authorization tabs while it is applied; a
+  confirmed removal resets the client to new-client defaults. Kept rows used
+  to come back into force, unreviewed, when the Named configuration was
+  removed. Older Named-configuration clients lose their never-sent rows the
+  next time one of their pages is opened, keeping an access token row until
+  the next confirmed apply or removal. Public clients can no longer use a
+  Named configuration; any public client that already has one must be cleared
+  by hand.
 - Make OIDC client add and the Callbacks tab act only on the client in the
   URL (cilogon/Oa4mpClient#65). Add saved whatever client and contact email
   ids the post carried, so a hand-built request could rename an existing

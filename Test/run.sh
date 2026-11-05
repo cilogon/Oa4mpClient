@@ -157,6 +157,62 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 516 to 521 on 2026-11-05 for the client edit page while a Named
+# configuration is applied (cilogon/Oa4mpClient#58), which added five
+# (519 -> 524) in Test/Case/Controller/NamedConfigEditPageTest.php: opening
+# the edit page creating no claim from an LDAP search attribute, the
+# conversion skipped while a Named configuration is applied and still run
+# without one, an edit save writing no per-client DynamoDB configuration, and
+# opening the edit page deleting leftovers while keeping the access token row.
+#
+# Raised from 499 to 516 on 2026-11-05 for confirming before a Named
+# configuration is applied or removed (cilogon/Oa4mpClient#58,
+# cilogon/Oa4mpClient#59), which added seventeen (502 -> 519) in
+# Test/Case/Controller/NamedConfigApplyRemoveTest.php: the apply confirmation
+# with its JWT and authorization-gate sentences, the confirmation on a switch
+# and on removal, the confirmation page posting the choice back with Cancel as
+# a link, the confirmed apply sending no replaced section and deleting those
+# rows, a refused apply changing nothing, the confirmed removal resetting an
+# older client to new-client defaults, a removal not sent while leftovers
+# remain, nothing sent for the state the client is already in, re-saving with
+# an access token row confirming and deleting it, a public client and another
+# admin client's Named configuration refused, and failed writes after the
+# server accepted reported as errors. The Named-configuration cases of
+# ValidateBeforeServerWriteTest.php now post the confirmation flag, and
+# NamedConfigClientActionsTest.php holds the Named Configuration page to the
+# pruning helper too.
+#
+# Raised from 489 to 499 on 2026-11-05 for refusing the pages a Named
+# configuration replaces and deleting its leftovers on touch
+# (cilogon/Oa4mpClient#58), which added ten (492 -> 502): eight in
+# Test/Case/Controller/NamedConfigClientActionsTest.php (the Access Tokens
+# page and save refused, the ordinary-client control, Callbacks and Refresh
+# Tokens saves still sent, opening Callbacks deleting a leftover claim and
+# keeping the access token row, a failed delete reported without blocking the
+# page, and every client action loading through the pruning helper); one in
+# Test/Case/Controller/ScopesNamedConfigGuardTest.php (a public client with a
+# Named configuration sent to its edit page); and one in
+# Test/Case/Controller/ClaimsWritePathTest.php (the claim edit form refused).
+# The read-only page tests of those files and
+# AuthorizationsNamedConfigGuardTest.php were rewritten to assert refusal.
+#
+# Raised from 481 to 489 on 2026-11-05 for client tab visibility while a Named
+# configuration is applied (cilogon/Oa4mpClient#58), which added eight
+# (484 -> 492) in Test/Case/View/ClientTabVisibilityTest.php: the tab bar
+# rendered for a Named-configuration client, a public client, an ordinary
+# client and with neither variable set; the bar testing both variables only
+# through empty(); every action that draws the bar calling the helper; and the
+# callbacks index setting the Named-configuration and public-client variables.
+#
+# Raised from 472 to 481 on 2026-11-05 for the new-client defaults and the
+# Named configuration leftover prune (cilogon/Oa4mpClient#58), which added nine
+# (475 -> 484) in Test/Case/Model/NamedConfigLeftoverPruneTest.php: the prune
+# deleting every replaced row but the access token, leaving a client with no
+# Named configuration, a public client, another client and the Named
+# configuration's own scopes alone, and reporting a failed claim delete after
+# the LDAP rows are gone; and the new-client defaults for a confidential and a
+# public client, and newClientData() taking the openid scope from them.
+#
 # Raised from 462 to 472 on 2026-11-05 for OIDC client add and the callbacks
 # tab acting only on the client in the URL (cilogon/Oa4mpClient#65), which
 # added ten (465 -> 475): Test/Case/Controller/CallbackStoredIdsTest.php
@@ -505,7 +561,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=472
+min_tests_run=521
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

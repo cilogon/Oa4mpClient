@@ -1,19 +1,23 @@
 <?php
 /**
- * The Scopes tab is read-only while a Named configuration is applied.
+ * The Scopes page is refused while a Named configuration is applied
+ * (cilogon/Oa4mpClient#58).
  *
- * edit_scopes() handles the page and the save in one action, so only the
- * POST is refused -- redirected back to the same action, whose GET renders
- * the stored scopes disabled under a notice. Driven through
- * Oa4mpScopesControllerHarness, whose fake server records every server call,
- * so "nothing was sent" is an empty call list rather than a source scan.
+ * The Named configuration supplies the client's scopes, so the client's own
+ * are deleted and the Scopes tab is hidden. Opening the page directly or
+ * posting to it is refused before anything is sent, on GET and POST alike,
+ * and the refusal sends a confidential client to its Named Configuration
+ * page and a public client to its edit page: redirecting back to the Scopes
+ * page, as the read-only design of cilogon/Oa4mpClient#39 did, would loop
+ * now that the page itself is refused.
+ *
+ * Driven through Oa4mpScopesControllerHarness, whose fake server records
+ * every server call, so "nothing was sent" is an empty call list rather than
+ * a source scan.
  *
  * The client graph is the claims controller fixture's, which already seeds a
- * Named-configuration client and an ordinary one; this file adds a scope row
- * to each.
- *
- * See docs/plans/2026-10-14-1946-feat-named-config-read-only-tabs-plan.md
- * (R1-R3, U3).
+ * Named-configuration client, an ordinary one and a public one; this file
+ * adds a scope row to each.
  */
 
 class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
@@ -22,7 +26,7 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
    * The scopes the form lets a user choose: profile, email,
    * org.cilogon.userinfo and getcert. openid is always on and cannot be
    * cleared, so it is not one of them. A new scope checkbox that is not tied
-   * to the Named configuration must fail the source check below, so the check
+   * to the public-client flag must fail the source check below, so the check
    * also asserts it found at least these.
    */
   const CHOOSABLE_SCOPE_FLOOR = 4;
@@ -34,7 +38,7 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
   public function setUp() {
     parent::setUp();
 
-    foreach (array($this->clientId, $this->namedConfigClientId) as $clientId) {
+    foreach (array($this->clientId, $this->namedConfigClientId, $this->publicClientId) as $clientId) {
       $this->fx->insert('cm_oa4mp_client_co_scopes', array(
         'client_id' => $clientId,
         'scope' => Oa4mpClientScopeEnum::OpenId
@@ -44,9 +48,15 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
 
   public function tearDown() {
     if ($this->fx !== null) {
+      // One test gives the public client the Named configuration, which is
+      // seeded after it and so purged before it.
+      $this->fx->query('UPDATE cm_oa4mp_client_co_oidc_clients SET named_config_id = NULL'
+        . ' WHERE id = ' . (int)$this->publicClientId);
+
       // The ordinary client's save writes scope rows of its own.
       $this->fx->cleanup(array('cm_oa4mp_client_co_scopes' =>
-        'client_id IN (' . (int)$this->clientId . ', ' . (int)$this->namedConfigClientId . ')'));
+        'client_id IN (' . (int)$this->clientId . ', ' . (int)$this->namedConfigClientId
+        . ', ' . (int)$this->publicClientId . ')'));
     }
 
     parent::tearDown();
@@ -76,11 +86,22 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
     return false;
   }
 
-  private function namedConfigError() {
-    return _txt('pl.oa4mp_client_co_scope.er.named_config', array(self::NAMED_CONFIG_NAME));
+  private function refusal() {
+    return _txt('pl.oa4mp_client_co_named_config.er.tab_replaced', array(self::NAMED_CONFIG_NAME));
   }
 
-  /** A changed scope set is refused before anything is sent or saved. */
+  /** Whether $redirect is the Named Configuration page of the client. */
+  private function isNamedConfigPage($redirect, $clientId) {
+    return ($redirect['controller'] ?? null) === 'oa4mp_client_co_named_configs'
+      && ($redirect['action'] ?? null) === 'manage'
+      && (int)($redirect['clientid'] ?? 0) === (int)$clientId;
+  }
+
+  /**
+   * A changed scope set is refused before anything is sent, and the client
+   * is sent to its Named Configuration page. The prune deletes the leftover
+   * openid row on the way in, and the posted scopes are not saved.
+   */
   public function testNamedConfigClientScopeSaveIsRefused() {
     $harness = Oa4mpScopesControllerHarness::build($this->namedConfigClientId, $this->coId,
       $this->changedScopes());
@@ -89,30 +110,50 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
 
     $this->assertEmpty($harness->harnessServer->calls,
       'the guard stopped the save before any server call');
-    $this->assertEqual('edit_scopes', $redirect['action'] ?? null,
-      'the guard redirected back to the scopes page');
-    $this->assertEqual(1, $this->scopeCount($this->namedConfigClientId),
-      'the stored scopes are unchanged');
-    $this->assertTrue($this->flashed($harness, $this->namedConfigError()),
-      'the Named-configuration error was flashed');
+    $this->assertTrue($this->isNamedConfigPage($redirect, $this->namedConfigClientId),
+      'the guard redirected to the client\'s Named Configuration page');
+    $this->assertEqual(0, $this->scopeCount($this->namedConfigClientId),
+      'the posted scopes were not saved');
+    $this->assertTrue($this->flashed($harness, $this->refusal()),
+      'the refusal was flashed');
     $this->assertFalse($this->flashed($harness, _txt('pl.oa4mp_client_co_scope.scope.flash.success')),
       'no success was reported');
   }
 
-  /**
-   * The page itself still renders, so the guard does not block the read-only
-   * view, and it hands the view the configuration's name.
-   */
-  public function testNamedConfigClientScopesPageRenders() {
+  /** Opening the page is refused the same way, with nothing sent. */
+  public function testNamedConfigClientScopesPageIsRefused() {
     $harness = Oa4mpScopesControllerHarness::build($this->namedConfigClientId, $this->coId);
 
     $redirect = $harness->harnessInvoke('edit_scopes', array(), 'GET');
 
-    $this->assertNull($redirect, 'the scopes page rendered');
-    $this->assertEqual(self::NAMED_CONFIG_NAME, $harness->viewVars['vv_named_config'] ?? null,
-      'the view receives the Named configuration\'s name');
-    $this->assertFalse(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
-      'rendering the page sends nothing');
+    $this->assertTrue($this->isNamedConfigPage($redirect, $this->namedConfigClientId),
+      'the page redirected to the client\'s Named Configuration page');
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the refusal came before the synchronization check');
+    $this->assertTrue($this->flashed($harness, $this->refusal()),
+      'the refusal was flashed');
+  }
+
+  /**
+   * A public client cannot open the Named Configuration page, so one that
+   * still carries a Named configuration is sent to its edit page instead.
+   * Its rows are left for the maintainer to clear by hand.
+   */
+  public function testPublicClientWithNamedConfigIsSentToItsEditPage() {
+    $this->fx->query('UPDATE cm_oa4mp_client_co_oidc_clients SET named_config_id = '
+      . (int)$this->namedConfigId . ' WHERE id = ' . (int)$this->publicClientId);
+
+    $harness = Oa4mpScopesControllerHarness::build($this->publicClientId, $this->coId);
+
+    $redirect = $harness->harnessInvoke('edit_scopes', array(), 'GET');
+
+    $this->assertEqual('oa4mp_client_co_oidc_clients', $redirect['controller'] ?? null,
+      'the page redirected to the OIDC client pages');
+    $this->assertEqual('edit', $redirect['action'] ?? null, 'to the edit page');
+    $this->assertEqual($this->publicClientId, (int)($redirect[0] ?? 0), 'of the same client');
+    $this->assertEmpty($harness->harnessServer->calls, 'nothing was sent');
+    $this->assertEqual(1, $this->scopeCount($this->publicClientId),
+      'the public client\'s own scope row was not pruned');
   }
 
   /**
@@ -127,25 +168,25 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
 
     $this->assertTrue(in_array('oa4mpEditClient', $harness->harnessServer->callNames(), true),
       'an ordinary client\'s scope save was sent to the server');
-    $this->assertFalse($this->flashed($harness, $this->namedConfigError()),
-      'no Named-configuration error for an ordinary client');
+    $this->assertFalse($this->flashed($harness, $this->refusal()),
+      'no refusal for an ordinary client');
   }
 
   /**
-   * The Scopes form is read-only while a Named configuration is applied:
-   * every scope checkbox but openid is disabled by it, and the save button is
-   * left out. The thin runner cannot render the form, so it is checked in
-   * source, as AuthorizationsNamedConfigGuardTest does for the Authorization
-   * tab (cilogon/Oa4mpClient#57).
+   * The Scopes form is read-only for a public client only: every scope
+   * checkbox but openid is disabled by the public-client flag, and the save
+   * button is left out for it. A Named-configuration client never reaches
+   * the form, so the form no longer reads the Named configuration. The thin
+   * runner cannot render the form, so it is checked in source.
    */
-  public function testEveryScopeCheckboxIsTiedToTheNamedConfig() {
+  public function testEveryScopeCheckboxIsTiedToThePublicClientFlag() {
     $path = App::pluginPath('Oa4mpClient') . 'View' . DS
       . 'Oa4mpClientCoScopes' . DS . 'fields.inc';
     $this->assertTrue(is_readable($path), "the Scopes form exists at $path");
     $source = file_get_contents($path);
 
-    $this->assertContains('$is_named_config = !empty($vv_named_config);', $source,
-      'the form knows whether a Named configuration is applied');
+    $this->assertFalse(strpos($source, 'named_config') !== false,
+      'the form no longer reads the Named configuration');
 
     preg_match_all("/\\\$this->Form->input\\(['\"]Oa4mpClientCoScope\\.(\\d+)\\.scope['\"]/", $source,
       $matches, PREG_OFFSET_CAPTURE);
@@ -170,9 +211,9 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
 
       $choosable++;
       $this->assertTrue((bool)preg_match(
-        '/if\(\$is_public_client \|\| \$is_named_config \|\| !\$e\) \{\s*\$args\[\'disabled\'\] = true;/',
+        '/if\(\$is_public_client \|\| !\$e\) \{\s*\$args\[\'disabled\'\] = true;/',
         $segment),
-        "scope checkbox $index is not disabled while a Named configuration is applied");
+        "scope checkbox $index is not disabled for a public client");
     }
 
     $this->assertTrue($choosable >= self::CHOOSABLE_SCOPE_FLOOR,
@@ -181,8 +222,8 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
     $this->assertEqual(1, substr_count($source, '$this->Form->submit('),
       'the form has one save button');
     $this->assertTrue((bool)preg_match(
-      '/<\?php if\(!\$is_public_client && !\$is_named_config\): \?>\s*<li class="fields-submit">/',
+      '/<\?php if\(!\$is_public_client\): \?>\s*<li class="fields-submit">/',
       $source),
-      'the save button is left out while a Named configuration is applied');
+      'the save button is left out for a public client');
   }
 }

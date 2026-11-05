@@ -26,9 +26,12 @@
  */
 
 App::uses("Oa4mpClientOa4mpServer", "Oa4mpClient.Model");
+App::uses("Oa4mpClientNamedConfigActions", "Oa4mpClient.Controller");
 App::uses("StandardController", "Controller");
 
 class Oa4mpClientClaimsController extends StandardController {
+  use Oa4mpClientNamedConfigActions;
+
   // Class name, used by Cake
   public $name = "Oa4mpClientClaims";
 
@@ -77,36 +80,6 @@ class Oa4mpClientClaimsController extends StandardController {
   private function _blockIfPublicClient($client, $clientId) {
     if(!empty($client['Oa4mpClientCoOidcClient']['public_client'])) {
       $this->Flash->set(_txt('pl.oa4mp_client_claim.er.public_client'), array('key' => 'error'));
-
-      $args = array();
-      $args['plugin'] = 'oa4mp_client';
-      $args['controller'] = 'oa4mp_client_claims';
-      $args['action'] = 'index';
-      $args['clientid'] = $clientId;
-
-      $this->redirect($args);
-    }
-  }
-
-  /**
-   * Redirect to the claims index with an error when the client uses a Named
-   * configuration. The Named configuration supplies the client's claims, so
-   * the client's own claims are kept but not sent, and the tab is read-only
-   * while it is applied. Guards the write paths even against a hand-crafted
-   * POST or a direct edit/delete URL.
-   *
-   * @param  array   $client   Current client data (with Oa4mpClientCoOidcClient)
-   * @param  integer $clientId Oa4mpClientCoOidcClient ID
-   * @return void    Redirects and exits when the client uses a Named configuration
-   */
-
-  private function _blockIfNamedConfigClient($client, $clientId) {
-    $oa4mpServer = $this->_oa4mpServer();
-
-    if($oa4mpServer->usesNamedConfig($client)) {
-      $this->Flash->set(_txt('pl.oa4mp_client_claim.er.named_config',
-                             array($oa4mpServer->namedConfigLabel($client))),
-                        array('key' => 'error'));
 
       $args = array();
       $args['plugin'] = 'oa4mp_client';
@@ -319,15 +292,22 @@ class Oa4mpClientClaimsController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientClaim->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
+    // While a Named configuration is applied it supplies the client's
+    // claims, so this page is refused, GET and POST alike, before anything is
+    // sent (cilogon/Oa4mpClient#58). Checked before the public-client guard,
+    // whose redirect to the claims index would be refused in turn.
+    $this->_refuseWhileNamedConfigApplied($client, $clientId);
 
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
-
-    // Nor can a client while a Named configuration supplies its claims.
-    $this->_blockIfNamedConfigClient($client, $clientId);
 
     // POST or PUT request
     if($this->request->is(array('post','put'))) {
@@ -499,15 +479,19 @@ class Oa4mpClientClaimsController extends StandardController {
     $clientId = $this->request->params['named']['clientid'];
     $this->set('vv_client_id', $clientId);
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientClaim->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // While a Named configuration is applied it supplies the client's
+    // claims, so this page is refused, GET and POST alike, before anything is
+    // sent (cilogon/Oa4mpClient#58). Checked before the public-client guard,
+    // whose redirect to the claims index would be refused in turn.
+    $this->_refuseWhileNamedConfigApplied($client, $clientId);
 
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
-
-    // Nor can a client while a Named configuration supplies its claims.
-    $this->_blockIfNamedConfigClient($client, $clientId);
 
     // Only one of this client's own claims may be deleted through its URL.
     // Without this the server was sent this client's claims unchanged and
@@ -601,15 +585,22 @@ class Oa4mpClientClaimsController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientClaim->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
+    // While a Named configuration is applied it supplies the client's
+    // claims, so this page is refused, GET and POST alike, before anything is
+    // sent (cilogon/Oa4mpClient#58). Checked before the public-client guard,
+    // whose redirect to the claims index would be refused in turn.
+    $this->_refuseWhileNamedConfigApplied($client, $clientId);
 
     // Public clients cannot have claims configured.
     $this->_blockIfPublicClient($client, $clientId);
-
-    // Nor can a client while a Named configuration supplies its claims.
-    $this->_blockIfNamedConfigClient($client, $clientId);
 
     // Only one of this client's own claims may be edited through its URL
     // (cilogon/Oa4mpClient#56).
@@ -806,9 +797,18 @@ class Oa4mpClientClaimsController extends StandardController {
 
     $oa4mpServer = $this->_oa4mpServer();
 
-    // Get the current client and admin configurations
-    $client = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->current($clientId);
+    // Get the current client and admin configurations. Loading the client
+    // deletes any rows its Named configuration replaces.
+    $client = $this->_currentClientPruned($this->Oa4mpClientClaim->Oa4mpClientCoOidcClient, $clientId);
     $admin = $this->Oa4mpClientClaim->Oa4mpClientCoOidcClient->admin($clientId);
+
+    // The tab bar hides the tabs that do not apply to this client.
+    $this->set($oa4mpServer->clientTabViewVars($client));
+
+    // While a Named configuration is applied it supplies the client's
+    // claims, so this page is refused, GET and POST alike, before anything is
+    // sent (cilogon/Oa4mpClient#58).
+    $this->_refuseWhileNamedConfigApplied($client, $clientId);
 
     // Verify that this plugin and the OA4MP server representations
     // of the current client before the edit are synchronized.
@@ -850,12 +850,6 @@ class Oa4mpClientClaimsController extends StandardController {
     }
 
     $this->request->data = $client;
-
-    // The Named configuration in force, or null. While it is set the view
-    // lists the stored claims read-only under a notice naming it.
-    $this->set('vv_named_config', $oa4mpServer->usesNamedConfig($client)
-                                  ? $oa4mpServer->namedConfigLabel($client)
-                                  : null);
 
     $this->set('title_for_layout', _txt('pl.oa4mp_client_co_oidc_client.claims.edit.name',
                array($client['Oa4mpClientCoOidcClient']['name'])));

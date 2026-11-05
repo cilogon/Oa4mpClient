@@ -1343,19 +1343,15 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
    * A client that uses a named configuration is sent that configuration's
    * stored content, and no claim mappings at all.
    *
-   * DEFERRED DEFECT -- this row characterizes current behavior and does not
-   * endorse it. The claims tab is ungated for named-configuration clients, so
-   * a user can create claims that are silently inert: the named-configuration
-   * branch of oa4mpMarshallCfgQdl() returns before the claim loop runs, so
-   * those claims are never sent to the server. Clearing the named
-   * configuration later activates every previously inert claim at once,
-   * releasing identity attributes to a relying party with no review at the
-   * moment they go live.
-   *
-   * This is recorded as open question Q1 in
-   * docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md. The
-   * row locks current behavior so it cannot drift unnoticed; it is expected to
-   * CHANGE when Q1 is resolved, not to block that resolution.
+   * This is intended behavior. A Named configuration replaces the client's own
+   * claims (cilogon/Oa4mpClient#58), so the named-configuration branch of
+   * oa4mpMarshallCfgQdl() returns before the claim loop runs and never emits
+   * the client's own claim mappings. The claim in this fixture is a leftover:
+   * a confirmed apply deletes the client's own claims, and an older client's
+   * never-sent claims are deleted when any of its pages is next opened or
+   * saved, but until then the cfg must still carry none of them. Removing the
+   * Named configuration resets the client to new-client defaults, so a
+   * leftover claim is never revived either.
    *
    * The metadata block is asserted separately and then excluded from the
    * whole-cfg comparison. Its named-configuration URL is built with
@@ -1387,13 +1383,13 @@ class ClaimCfgContractTest extends Oa4mpTestCase {
 
     unset($cfg['metadata']);
 
-    // The structural fact the deferred defect turns on: the client carries a
-    // claim, and the emitted cfg has nowhere for it. Asserted on its own so a
-    // failure names the defect rather than only reporting a shape mismatch.
+    // The client carries a leftover claim, and the emitted cfg has nowhere for
+    // it. Asserted on its own so a failure names the leaked claim rather than
+    // only reporting a shape mismatch.
     $this->assertFalse(isset($cfg['tokens']['identity']['qdl']['args']['claim_mappings']),
       'row ' . $row . ': the named-configuration branch must emit no claim'
-      . ' mappings -- the client carries a claim and it is silently dropped'
-      . ' (deferred defect, Q1)');
+      . ' mappings -- the Named configuration replaces the client\'s own'
+      . ' claims, so a leftover claim must never be sent');
 
     // Everything else is the stored named configuration, merged verbatim.
     $this->assertEqual(Oa4mpClaimRows::namedConfigContent(), $cfg,

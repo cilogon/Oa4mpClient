@@ -760,10 +760,10 @@ class Oa4mpClientOa4mpServer extends AppModel {
 
   /**
    * Whether client data describes a client that uses a Named configuration.
-   * The marshaller and the Claims, Scopes and Authorization tabs all ask this
-   * one question: while it holds, the client's own claims, scopes and
-   * authorization settings are kept but not sent, and those tabs are
-   * read-only.
+   * The marshaller and the client pages all ask this one question: while it
+   * holds, the client's own claims, scopes and authorization settings are not
+   * sent, and the Scopes, Claims, Access Tokens and Authorization pages are
+   * refused.
    *
    * A client with no Named configuration is read by Containable with an
    * array of null-valued fields for the association, so this tests the
@@ -778,10 +778,9 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
-   * How the read-only Claims, Scopes and Authorization tabs name the Named
-   * configuration a client uses: its configuration name, or its id when the
-   * configuration is no longer found. The value is unescaped; a view escapes
-   * it once when printing it.
+   * How the plugin names the Named configuration a client uses: its
+   * configuration name, or its id when the configuration is no longer found.
+   * The value is unescaped; whatever prints it escapes it once.
    *
    * @param array $data Client data from Oa4mpClientCoOidcClient::current()
    * @return string
@@ -793,6 +792,68 @@ class Oa4mpClientOa4mpServer extends AppModel {
     }
 
     return '#' . $data['Oa4mpClientCoOidcClient']['named_config_id'];
+  }
+
+  /**
+   * The view variables the client tab bar (tabs.inc) decides from. While a
+   * Named configuration is applied it replaces the client's own scopes,
+   * claims, access token and authorization settings, so their tabs are not
+   * shown; a public client gets no cfg, so it is not offered the Named
+   * Configuration tab (cilogon/Oa4mpClient#58).
+   *
+   * Every action that draws the bar passes these to set() right after
+   * loading the client. tabs.inc treats an unset variable as "show", so an
+   * action that does not set them draws the full bar.
+   *
+   * @param array $data Client data from Oa4mpClientCoOidcClient::current()
+   * @return array View variables keyed by name
+   */
+
+  function clientTabViewVars($data) {
+    return array(
+      'vv_tab_named_config_applied' => $this->usesNamedConfig($data),
+      'vv_tab_public_client' => $this->isPublicClient($data)
+    );
+  }
+
+  /**
+   * The settings a newly created OIDC client starts with.
+   *
+   * Client creation and removing a Named configuration from a client both
+   * start from these, so a client reset after its Named configuration is
+   * removed gets exactly what a new client gets (cilogon/Oa4mpClient#58).
+   *
+   * @param array   $defaultDynamoConfig The admin client's DefaultDynamoConfig row
+   * @param boolean $publicClient        Whether the client is a public client
+   * @return array Association data keyed by model: Oa4mpClientCoScope,
+   *               Oa4mpClientDynamoConfig and, for a confidential client only,
+   *               Oa4mpClientAuthorization
+   */
+
+  function newClientDefaults($defaultDynamoConfig, $publicClient) {
+    $defaults = array();
+
+    // The only scope set initially is openid. OA4MP does not require this,
+    // but without the openid scope set we cannot determine from what OA4MP
+    // returns whether or not the client is a public client. We can only
+    // infer it and that inference requires at least the openid scope be set.
+    $defaults['Oa4mpClientCoScope'] = array(
+      array('scope' => Oa4mpClientScopeEnum::OpenId)
+    );
+
+    // The DynamoDB configuration starts as a copy of the admin client's
+    // default, so the copy is saved as the client's own row.
+    $defaults['Oa4mpClientDynamoConfig'] = $defaultDynamoConfig;
+    unset($defaults['Oa4mpClientDynamoConfig']['id']);
+    unset($defaults['Oa4mpClientDynamoConfig']['admin_id']);
+
+    // A confidential client requires Active Status from creation. A public
+    // client cannot carry a cfg, so it gets no authorization row.
+    if(!$publicClient) {
+      $defaults['Oa4mpClientAuthorization'] = array('require_active' => true);
+    }
+
+    return $defaults;
   }
 
   /**
@@ -809,17 +870,15 @@ class Oa4mpClientOa4mpServer extends AppModel {
   function newClientData($adminClient, $data) {
     $saveData = $data;
 
-    // The DynamoDB configuration starts as the admin client's default.
-    $saveData['Oa4mpClientDynamoConfig'] = $adminClient['DefaultDynamoConfig'];
-    unset($saveData['Oa4mpClientDynamoConfig']['id']);
-    unset($saveData['Oa4mpClientDynamoConfig']['admin_id']);
+    $defaults = $this->newClientDefaults($adminClient['DefaultDynamoConfig'], $this->isPublicClient($data));
 
-    // A confidential client requires Active Status from creation. A public
-    // client cannot carry a cfg, so it gets no authorization row.
+    $saveData['Oa4mpClientCoScope'] = $defaults['Oa4mpClientCoScope'];
+    $saveData['Oa4mpClientDynamoConfig'] = $defaults['Oa4mpClientDynamoConfig'];
+
     unset($saveData['Oa4mpClientAuthorization']);
 
-    if(!$this->isPublicClient($data)) {
-      $saveData['Oa4mpClientAuthorization'] = array('require_active' => true);
+    if(isset($defaults['Oa4mpClientAuthorization'])) {
+      $saveData['Oa4mpClientAuthorization'] = $defaults['Oa4mpClientAuthorization'];
     }
 
     // Marshall from the shape a later edit marshalls from (current()): with
@@ -1725,11 +1784,13 @@ class Oa4mpClientOa4mpServer extends AppModel {
     $withheldFields = array();
 
     // Client authorization configuration. A client that uses a named
-    // configuration keeps its authorization row but sends none of these args:
-    // the named configuration points at its own QDL script, which does not
-    // read them, and the Authorization tab shows them as ignored while it is
-    // applied. The args are built either way and dropped below, so the row
-    // comes back into force unchanged once the named configuration is removed.
+    // configuration sends none of these args: the named configuration
+    // replaces the client's authorization settings and points at its own QDL
+    // script, which does not read them (cilogon/Oa4mpClient#58). A confirmed
+    // apply deletes the authorization row, and an older client's leftover row
+    // is deleted when its pages are next opened or saved; until then the args
+    // are built either way and dropped below. Removal resets the client to
+    // new-client defaults rather than reviving a stored row.
     //
     // Each of the five args is CONDITIONAL: it is emitted only when the
     // authorization row carries the value it names. The conditionality lives

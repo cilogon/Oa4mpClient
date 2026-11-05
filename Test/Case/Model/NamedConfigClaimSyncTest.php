@@ -21,36 +21,34 @@
  * a named-configuration cfg is counted in the deployment census like any
  * other. It is a fact ABOUT the cfg and not a claim inside it, the comparator
  * never reads the cfg's metadata, and the branch still returns before the
- * claim loop -- so the exemption characterized here is unchanged, and the
- * claims remain inert. See Test/Case/Model/ContractVersionStampTest.php.
+ * claim loop -- so the exemption characterized here is unchanged. See
+ * Test/Case/Model/ContractVersionStampTest.php.
  *
- * WHAT THIS TEST ASSERTS IS A KNOWN DEFECT, DELIBERATELY FROZEN.
+ * WHAT THIS TEST LOCKS IS INTENDED BEHAVIOR.
  *
- * Claims stored on a named-configuration client are never sent to the OA4MP
- * server and never compared -- they are inert. The Claims tab is read-only
- * for such a client and says so, but claims stored before that, or
- * before the named configuration was applied, remain. Clearing the named
- * configuration later activates every one of them at once, so a relying party
- * begins receiving identity attributes that nobody reviewed at the moment
- * they go live.
+ * A Named configuration replaces the client's own scopes, claims,
+ * authorization settings and access token settings (cilogon/Oa4mpClient#58).
+ * The Named configuration is the source of the scopes, claims, authorization
+ * script and access token format the server holds for such a client, so the
+ * sync check compares the client's scopes with the Named configuration's and
+ * stops there: it never compares the client's own claims. Without that, a
+ * Named-configuration client would read as out of sync whenever the server
+ * holds something the Named configuration supplies.
  *
- * The remedy is a product decision, because it has to cover claims already
- * stored and not only future tab gating. It is recorded as open question Q1 in
- * docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md and the
- * defect itself is written up in
+ * The client's own claims are no longer kept while a Named configuration is
+ * applied. A confirmed apply deletes them once the server accepts the change,
+ * a client that already had a Named configuration has its never-sent leftovers
+ * deleted the next time any of its pages is opened or saved, and removal
+ * resets the client to new-client defaults rather than reviving anything. The
+ * claim on the plugin side below is such a leftover, the state a client is in
+ * before that cleanup runs; it must not make the client read as out of sync.
+ * The history of the defect this replaced is in
  * docs/solutions/logic-errors/oa4mp-named-config-claims-inert-2026-08-22.md.
- *
- * THE EXEMPTION IS LOCKED PROVISIONALLY.
  *
  * This file exists so that an incidental edit -- a refactor that moves the
  * early return, or a cleanup that deletes it as dead-looking code -- fails
- * here rather than in production, where it would silently begin releasing
- * inert claims. It is NOT a decision that the current behavior is correct. A
- * Q1 remedy that changes how the comparator treats named-configuration clients
- * is EXPECTED to change this test. If you are fixing Q1 and these methods go
- * red, that is the intended outcome: update them to describe the new behavior,
- * and update the learning document with it. Nothing here should be worked
- * around.
+ * here rather than in production, where every Named-configuration client
+ * would begin reading as out of sync.
  *
  * See docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md U7
  * (AE8, R18). Patterned on the comparator assertions in
@@ -158,10 +156,9 @@ class NamedConfigClaimSyncTest extends Oa4mpTestCase {
    * red if the exemption is removed, because without it the comparator reaches
    * "Plugin has claims but OA4MP server does not" and returns false.
    *
-   * The verdict asserted here is the inert-claims defect, not a correctness
-   * claim. See the file docblock, Q1 in
-   * docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md, and
-   * docs/solutions/logic-errors/oa4mp-named-config-claims-inert-2026-08-22.md.
+   * The verdict asserted here is the intended one: the Named configuration,
+   * not the client's own claims, decides what the server should hold. See the
+   * file docblock.
    */
   public function testNamedConfigClientWithClaimsReportsInSync() {
     $cur = $this->namedConfigPluginSide(array(Oa4mpClaimRows::claim()));
@@ -176,9 +173,8 @@ class NamedConfigClaimSyncTest extends Oa4mpTestCase {
     $this->assertTrue($this->server()->isClientDataSynchronized($cur, $server),
       'a named-configuration client reports in sync even though it carries a'
       . ' claim the OA4MP server has never been sent -- the comparator returns'
-      . ' before the claim comparison. This is the deferred inert-claims'
-      . ' defect (Q1), locked provisionally; a Q1 remedy is expected to change'
-      . ' this assertion, not to be blocked by it');
+      . ' before the claim comparison, because the Named configuration and not'
+      . ' the client\'s own claims decides what the server holds');
   }
 
   /**

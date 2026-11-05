@@ -169,10 +169,11 @@ class Oa4mpClaimRows {
    * A confidential client that uses a named configuration and also carries the
    * given claim, in the shape oa4mpMarshallCfgQdl() takes.
    *
-   * The claim is present on purpose. The named-configuration branch returns
-   * before the claim loop runs, so the claim never reaches the server; that is
-   * the deferred defect the named-configuration row characterizes (Q1 in
-   * docs/plans/2026-08-22-1554-test-claims-regression-coverage-plan.md).
+   * The claim is present on purpose. It stands for a leftover the client still
+   * holds before its never-sent rows are deleted. The named-configuration
+   * branch returns before the claim loop runs, so the claim never reaches the
+   * server, because a Named configuration replaces the client's own claims
+   * (cilogon/Oa4mpClient#58).
    *
    * @param array $claim The claim row, from claim().
    * @return array

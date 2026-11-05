@@ -134,6 +134,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       $purge['cm_oa4mp_client_co_callbacks'] = 'client_id = ' . (int)$this->clientId;
       $purge['cm_oa4mp_client_co_email_addresses'] = 'client_id = ' . (int)$this->clientId;
       $purge['cm_oa4mp_client_dynamo_configs'] = 'client_id = ' . (int)$this->clientId;
+      // Removing a Named configuration creates Require Active Status.
+      $purge['cm_oa4mp_client_authorizations'] = 'client_id = ' . (int)$this->clientId;
 
       // A named configuration a test seeded is removed before the client, so
       // the client must stop pointing at it first.
@@ -717,18 +719,26 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'the selection error is there for the form to show');
   }
 
-  /** One of the admin client's named configurations is sent, saved, and reported as before. */
+  /**
+   * One of the admin client's named configurations, once confirmed, is sent
+   * without the client's own scopes and access token setting, which it
+   * replaces, then saved and reported as before.
+   */
   public function testNamedConfigOfTheAdminClientIsSentAndSaved() {
     $own = $this->seedNamedConfig($this->adminId, 'own');
+    $this->seedScopes();
 
     $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
-      $this->namedConfigPost((string)$own));
+      $this->namedConfigPost((string)$own, true));
 
     $redirect = $harness->harnessInvoke('manage', array(), 'POST');
 
     $sent = $harness->harnessServer->lastEditData();
-    $this->assertEqual((string)$own, $sent['Oa4mpClientCoOidcClient']['named_config_id'] ?? null,
+    $this->assertEqual((string)$own, (string)($sent['Oa4mpClientCoOidcClient']['named_config_id'] ?? ''),
       'the OA4MP server was sent the selected configuration');
+    $this->assertEmpty($sent['Oa4mpClientCoScope'] ?? array(), 'without the client\'s own scopes');
+    $this->assertTrue(empty($sent['Oa4mpClientAccessToken']['id']), 'without the client\'s access token setting');
+    $this->assertEqual(array(), $this->storedScopes(), 'the client\'s own scopes were deleted');
     $this->assertEqual($own, $this->storedNamedConfig(), 'the plugin stored the same configuration');
     $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), 'success'),
       'success was reported');
@@ -736,13 +746,16 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->assertEqual($this->clientId, $redirect['clientid'] ?? null, 'for the same client');
   }
 
-  /** Choosing no named configuration is sent and saved as none. */
+  /**
+   * Choosing no named configuration, once confirmed, is sent and saved as
+   * none, with the settings a new client starts with.
+   */
   public function testNamedConfigNoneIsSentAndSaved() {
     $own = $this->seedNamedConfig($this->adminId, 'own');
     $this->setStoredNamedConfig($own);
 
     $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
-      $this->namedConfigPost('none'));
+      $this->namedConfigPost('none', true));
 
     $redirect = $harness->harnessInvoke('manage', array(), 'POST');
 
@@ -751,7 +764,12 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->assertTrue(array_key_exists('named_config_id', $sent['Oa4mpClientCoOidcClient'] ?? array())
       && $sent['Oa4mpClientCoOidcClient']['named_config_id'] === null,
       'the OA4MP server was sent no named configuration');
+    $this->assertEqual(array('openid'), $this->sentScopes($harness), 'with the openid scope only');
+    $this->assertTrue(!empty($sent['Oa4mpClientAuthorization']['require_active']),
+      'and Require Active Status on');
+    $this->assertTrue(empty($sent['Oa4mpClientAccessToken']['id']), 'and no access token setting');
     $this->assertNull($this->storedNamedConfig(), 'the plugin cleared the stored configuration');
+    $this->assertEqual(array('openid'), $this->storedScopes(), 'the openid scope was created');
     $this->assertTrue($harness->harnessFlashed(_txt('pl.oa4mp_client_co_named_config.manage.flash.success'), 'success'),
       'success was reported');
     $this->assertEqual('manage', $redirect['action'] ?? null, 'the action redirected to the manage view');
@@ -767,7 +785,7 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $own = $this->seedNamedConfig($this->adminId, 'own');
 
     $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
-      $this->namedConfigPost((string)$own));
+      $this->namedConfigPost((string)$own, true));
     $harness->harnessFailWrites('saveField',
       array('Oa4mpClientCoNamedConfig', 'Oa4mpClientCoAdminClient', 'Oa4mpClientCoOidcClient'));
 
@@ -781,6 +799,9 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'the action redirected where success does, so the next load shows the drift');
     $this->assertEqual($this->clientId, $redirect['clientid'] ?? null, 'for the same client');
     $this->assertNull($this->storedNamedConfig(), 'premise: nothing was saved');
+    $this->assertEqual(1, (int)$this->fx->count('cm_oa4mp_client_access_tokens',
+      'client_id = ' . (int)$this->clientId),
+      'the client\'s own rows are not deleted once the Named configuration could not be stored');
   }
 
   // ==========================================================================
@@ -1242,6 +1263,8 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
       'the OA4MP server was sent the posted name');
     $this->assertTrue(!empty($sent['Oa4mpClientAuthorization']['require_active']),
       'the OA4MP server was sent Require Active Status');
+    $this->assertEqual(array(array('scope' => 'openid')), $sent['Oa4mpClientCoScope'] ?? null,
+      'the OA4MP server was sent the openid scope only');
     $this->assertFalse(isset($sent['Oa4mpClientCoOidcClient']['proxy_limited']),
       'the check ran on a copy, so the create request is built as before');
     $this->assertNull($redirect, 'the action did not redirect');
@@ -1256,6 +1279,9 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_authorizations',
       'client_id = ' . (int)$stored['id'] . ' AND require_active = true'),
       'the stored client requires Active Status');
+    $this->assertEqual(1, $this->fx->count('cm_oa4mp_client_co_scopes',
+      'client_id = ' . (int)$stored['id'] . " AND scope = 'openid'"),
+      'the stored client has the openid scope');
     $this->assertEqual(self::ADMIN_ACCESS_KEY, $this->fx->scalar('SELECT aws_access_key_id FROM cm_oa4mp_client_dynamo_configs'
       . ' WHERE client_id = ' . (int)$stored['id']),
       'the stored client has the admin client\'s default DynamoDB configuration');
@@ -1491,7 +1517,7 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
 
     foreach ($this->serverRejections() as $verdict => $message) {
       $harness = Oa4mpNamedConfigsControllerHarness::build($this->clientId, $this->coId,
-        $this->namedConfigPost((string)$own));
+        $this->namedConfigPost((string)$own, true));
       $harness->harnessServer->editClientReturn = $verdict;
 
       $redirect = $harness->harnessInvoke('manage', array(), 'POST');
@@ -1638,11 +1664,20 @@ class ValidateBeforeServerWriteTest extends Oa4mpTestCase {
     return count(array_keys($harness->harnessServer->callNames(), 'oa4mpEditClient', true));
   }
 
-  /** The named config form as posted: 'none' or a named configuration id. */
-  private function namedConfigPost($selection) {
-    return array('Oa4mpClientCoNamedConfig' => array(
+  /**
+   * The named config form as posted: 'none' or a named configuration id, and
+   * when $confirmed, the flag the confirmation page posts with it.
+   */
+  private function namedConfigPost($selection, $confirmed = false) {
+    $data = array('Oa4mpClientCoNamedConfig' => array(
       'selected_config_id' => $selection
     ));
+
+    if ($confirmed) {
+      $data['Oa4mpClientCoNamedConfig']['confirmed'] = '1';
+    }
+
+    return $data;
   }
 
   /** Store a named configuration for $adminId and return its id. */

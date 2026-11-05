@@ -207,15 +207,14 @@ class PublicClientTabGuardTest extends Oa4mpClaimsControllerTestCase {
   }
 
   /**
-   * The Authorization form's read-only flag covers a public client as well as
-   * a Named configuration: the controls are disabled, the submit is left out,
-   * and the notice says why. AuthorizationsNamedConfigGuardTest checks that
+   * The Authorization form's read-only flag is the public-client flag: the
+   * controls are disabled, the submit is left out, and the notice says why. AuthorizationsNamedConfigGuardTest checks that
    * every control is tied to the flag.
    */
   public function testAuthorizationFormIsReadOnlyForAPublicClient() {
     $source = $this->template('Oa4mpClientAuthorizations');
 
-    $this->assertContains('$is_read_only = $is_public_client || $is_named_config;', $source,
+    $this->assertContains('$is_read_only = $is_public_client;', $source,
       'a public client makes the form read-only');
     $this->assertContains("\$readOnly = \$is_read_only ? array('disabled' => true) : array();", $source,
       'the read-only options disable the controls');

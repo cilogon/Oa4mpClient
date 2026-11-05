@@ -6,18 +6,26 @@
  * A Named configuration points the client at a different QDL script, which
  * almost certainly does not read the plugin-built authorization args
  * (require_active_status, authorization_group_id and the three redirect URLs).
- * The Authorization tab presents those settings as ignored while a Named
- * configuration is applied, so oa4mpMarshallCfgQdl() leaves them out of the
- * cfg. The stored authorization row is kept, and the args come back as soon as
- * the Named configuration is removed.
+ * A Named configuration replaces the client's own authorization settings
+ * (cilogon/Oa4mpClient#58), so oa4mpMarshallCfgQdl() leaves them out of the
+ * cfg. A confirmed apply deletes the client's authorization row once the
+ * server accepts the change, and an older client's never-sent row is deleted
+ * when any of its pages is next opened or saved. The fixtures below still
+ * carry a row, standing for such a leftover before that cleanup runs; it must
+ * never reach the cfg. Removing the Named configuration resets the client to
+ * new-client defaults rather than reviving a stored row, so these tests
+ * characterize the cfg builder only, not what removal sends.
  *
- * isClientDataSynchronized() returns early for a Named-configuration client,
- * before it compares authorization settings, so a client whose server cfg
- * still carries args from an earlier save is not reported out of sync; its
- * next save simply drops them.
+ * isClientDataSynchronized() compares only the scopes of a Named-configuration
+ * client against the Named configuration's and returns before it compares
+ * authorization settings, so a client whose server cfg still carries args
+ * from an earlier save is not reported out of sync; its next save simply
+ * drops them.
  *
- * See docs/plans/2026-10-14-1946-feat-named-config-read-only-tabs-plan.md
- * (R5, R7, R8; AE2-AE4).
+ * The confirmation shown before applying a Named configuration warns that
+ * Require Active Status and Authorized User Group stop being enforced, so the
+ * Named configuration's own script must enforce them if they are still needed
+ * (cilogon/Oa4mpClient#59).
  */
 
 class NamedConfigAuthorizationCfgTest extends Oa4mpTestCase {
@@ -119,10 +127,14 @@ class NamedConfigAuthorizationCfgTest extends Oa4mpTestCase {
   }
 
   /**
-   * Covers AE3. The same saved client with its Named configuration removed
-   * sends its authorization args again.
+   * The control for the test above: the same fixture with named_config_id
+   * cleared reaches the authorization block, so the args missing above are
+   * missing because of the Named configuration and not because the fixture
+   * cannot produce them. This characterizes the cfg builder only. Removing a
+   * Named configuration through the plugin does not revive a stored
+   * authorization row; it resets the client to new-client defaults first.
    */
-  public function testRemovingNamedConfigRestoresAuthorizationArgs() {
+  public function testCfgBuilderSendsAuthorizationArgsWithoutNamedConfig() {
     $data = $this->namedConfigClient();
     $data['Oa4mpClientCoOidcClient']['named_config_id'] = null;
 
@@ -161,8 +173,9 @@ class NamedConfigAuthorizationCfgTest extends Oa4mpTestCase {
   }
 
   /**
-   * The read-only tabs name the Named configuration by its name, and by its
-   * id when the configuration is no longer found, never with an empty name.
+   * The confirmations and the refusal of a replaced tab name the Named
+   * configuration by its name, and by its id when the configuration is no
+   * longer found, never with an empty name.
    */
   public function testNamedConfigLabelFallsBackToTheId() {
     $server = $this->server();
@@ -179,8 +192,8 @@ class NamedConfigAuthorizationCfgTest extends Oa4mpTestCase {
   }
 
   /**
-   * Covers AE4. A saved Named-configuration client with a retained
-   * authorization row reports in sync whether or not the server's cfg still
+   * A saved Named-configuration client with a leftover authorization row,
+   * not yet deleted, reports in sync whether or not the server's cfg still
    * carries authorization args from an earlier save.
    */
   public function testRetainedAuthorizationDoesNotBreakSync() {
@@ -214,7 +227,7 @@ class NamedConfigAuthorizationCfgTest extends Oa4mpTestCase {
     );
 
     $this->assertTrue($this->server()->isClientDataSynchronized($cur, $server),
-      'a Named-configuration client with a retained authorization row must'
+      'a Named-configuration client with a leftover authorization row must'
       . ' report in sync against a server cfg carrying no authorization args');
 
     $server['Oa4mpClientAuthorization'] = array(
