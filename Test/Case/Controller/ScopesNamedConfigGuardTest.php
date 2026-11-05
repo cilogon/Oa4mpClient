@@ -18,6 +18,15 @@
 
 class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
 
+  /**
+   * The scopes the form lets a user choose: profile, email,
+   * org.cilogon.userinfo and getcert. openid is always on and cannot be
+   * cleared, so it is not one of them. A new scope checkbox that is not tied
+   * to the Named configuration must fail the source check below, so the check
+   * also asserts it found at least these.
+   */
+  const CHOOSABLE_SCOPE_FLOOR = 4;
+
   protected function fixtureTagPrefix() {
     return 'scopes-named';
   }
@@ -120,5 +129,60 @@ class ScopesNamedConfigGuardTest extends Oa4mpClaimsControllerTestCase {
       'an ordinary client\'s scope save was sent to the server');
     $this->assertFalse($this->flashed($harness, $this->namedConfigError()),
       'no Named-configuration error for an ordinary client');
+  }
+
+  /**
+   * The Scopes form is read-only while a Named configuration is applied:
+   * every scope checkbox but openid is disabled by it, and the save button is
+   * left out. The thin runner cannot render the form, so it is checked in
+   * source, as AuthorizationsNamedConfigGuardTest does for the Authorization
+   * tab (cilogon/Oa4mpClient#57).
+   */
+  public function testEveryScopeCheckboxIsTiedToTheNamedConfig() {
+    $path = App::pluginPath('Oa4mpClient') . 'View' . DS
+      . 'Oa4mpClientCoScopes' . DS . 'fields.inc';
+    $this->assertTrue(is_readable($path), "the Scopes form exists at $path");
+    $source = file_get_contents($path);
+
+    $this->assertContains('$is_named_config = !empty($vv_named_config);', $source,
+      'the form knows whether a Named configuration is applied');
+
+    preg_match_all("/\\\$this->Form->input\\(['\"]Oa4mpClientCoScope\\.(\\d+)\\.scope['\"]/", $source,
+      $matches, PREG_OFFSET_CAPTURE);
+
+    // Every scope field the form names is one of the checkboxes checked
+    // below, so one built another way cannot escape the check.
+    $this->assertEqual(count($matches[0]),
+      preg_match_all('/Oa4mpClientCoScope\.\d+\.scope/', $source),
+      'every scope field in the form is a Form->input checkbox');
+
+    $choosable = 0;
+    $previousEnd = 0;
+    foreach ($matches[0] as $n => $match) {
+      $index = (int)$matches[1][$n][0];
+      // The code that builds this checkbox's options, since the previous one.
+      $segment = substr($source, $previousEnd, $match[1] - $previousEnd);
+      $previousEnd = $match[1] + strlen($match[0]);
+
+      if ($index === 0) {
+        continue;
+      }
+
+      $choosable++;
+      $this->assertTrue((bool)preg_match(
+        '/if\(\$is_public_client \|\| \$is_named_config \|\| !\$e\) \{\s*\$args\[\'disabled\'\] = true;/',
+        $segment),
+        "scope checkbox $index is not disabled while a Named configuration is applied");
+    }
+
+    $this->assertTrue($choosable >= self::CHOOSABLE_SCOPE_FLOOR,
+      "found $choosable choosable scope checkboxes, expected at least " . self::CHOOSABLE_SCOPE_FLOOR);
+
+    $this->assertEqual(1, substr_count($source, '$this->Form->submit('),
+      'the form has one save button');
+    $this->assertTrue((bool)preg_match(
+      '/<\?php if\(!\$is_public_client && !\$is_named_config\): \?>\s*<li class="fields-submit">/',
+      $source),
+      'the save button is left out while a Named configuration is applied');
   }
 }

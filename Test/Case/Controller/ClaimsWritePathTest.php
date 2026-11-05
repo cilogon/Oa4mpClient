@@ -655,6 +655,50 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
   }
 
   /**
+   * The claims index offers no way to change a Named-configuration client's
+   * claims: the Add, Edit and Delete controls are left out and the claim name
+   * is plain text. The thin runner cannot render the index, so it is checked
+   * in source, as AuthorizationsNamedConfigGuardTest does for the
+   * Authorization tab (cilogon/Oa4mpClient#57). The index builds exactly
+   * these four links, so a new one fails here until it is checked too.
+   */
+  public function testIndexWriteControlsAreTiedToTheNamedConfig() {
+    $path = App::pluginPath('Oa4mpClient') . 'View' . DS
+      . 'Oa4mpClientClaims' . DS . 'index.ctp';
+    $this->assertTrue(is_readable($path), "the claims index exists at $path");
+    $source = file_get_contents($path);
+
+    $this->assertContains('$is_named_config = !empty($vv_named_config);', $source,
+      'the index knows whether a Named configuration is applied');
+
+    $this->assertTrue((bool)preg_match(
+      '/if\(\$permissions\[\'add\'\] && !\$is_public_client && !\$is_named_config\) \{\s*'
+      . '\$params\[\'topLinks\'\]\[\] = \$this->Html->link\(/', $source),
+      'the Add link is left out while a Named configuration is applied');
+    $this->assertTrue((bool)preg_match(
+      '/if\(\$is_named_config\) \{\s*print h\(\$c\[\'claim_name\'\]\);\s*\} else \{\s*'
+      . 'print \$this->Html->link\(/', $source),
+      'the claim name is plain text while a Named configuration is applied');
+    $this->assertTrue((bool)preg_match(
+      '/if\(!\$is_public_client && !\$is_named_config && \$permissions\[\'edit\'\]\) \{\s*'
+      . 'print \$this->Html->link\(/', $source),
+      'the Edit button is left out while a Named configuration is applied');
+    $this->assertTrue((bool)preg_match(
+      '/if\(!\$is_public_client && !\$is_named_config && \$permissions\[\'delete\'\]\) \{\s*'
+      . 'print \'<button type="button" class="deletebutton"/', $source),
+      'the Delete button is left out while a Named configuration is applied');
+
+    $this->assertEqual(4, preg_match_all('/->Html->(link|url)\(/', $source),
+      'the index builds the Add, claim name, Edit and Delete links only');
+    // One control of each write kind, so a second one placed outside the
+    // guards above fails here.
+    foreach (array('addbutton', 'editbutton', 'deletebutton') as $class) {
+      $this->assertEqual(1, substr_count($source, $class),
+        "the index has exactly one $class");
+    }
+  }
+
+  /**
    * Every failure branch of every action, in one place: none of them may
    * report success. This is the invariant the discarded write result broke.
    */

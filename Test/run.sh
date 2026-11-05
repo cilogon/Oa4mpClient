@@ -157,6 +157,14 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 460 to 462 on 2026-11-05 for source checks of the read-only
+# Scopes and Claims views on Named-configuration clients
+# (cilogon/Oa4mpClient#57), which added two (463 -> 465):
+# Test/Case/Controller/ScopesNamedConfigGuardTest.php checks every scope
+# checkbox but openid is disabled and the save button left out, and
+# Test/Case/Controller/ClaimsWritePathTest.php checks the claims index leaves
+# out Add, Edit and Delete and shows the claim name as plain text.
+#
 # Raised from 452 to 460 on 2026-11-05 for claim add, edit and delete acting
 # only on the client in the URL and its own claims (cilogon/Oa4mpClient#56),
 # which added eight (455 -> 463) in
@@ -486,7 +494,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=460
+min_tests_run=462
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
