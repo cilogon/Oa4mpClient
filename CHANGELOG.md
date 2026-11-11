@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Reserve the claim name `cilogon_<key claim>` on the Claims tab
+  (cilogon/Oa4mpClient#67). The key claim is the `partition_key_claim_name`
+  of the DynamoDB configuration that applies to the client, so the reserved
+  name is usually `cilogon_sub`. The DynamoDB claims script uses that name to
+  keep the user's original key value when a client configures a claim with
+  the same name as its key claim, such as a `sub` populated from the CO
+  Person record; until now such a client refused its users at the token
+  step. Saving a claim with the reserved name is refused before anything is
+  sent to the OA4MP server, and the form warns about the name and disables
+  Save while it is typed. The script change ships separately in
+  `dynamodb_claims.qdl` and must be deployed to a tier for the fix itself to
+  take effect there.
 - Make a Named configuration replace the client's own configuration
   instead of keeping it unsent (cilogon/Oa4mpClient#58, #59). Applying or
   removing a Named configuration now asks for confirmation, and applying one
