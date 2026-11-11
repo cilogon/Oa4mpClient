@@ -298,6 +298,10 @@ $cm_oa4mp_client_texts['en_US'] = array(
   'pl.oa4mp_client_claim.er.edit.save'         => 'The claim was updated on the OA4MP server but could not be saved by Registry. The Registry and OA4MP server configurations for this client are now out of sync, and every further change to the client is blocked until they agree, including editing the claim again. To bring them back into agreement, restore the claim on the OA4MP server to the values Registry still holds.',
   'pl.oa4mp_client_claim.er.public_client'     => 'Claims cannot be configured for a public client. A public client releases only the standard sub claim.',
   'pl.oa4mp_client_claim.er.not_client_claim'  => 'That claim does not belong to this client.',
+  'pl.oa4mp_client_claim.er.reserved_name'     => 'The claim name %1$s is reserved for this client and was not saved. The DynamoDB claims script uses it to keep the value it finds the user\'s record by. Choose a different claim name.',
+
+  // Form messages
+  'pl.oa4mp_client_claim.reserved_name.warning' => 'The claim name %1$s is reserved for this client, because the DynamoDB claims script uses it to keep the value it finds the user\'s record by. Choose a different claim name to save the claim.',
 
   // ===========================================================================
   // Scopes

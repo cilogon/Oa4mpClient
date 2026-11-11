@@ -887,8 +887,228 @@ class ClaimsWritePathTest extends Oa4mpClaimsControllerTestCase {
   }
 
   // ==========================================================================
+  // The reserved copy of the DynamoDB key claim (cilogon/Oa4mpClient#67)
+  //
+  // When a client configures a claim named like its DynamoDB key claim, the
+  // DynamoDB claims script keeps the key claim's original value in a claim
+  // named cilogon_<key claim> and finds the user by that copy. The Claims tab
+  // refuses a claim with that name before anything is sent, so a configured
+  // claim can never be mistaken for the copy. The key claim is the
+  // partition_key_claim_name of the configuration that applies to the
+  // client: its own row, or else the admin client's default (sub here).
+  // ==========================================================================
+
+  /** Adding a claim named cilogon_sub is refused before anything is sent. */
+  public function testAddOfTheReservedNameIsRefusedBeforeAnyServerCall() {
+    $harness = $this->harness($this->addDataNamed('cilogon_sub'));
+    $harness->harnessServer->editClientReturn = 1;
+
+    $redirect = $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the refusal came before any server call');
+    $this->assertEqual(1, $this->claimCount(), 'no claim was added');
+    $this->assertEqual(0, $this->claimNameCount('cilogon_sub'), 'the reserved name was not saved');
+    $this->assertTrue($this->flashed($harness, $this->reservedNameRefusal('cilogon_sub')),
+      'the reserved-name error, naming the claim, was flashed');
+    $this->assertFalse($this->flashedAnySuccess($harness), 'no success was reported');
+    $this->assertEqual('index', $redirect['action'] ?? null, 'the action redirected to the claims index');
+    $this->assertEqual('oa4mp_client_claims', $redirect['controller'] ?? null, 'in the claims controller');
+    $this->assertEqual($this->clientId, $redirect['clientid'] ?? null, 'for the client in the URL');
+  }
+
+  /** Renaming a stored claim to cilogon_sub is refused before anything is sent. */
+  public function testEditRenamingToTheReservedNameIsRefusedBeforeAnyServerCall() {
+    $data = $this->validEditData();
+    $data['Oa4mpClientClaim']['claim_name'] = 'cilogon_sub';
+
+    $harness = $this->harness($data);
+    $harness->harnessServer->editClientReturn = 1;
+
+    $redirect = $harness->harnessInvoke('edit', array($this->claimId), 'POST');
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the refusal came before any server call');
+    $this->assertEqual(1, $this->claimNameCount('eppn'), 'the stored claim is unchanged');
+    $this->assertEqual(0, $this->claimNameCount('cilogon_sub'), 'the reserved name was not saved');
+    $this->assertTrue($this->flashed($harness, $this->reservedNameRefusal('cilogon_sub')),
+      'the reserved-name error, naming the claim, was flashed');
+    $this->assertFalse($this->flashedAnySuccess($harness), 'no success was reported');
+    $this->assertEqual('index', $redirect['action'] ?? null, 'the action redirected to the claims index');
+    $this->assertEqual($this->clientId, $redirect['clientid'] ?? null, 'for the client in the URL');
+  }
+
+  /**
+   * A client with its own DynamoDB configuration, keyed on uid, reserves
+   * cilogon_uid and not the default's cilogon_sub. The two configurations
+   * differ in every value, so this shows which one was read.
+   */
+  public function testPerClientDynamoConfigKeyClaimDecidesTheReservedName() {
+    $this->seedPerClientDynamoConfig();
+
+    $refused = $this->harness($this->addDataNamed('cilogon_uid'));
+    $refused->harnessServer->editClientReturn = 1;
+    $refused->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEmpty($refused->harnessServer->calls,
+      'cilogon_uid was refused before any server call');
+    $this->assertEqual(0, $this->claimNameCount('cilogon_uid'), 'cilogon_uid was not saved');
+    $this->assertTrue($this->flashed($refused, $this->reservedNameRefusal('cilogon_uid')),
+      'the reserved-name error names cilogon_uid');
+
+    $accepted = $this->harness($this->addDataNamed('cilogon_sub'));
+    $accepted->harnessServer->editClientReturn = 1;
+    $accepted->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(array('oa4mpEditClient'), $accepted->harnessServer->callNames(),
+      'cilogon_sub was sent to the server, since the default\'s key claim does not apply');
+    $this->assertEqual('cilogon_sub', $this->sentNewClaim($accepted)['claim_name'] ?? null,
+      'the claim sent is the posted one');
+    $this->assertEqual(1, $this->claimNameCount('cilogon_sub'), 'cilogon_sub was saved');
+  }
+
+  /**
+   * A per-client row whose every column is null is not a configuration, so
+   * the admin client's default applies and cilogon_sub is refused.
+   */
+  public function testAllNullPerClientRowLeavesTheDefaultKeyClaimInForce() {
+    $this->seedPerClientDynamoConfig(array());
+
+    $harness = $this->harness($this->addDataNamed('cilogon_sub'));
+    $harness->harnessServer->editClientReturn = 1;
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEmpty($harness->harnessServer->calls,
+      'the refusal came before any server call');
+    $this->assertEqual(0, $this->claimNameCount('cilogon_sub'), 'the reserved name was not saved');
+    $this->assertTrue($this->flashed($harness, $this->reservedNameRefusal('cilogon_sub')),
+      'the reserved-name error names the default\'s copy claim');
+  }
+
+  /** With no DynamoDB configuration at all, no name is reserved. */
+  public function testNoDynamoConfigReservesNoName() {
+    $this->removeDefaultDynamoConfig();
+
+    $harness = $this->harness($this->addDataNamed('cilogon_sub'));
+    $harness->harnessServer->editClientReturn = 1;
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(array('oa4mpEditClient'), $harness->harnessServer->callNames(),
+      'the claim was sent to the server as before');
+    $this->assertEqual(1, $this->claimNameCount('cilogon_sub'), 'the claim was saved');
+    $this->assertTrue($this->flashed($harness, _txt('pl.oa4mp_client_claim.add.flash.success')),
+      'success was reported');
+  }
+
+  /**
+   * The comparison is exact and case-sensitive, as the claims script's is:
+   * names that only resemble the reserved one are accepted.
+   */
+  public function testNearMissesOfTheReservedNameAreAccepted() {
+    foreach (array('CILOGON_SUB', 'cilogon_sub2') as $name) {
+      $harness = $this->harness($this->addDataNamed($name));
+      $harness->harnessServer->editClientReturn = 1;
+      $harness->harnessInvoke('add', array(), 'POST');
+
+      $this->assertEqual(array('oa4mpEditClient'), $harness->harnessServer->callNames(),
+        "$name was sent to the server");
+      $this->assertEqual(1, $this->claimNameCount($name), "$name was saved");
+      $this->assertFalse($this->flashed($harness, $this->reservedNameRefusal('cilogon_sub')),
+        "$name was not refused as reserved");
+    }
+  }
+
+  /**
+   * A claim named like the key claim itself is the collision the claims
+   * script handles, so it is accepted and sent as before.
+   */
+  public function testAClaimNamedLikeTheKeyClaimIsAccepted() {
+    $harness = $this->harness($this->addDataNamed('sub'));
+    $harness->harnessServer->editClientReturn = 1;
+    $harness->harnessInvoke('add', array(), 'POST');
+
+    $this->assertEqual(array('oa4mpEditClient'), $harness->harnessServer->callNames(),
+      'the sub claim was sent to the server');
+    $this->assertEqual(1, $this->claimNameCount('sub'), 'the sub claim was saved');
+  }
+
+  /**
+   * A claim already stored with the reserved name can still be deleted, so
+   * an admin can remove one saved before the name was reserved.
+   */
+  public function testDeleteOfAStoredReservedNameClaimIsAllowed() {
+    $reservedId = $this->fx->insert('cm_oa4mp_client_claims', array(
+      'client_id' => $this->clientId,
+      'claim_name' => 'cilogon_sub',
+      'source_model' => 'Identifier',
+      'source_model_claim_value_field' => 'identifier',
+      'claim_value_selection' => 'first',
+      'claim_value_json_format' => 'string'
+    ));
+
+    $harness = $this->harness();
+    $harness->harnessServer->editClientReturn = 1;
+    $harness->harnessInvoke('delete', array($reservedId));
+
+    $this->assertEqual(array('oa4mpEditClient'), $harness->harnessServer->callNames(),
+      'the delete was sent to the server');
+    $this->assertEqual(0, $this->claimNameCount('cilogon_sub'), 'the claim was deleted');
+    $this->assertTrue($this->flashed($harness, _txt('pl.oa4mp_client_claim.delete.flash.success')),
+      'success was reported');
+  }
+
+  /**
+   * The predicate behind the refusal: cilogon_ plus the key claim of the
+   * configuration that applies, or null when none applies or it names no
+   * key claim.
+   */
+  public function testReservedClaimNamePredicate() {
+    $server = ClassRegistry::init('Oa4mpClient.Oa4mpClientOa4mpServer');
+
+    $default = array('aws_region' => 'us-east-1', 'partition_key_claim_name' => 'sub');
+    $perClient = array('aws_region' => 'us-west-2', 'partition_key_claim_name' => 'uid');
+    $phantom = array('aws_region' => null, 'partition_key_claim_name' => null);
+
+    $this->assertEqual('cilogon_uid', $server->reservedClaimName(array(
+      'Oa4mpClientDynamoConfig' => $perClient,
+      'Oa4mpClientCoAdminClient' => array('DefaultDynamoConfig' => $default)
+    )), 'a per-client configuration decides the name');
+
+    $this->assertEqual('cilogon_sub', $server->reservedClaimName(array(
+      'Oa4mpClientDynamoConfig' => $phantom,
+      'Oa4mpClientCoAdminClient' => array('DefaultDynamoConfig' => $default)
+    )), 'without a per-client configuration the default decides the name');
+
+    $this->assertNull($server->reservedClaimName(array(
+      'Oa4mpClientDynamoConfig' => $phantom,
+      'Oa4mpClientCoAdminClient' => array('DefaultDynamoConfig' => $phantom)
+    )), 'no configuration reserves no name');
+
+    $this->assertNull($server->reservedClaimName(array(
+      'Oa4mpClientCoAdminClient' => array()
+    )), 'a client read without either configuration reserves no name');
+
+    $this->assertNull($server->reservedClaimName(array(
+      'Oa4mpClientDynamoConfig' => array('aws_region' => 'us-west-2', 'partition_key_claim_name' => ''),
+      'Oa4mpClientCoAdminClient' => array('DefaultDynamoConfig' => $default)
+    )), 'a configuration that names no key claim reserves no name');
+  }
+
+  // ==========================================================================
   // Helpers (must not begin with "test": the runner would call them)
   // ==========================================================================
+
+  /** A well-formed add() body for a claim with the given name. */
+  private function addDataNamed($claimName) {
+    $data = $this->validAddData();
+    $data['Oa4mpClientClaim']['claim_name'] = $claimName;
+    return $data;
+  }
+
+  /** The error flashed when a claim is given the reserved name $name. */
+  private function reservedNameRefusal($name) {
+    return _txt('pl.oa4mp_client_claim.er.reserved_name', array($name));
+  }
 
   /** A well-formed add() body. */
   private function validAddData() {

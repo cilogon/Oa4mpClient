@@ -729,6 +729,37 @@ class Oa4mpClientOa4mpServer extends AppModel {
   }
 
   /**
+   * The claim name a client may not configure: cilogon_ followed by the key
+   * claim (partition_key_claim_name) of the DynamoDB configuration that
+   * applies to it.
+   *
+   * When a client configures a claim named like its key claim, the DynamoDB
+   * claims script keeps the key claim's original value in this claim and
+   * finds the user's record by it in every phase, so a configured claim of
+   * this name must never reach the OA4MP server (cilogon/Oa4mpClient#67).
+   *
+   * The configuration is resolved by resolveDynamoConfig(), the resolver the
+   * cfg marshaller uses, so the name reserved here is always built from the
+   * key claim the script is sent. Callers compare it exactly, case included,
+   * as the script does.
+   *
+   * @param array $data Client data including Oa4mpClientDynamoConfig and
+   *                    Oa4mpClientCoAdminClient.DefaultDynamoConfig.
+   * @return string|null The reserved claim name, or null when no DynamoDB
+   *                     configuration applies or it names no key claim.
+   */
+
+  function reservedClaimName($data) {
+    $dynamoConfig = $this->resolveDynamoConfig($data);
+
+    if(empty($dynamoConfig['partition_key_claim_name'])) {
+      return null;
+    }
+
+    return 'cilogon_' . $dynamoConfig['partition_key_claim_name'];
+  }
+
+  /**
    * Whether client data describes a public client. Posted form data carries
    * '0' or '1'; data read from the database carries a boolean.
    *
