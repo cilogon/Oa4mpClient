@@ -72,9 +72,11 @@ class Oa4mpClientAuthzComponent extends Component {
       $oa4mpAdmins = array();
     }
 
-    $username = $this->Session->check('Auth.User.username') ?? null;
+    $username = $this->Session->read('Auth.User.username');
 
-    if(in_array($username, $oa4mpAdmins)) {
+    // Strict comparison, so a missing username (null) never matches a listed
+    // name.
+    if(in_array($username, $oa4mpAdmins, true)) {
       $oa4mpAdmin = true;
     } else {
       $oa4mpAdmin = false;
