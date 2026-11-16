@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Show the main-menu "OIDC Clients" link to platform admins in every CO, and
+  to CO admins in their CO when it has an OIDC admin client
+  (cilogon/Oa4mpClient#78). Admins could always open the page and find it
+  under Configuration, but the main-menu link appeared only for members of a
+  delegated management group or an OIDC client's authorization group, so an
+  admin saw it only when they happened to belong to one. Permissions, the
+  Configuration entry and the delegate page are unchanged; an unset
+  management group still delegates to nobody.
 - Reserve the claim name `cilogon_<key claim>` on the Claims tab
   (cilogon/Oa4mpClient#67). The key claim is the `partition_key_claim_name`
   of the DynamoDB configuration that applies to the client, so the reserved

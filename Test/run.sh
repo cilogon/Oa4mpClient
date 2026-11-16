@@ -157,6 +157,15 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 538 to 550 on 2026-11-16 for showing the main-menu OIDC Clients
+# link to platform and CO admins (cilogon/Oa4mpClient#78), which added twelve
+# (541 -> 553) in the new Test/Case/Model/MenuVisibilityTest.php: a CO admin
+# with and without an admin client in the CO, a platform admin from the
+# COmanage CO and as an ordinary member of the session CO, a COU admin, expired
+# and deleted admins memberships, a delegated manager, an authorization-group
+# editor, an ordinary member, no session person, unknown and empty usernames,
+# and the cmp and coconfig entries left unchanged.
+#
 # Raised from 521 to 538 on 2026-11-11 for reserving the DynamoDB key claim's
 # copy name on the Claims tab (cilogon/Oa4mpClient#67), which added fourteen
 # (527 -> 541): nine in Test/Case/Controller/ClaimsWritePathTest.php (an add
@@ -577,7 +586,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=538
+min_tests_run=550
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
