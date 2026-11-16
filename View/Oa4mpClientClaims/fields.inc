@@ -314,6 +314,12 @@
   $constraint0TextsJson = json_encode($constraint0Texts, $jsonFlags);
   $constraint1TextsJson = json_encode($constraint1Texts, $jsonFlags);
   $sourceModelConfigsJson = json_encode($sourceModelConfigs, $jsonFlags);
+
+  // The claim name the DynamoDB claims script keeps for itself, which a save
+  // refuses (cilogon/Oa4mpClient#67), and the warning shown while it is typed.
+  // Null when no DynamoDB configuration applies, which turns the check off.
+  $reservedClaimNameJson = json_encode($vv_reserved_claim_name ?? null, $jsonFlags);
+  $reservedClaimNameMessageJson = json_encode(_txt('pl.oa4mp_client_claim.reserved_name.warning', array($vv_reserved_claim_name ?? '')), $jsonFlags);
 ?>
 
 <script type="text/javascript">
@@ -340,6 +346,8 @@
     "cert_subject_dn"
   ].map(function(value) { return value.toLowerCase(); });
   const claimOverrideMessage = <?php print json_encode(_txt('pl.oa4mp_client_co_scope.scope.override')); ?>;
+  const reservedClaimName = <?php print $reservedClaimNameJson; ?>;
+  const reservedClaimNameMessage = <?php print $reservedClaimNameMessageJson; ?>;
 
   const FIELD_SELECTORS = {
     constraint0: '#Oa4mpClientClaimConstraint0ConstraintValue_li',
@@ -393,6 +401,27 @@
     const normalized = (value || '').trim().toLowerCase();
     if(normalized && STANDARD_CLAIMS.indexOf(normalized) !== -1) {
       showClaimOverrideMessage();
+    }
+  }
+
+  // Unlike the override message, this one stays visible for as long as the
+  // name matches, and Save stays disabled with it. The comparison is exact,
+  // case and surrounding spaces included, as the save's refusal and the
+  // DynamoDB claims script are.
+  function checkReservedClaimName(value) {
+    if(!reservedClaimName) {
+      return;
+    }
+
+    const $message = $('#ClaimNameReservedMessage');
+    const $submit = $('#Oa4mpClientClaimClaimName').closest('form').find(':submit');
+
+    if((value || '') === reservedClaimName) {
+      $message.text(reservedClaimNameMessage).show();
+      $submit.prop('disabled', true);
+    } else {
+      $message.hide();
+      $submit.prop('disabled', false);
     }
   }
 
@@ -874,6 +903,11 @@
         checkClaimNameOverride($(this).val());
       });
       checkClaimNameOverride($claimNameField.val());
+
+      $claimNameField.on('input change', function() {
+        checkReservedClaimName($(this).val());
+      });
+      checkReservedClaimName($claimNameField.val());
     }
 
     $('#Oa4mpClientClaimSourceModel').on('change', function() {
@@ -935,6 +969,7 @@
       <span class="field-info-prefix">
         <?php print $this->Form->input('claim_name', array('label' => false, 'div' => false)); ?>
         <div id="ClaimNameOverrideMessage" class="oa4mp-override-message" style="display:none;"></div>
+        <div id="ClaimNameReservedMessage" class="oa4mp-override-message" style="display:none;"></div>
       </span>
     </div>
   </li>

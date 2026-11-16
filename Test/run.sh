@@ -157,6 +157,22 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 521 to 538 on 2026-11-11 for reserving the DynamoDB key claim's
+# copy name on the Claims tab (cilogon/Oa4mpClient#67), which added fourteen
+# (527 -> 541): nine in Test/Case/Controller/ClaimsWritePathTest.php (an add
+# and an edit rename of cilogon_sub refused before any server call, a
+# per-client configuration keyed on uid reserving cilogon_uid and not the
+# default's cilogon_sub, an all-null per-client row leaving the default in
+# force, no configuration reserving no name, the case and suffix near misses
+# accepted, a claim named like the key claim accepted, a stored reserved-name
+# claim still deletable, and the predicate itself); and five in the new
+# Test/Case/View/ClaimReservedNameWarningTest.php (the add, re-rendered add and
+# edit forms given the reserved name, the rendered form carrying it and the
+# warning, no reserved name without a configuration, the script disabling
+# Save on a match and enabling it otherwise, and its strings coming from
+# lang.php through json_encode()). Before this change the suite ran 527
+# tests against the floor of 521.
+#
 # Raised from 516 to 521 on 2026-11-05 for the client edit page while a Named
 # configuration is applied (cilogon/Oa4mpClient#58), which added five
 # (519 -> 524) in Test/Case/Controller/NamedConfigEditPageTest.php: opening
@@ -561,7 +577,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=521
+min_tests_run=538
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then

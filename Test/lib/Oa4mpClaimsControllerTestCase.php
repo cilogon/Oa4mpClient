@@ -151,11 +151,55 @@ abstract class Oa4mpClaimsControllerTestCase extends Oa4mpTestCase {
       $purge['cm_oa4mp_client_claim_constraints'] =
         'claim_id IN (SELECT id FROM cm_oa4mp_client_claims WHERE client_id IN (' . $clients . '))';
       $purge['cm_oa4mp_client_claims'] = 'client_id IN (' . $clients . ')';
-      $purge['cm_oa4mp_client_dynamo_configs'] = 'admin_id = ' . (int)$this->adminId;
+      // A test may seed a per-client configuration row, which carries the
+      // client id and no admin id.
+      $purge['cm_oa4mp_client_dynamo_configs'] = 'admin_id = ' . (int)$this->adminId
+        . ' OR client_id IN (' . $clients . ')';
     }
 
     $this->fx->cleanup($purge);
     $this->fx = null;
+  }
+
+  /**
+   * Give the ordinary seeded client its own DynamoDB configuration row.
+   *
+   * Every value differs from the admin client's default seeded in setUp(),
+   * so a test can tell which of the two configurations was read. The row
+   * leaves admin_id null: the admin client's hasOne DefaultDynamoConfig keys
+   * on admin_id alone, so a per-client row carrying it would be read as the
+   * default too.
+   *
+   * @param  array|null $columns The row's columns, or null for the
+   *                             distinguishable defaults below. Pass an empty
+   *                             array for a row whose every column is null.
+   * @return integer The new row's id
+   */
+  protected function seedPerClientDynamoConfig($columns = null) {
+    if ($columns === null) {
+      $columns = array(
+        'aws_region' => 'us-west-2',
+        // The second pair of declared credential placeholders (see
+        // ClaimCfgFixtureHygieneTest), so the credentials differ too.
+        'aws_access_key_id' => 'AKIAEXAMPLEROTATED',
+        'aws_secret_access_key' => 'not-a-real-rotated-secret',
+        'table_name' => 'oa4mp-per-client-table',
+        'partition_key' => 'uid',
+        'partition_key_template' => '${uid}',
+        'partition_key_claim_name' => 'uid'
+      );
+    }
+
+    return $this->fx->insert('cm_oa4mp_client_dynamo_configs', array(
+      'admin_id' => null,
+      'client_id' => $this->clientId
+    ) + $columns);
+  }
+
+  /** Remove the admin client's default DynamoDB configuration seeded in setUp(). */
+  protected function removeDefaultDynamoConfig() {
+    $this->fx->query('DELETE FROM cm_oa4mp_client_dynamo_configs WHERE admin_id = '
+      . (int)$this->adminId . ' AND client_id IS NULL');
   }
 
   /** A harness pointed at the ordinary (non-public) seeded client. */

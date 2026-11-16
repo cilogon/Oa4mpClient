@@ -130,6 +130,42 @@ class Oa4mpClientClaimsController extends StandardController {
   }
 
   /**
+   * Redirect to the claims index with an error when a claim is given the
+   * client's reserved claim name.
+   *
+   * The DynamoDB claims script keeps the original value of the client's key
+   * claim in a claim named cilogon_<key claim> and finds the user by it, so a
+   * configured claim of that name is refused before it is sent to the OA4MP
+   * server (cilogon/Oa4mpClient#67). The comparison is exact, case included,
+   * as the script's is. The form warns about the name and disables its
+   * submit button first, so this is reached only when that warning was
+   * bypassed, which is why the posted values are not kept for a re-render.
+   *
+   * @param  string|null $reservedName The client's reserved claim name, or null for none
+   * @param  array       $claim        The claim about to be sent and saved
+   * @param  integer     $clientId     Oa4mpClientCoOidcClient ID
+   * @return void        Redirects and exits when the claim has the reserved name
+   */
+
+  private function _refuseReservedClaimName($reservedName, $claim, $clientId) {
+    if($reservedName === null
+       || !isset($claim['claim_name'])
+       || $claim['claim_name'] !== $reservedName) {
+      return;
+    }
+
+    $this->Flash->set(_txt('pl.oa4mp_client_claim.er.reserved_name', array($reservedName)), array('key' => 'error'));
+
+    $args = array();
+    $args['plugin'] = 'oa4mp_client';
+    $args['controller'] = 'oa4mp_client_claims';
+    $args['action'] = 'index';
+    $args['clientid'] = $clientId;
+
+    $this->redirect($args);
+  }
+
+  /**
    * Rebuild a posted claim and its constraints around the stored client.
    *
    * The form carries the claim id, its client id and the constraint ids as
@@ -300,6 +336,11 @@ class Oa4mpClientClaimsController extends StandardController {
     // The tab bar hides the tabs that do not apply to this client.
     $this->set($oa4mpServer->clientTabViewVars($client));
 
+    // The claim name the DynamoDB claims script keeps for itself, which a
+    // save refuses and the form warns about (cilogon/Oa4mpClient#67).
+    $reservedClaimName = $oa4mpServer->reservedClaimName($client);
+    $this->set('vv_reserved_claim_name', $reservedClaimName);
+
     // While a Named configuration is applied it supplies the client's
     // claims, so this page is refused, GET and POST alike, before anything is
     // sent (cilogon/Oa4mpClient#58). Checked before the public-client guard,
@@ -314,6 +355,8 @@ class Oa4mpClientClaimsController extends StandardController {
       // Send and save only a new claim of this client, whatever ids the post
       // carries (cilogon/Oa4mpClient#56).
       $this->request->data = $this->claimDataForStoredClient($client, $this->request->data);
+
+      $this->_refuseReservedClaimName($reservedClaimName, $this->request->data['Oa4mpClientClaim'], $clientId);
 
       $claims = $client['Oa4mpClientClaim'];
 
@@ -593,6 +636,11 @@ class Oa4mpClientClaimsController extends StandardController {
     // The tab bar hides the tabs that do not apply to this client.
     $this->set($oa4mpServer->clientTabViewVars($client));
 
+    // The claim name the DynamoDB claims script keeps for itself, which a
+    // save refuses and the form warns about (cilogon/Oa4mpClient#67).
+    $reservedClaimName = $oa4mpServer->reservedClaimName($client);
+    $this->set('vv_reserved_claim_name', $reservedClaimName);
+
     // While a Named configuration is applied it supplies the client's
     // claims, so this page is refused, GET and POST alike, before anything is
     // sent (cilogon/Oa4mpClient#58). Checked before the public-client guard,
@@ -611,6 +659,8 @@ class Oa4mpClientClaimsController extends StandardController {
       // Send and save only this claim and its own constraints, whatever ids
       // the post carries (cilogon/Oa4mpClient#56).
       $this->request->data = $this->claimDataForStoredClient($client, $this->request->data, $storedClaim);
+
+      $this->_refuseReservedClaimName($reservedClaimName, $this->request->data['Oa4mpClientClaim'], $clientId);
 
       $newClient = $client;
 

@@ -173,6 +173,10 @@ class Oa4mpHarnessOa4mpServer {
     return $this->realServer()->clientTabViewVars($data);
   }
 
+  public function reservedClaimName($data) {
+    return $this->realServer()->reservedClaimName($data);
+  }
+
   // Not a predicate, but it also makes no request: it only builds the
   // new-client defaults. Oa4mpWritePathOa4mpServer inherits it.
   public function newClientDefaults($defaultDynamoConfig, $publicClient) {
