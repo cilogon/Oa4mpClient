@@ -18,7 +18,7 @@ tags: [authorization, allow-list, cakephp, session, in-array, loose-comparison, 
 
 ## Problem
 
-cilogon/Oa4mpClient#80. `Oa4mpClientAuthzComponent::isOa4mpAdmin()` decides whether the logged-in user is on the `COMANAGE_REGISTRY_OA4MP_ADMIN_USERS` list. Once that list held any name, it answered yes for every logged-in user. The fix is on branch `fix/oa4mp-admin-session-username`, merge pending.
+cilogon/Oa4mpClient#80. `Oa4mpClientAuthzComponent::isOa4mpAdmin()` decides whether the logged-in user is on the `COMANAGE_REGISTRY_OA4MP_ADMIN_USERS` list. Once that list held any name, it answered yes for every logged-in user. Fixed by cilogon/Oa4mpClient#82.
 
 ## Root cause
 
