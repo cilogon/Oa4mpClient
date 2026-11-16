@@ -208,6 +208,26 @@ class NamedConfigApplyRemoveTest extends Oa4mpTestCase {
     $this->assertContains("'action' => 'manage'", $source, 'to the Named Configuration page');
   }
 
+  /**
+   * The warning box and the buttons follow core's layout. Core styles
+   * co-info-topbox as a flex row holding an icon and one co-info-topbox-text
+   * element; paragraphs placed directly in the box became side-by-side
+   * columns. CONFIRM and Cancel were printed with nothing between them, so
+   * the two buttons touched.
+   */
+  public function testConfirmationPageUsesCoreInfoBoxAndSpacedButtons() {
+    $path = App::pluginPath('Oa4mpClient') . 'View' . DS . 'Oa4mpClientCoNamedConfigs' . DS . 'confirm.ctp';
+    $source = (string)file_get_contents($path);
+
+    $this->assertContains('<div class="co-info-topbox-text">', $source,
+      'the paragraphs sit in one co-info-topbox-text element, so they stack');
+    $this->assertTrue(
+      preg_match('/<div class="co-info-topbox">\s*<em class="material-icons">info<\/em>\s*<div class="co-info-topbox-text">/', $source) === 1,
+      'the box holds an info icon and then the text element, as core builds it');
+    $this->assertContains("'class' => 'ml-2 cancelbutton'", $source,
+      'Cancel has a left margin so it does not touch CONFIRM');
+  }
+
   // ==========================================================================
   // Confirmed apply
   // ==========================================================================

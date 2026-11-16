@@ -67,10 +67,17 @@
   );
 ?>
 
+<?php
+  // Core styles co-info-topbox as a flex row of an icon and one text
+  // element, so the paragraphs go inside co-info-topbox-text to stack.
+?>
 <div class="co-info-topbox">
-  <?php foreach($vv_confirm_text as $paragraph): ?>
-    <p><?php print filter_var($paragraph, FILTER_SANITIZE_SPECIAL_CHARS); ?></p>
-  <?php endforeach; ?>
+  <em class="material-icons">info</em>
+  <div class="co-info-topbox-text">
+    <?php foreach($vv_confirm_text as $paragraph): ?>
+      <p><?php print filter_var($paragraph, FILTER_SANITIZE_SPECIAL_CHARS); ?></p>
+    <?php endforeach; ?>
+  </div>
 </div>
 
 <?php
@@ -84,8 +91,11 @@
     <div class="field-name"></div>
     <div class="field-info">
       <?php
-        print $this->Form->submit(_txt('pl.oa4mp_client_co_named_config.confirm.button'));
-        print $this->Html->link(_txt('op.cancel'), $manageUrl, array('class' => 'cancelbutton'));
+        // No wrapper div around CONFIRM, so Cancel sits on the same line,
+        // with a margin between the two.
+        print $this->Form->submit(_txt('pl.oa4mp_client_co_named_config.confirm.button'),
+                                  array('div' => false));
+        print $this->Html->link(_txt('op.cancel'), $manageUrl, array('class' => 'ml-2 cancelbutton'));
       ?>
     </div>
   </li>
