@@ -6,7 +6,7 @@
   warning paragraphs rendered side by side as narrow columns, and the CONFIRM
   and Cancel buttons touched. The paragraphs now stack in the yellow box with
   its info icon, and the buttons sit on one line with a gap between them
-  (merge pending).
+  (cilogon/Oa4mpClient#85).
 - Make the OA4MP-admin permission flag true only for users on the
   `COMANAGE_REGISTRY_OA4MP_ADMIN_USERS` list (cilogon/Oa4mpClient#80). It
   compared a session presence check, which is true or false, with the list,

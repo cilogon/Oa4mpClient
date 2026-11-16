@@ -18,7 +18,7 @@ tags: [comanage, co-info-topbox, flexbox, view, bootstrap, cancelbutton, named-c
 
 ## Problem
 
-When an admin chose a Named configuration, the confirmation page (`View/Oa4mpClientCoNamedConfigs/confirm.ctp`) showed its two warning paragraphs next to each other as narrow columns, and the CONFIRM and Cancel buttons were pressed together. The fix is on branch `fix/named-config-confirm-layout`, merge pending.
+When an admin chose a Named configuration, the confirmation page (`View/Oa4mpClientCoNamedConfigs/confirm.ctp`) showed its two warning paragraphs next to each other as narrow columns, and the CONFIRM and Cancel buttons were pressed together. Fixed by cilogon/Oa4mpClient#85.
 
 ## Root cause
 
