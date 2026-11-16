@@ -127,8 +127,11 @@ class Oa4mpClient extends AppModel {
       // to the link, so it still opens the right page.
       //
       // CO admins get the link in their CO when it has an OIDC admin client.
-      if($this->isPlatformAdmin($username) ||
-         (!empty($adminClients) && $this->isCoAdminsMember($coPersonId))) {
+      // People who already have the link skip both lookups, and the cheaper
+      // CO admin check runs first.
+      if(empty($menus["comain"]) &&
+         ((!empty($adminClients) && $this->isCoAdminsMember($coPersonId)) ||
+          $this->isPlatformAdmin($username))) {
         $menus["comain"] = $this->mainMenuLink();
       }
 
