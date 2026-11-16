@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 7.0.0 (2026-11-16)
+
+Changes since 7.0.0-rc8. Release candidates 7.0.0-rc9 to 7.0.0-rc11 were
+tagged without sections of their own; their changes are included here.
+
 - Lay out the Named configuration confirmation page correctly. The two
   warning paragraphs rendered side by side as narrow columns, and the CONFIRM
   and Cancel buttons touched. The paragraphs now stack in the yellow box with
@@ -147,6 +152,19 @@
 - Remove seven duplicated table definitions from the plugin schema. They made
   `cake database` warn "Possibly failed to update database schema" on a fresh
   install. Existing installations need no migration.
+- Make the Callback link in a client's callbacks list open that callback
+  (cilogon/Oa4mpClient#33). It left out the client, so it landed on an error
+  page; the Edit and Delete links on the same row already worked.
+- Keep one DynamoDB configuration per client when legacy LDAP search
+  attributes are migrated to claims (cilogon/Oa4mpClient#27). The migration
+  added a new configuration row for every attribute it migrated, and a read
+  could then return a different row from the one just written, so a
+  migration could report success with nothing changed. Duplicate rows
+  already in the database are left in place but no longer read.
+- Send an OIDC client the admin client's current default DynamoDB
+  configuration when the client is edited (cilogon/Oa4mpClient#25). Each
+  client kept the copy made when it was created, so rotated AWS credentials
+  never reached existing clients, and nothing in the Registry showed it.
 
 ## 7.0.0-rc8 (2026-08-25)
 
