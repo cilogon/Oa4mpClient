@@ -168,7 +168,9 @@ every time: #82 fixed a bug and #83 changed one line of its learning from
 returns, replace the pending wording in that change's learning, CHANGELOG entry
 or plan with the citation, and push it as a follow-up commit to the same branch.
 That costs one more CI run and no extra pull request. If the pull request is
-closed and replaced by a new one, update the number in the new one.
+closed and replaced by a new one, update the number in the new one. This
+exception was added in cilogon/Oa4mpClient#84, which cites itself here the same
+way.
 
 The rest of this document still holds for fork pull requests: a fork number is
 never the landing record, so it is never cited that way.
