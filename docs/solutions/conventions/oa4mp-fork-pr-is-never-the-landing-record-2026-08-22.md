@@ -11,6 +11,7 @@ related_components:
   - ".github/pull_request_template.md"
   - documentation
 severity: low
+last_updated: 2026-11-16
 applies_when:
   - "Writing anything that records where a change landed -- a docs/solutions/ learning, a plan, a runbook, a commit message"
   - "A branch has been pushed to the fork but the upstream pull request does not exist yet"
@@ -152,6 +153,27 @@ deliberately keeps its run citations on `skoranda/Oa4mpClient#3` while attributi
 the merge to `cilogon/Oa4mpClient#5`
 (`docs/solutions/integration-issues/oa4mp-gitleaks-secret-scan-usedefault-trap-2026-08-22.md:232-233`).
 Separating the two is the correct shape, not a compromise.
+
+**A pull request opened upstream from the machine account may cite itself.**
+Since the `skoranda-agent` machine account, the pull request the agent opens is
+on `cilogon/Oa4mpClient` itself, so its number is the one that lands. Text in a
+pull request reaches `main` only if that pull request merges. A citation of the
+pull request committed inside it, such as "fixed by cilogon/Oa4mpClient#82",
+is therefore true wherever anyone can read it on `main`. If the pull request is
+closed unmerged, the sentence never lands either.
+
+Waiting for the merge to cite it cost a second, documentation-only pull request
+every time: #82 fixed a bug and #83 changed one line of its learning from
+"merge pending" to "fixed by #82". Instead, take the number `gh pr create`
+returns, replace the pending wording in that change's learning, CHANGELOG entry
+or plan with the citation, and push it as a follow-up commit to the same branch.
+That costs one more CI run and no extra pull request. If the pull request is
+closed and replaced by a new one, update the number in the new one. This
+exception was added in cilogon/Oa4mpClient#84, which cites itself here the same
+way.
+
+The rest of this document still holds for fork pull requests: a fork number is
+never the landing record, so it is never cited that way.
 
 **Re-run the mechanical claims validator after the merge, not only at writing
 time.** The merge itself changes the answer:

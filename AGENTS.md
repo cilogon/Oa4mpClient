@@ -221,6 +221,15 @@ Recording where work landed:
   While the work is still unmerged, name the branch or the pull request and
   say the merge is pending. Recover merged numbers from
   `git log --merges main`.
+- Exception: a change may cite the upstream pull request that carries it.
+  Text in a pull request reaches `main` only if that pull request merges, so
+  "fixed by cilogon/Oa4mpClient#N" committed in #N itself is true wherever it
+  can be read. After `gh pr create` returns the number, replace the "merge
+  pending" wording in that change's learning, CHANGELOG entry or plan with
+  the citation, and push it as a follow-up commit to the same branch. That
+  removes the docs-only pull request that would otherwise follow the merge.
+  If the pull request is replaced by a new one, update the number in the new
+  one.
 - Pull requests before the machine account went through the developer's
   fork first; those fork pull requests were closed unmerged and are never
   the landing record. See
