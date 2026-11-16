@@ -19,7 +19,7 @@ tags: [comanage, plugin-menus, cmPluginMenus, comain, platform-admin, co-admin, 
 
 ## Problem
 
-cilogon/Oa4mpClient#78. A CO admin reported that "OIDC Clients" was missing from the main menu when no delegated management group was set. They could still open the page through Configuration.
+cilogon/Oa4mpClient#78, fixed by cilogon/Oa4mpClient#79. A CO admin reported that "OIDC Clients" was missing from the main menu when no delegated management group was set. They could still open the page through Configuration.
 
 ## Root cause
 
