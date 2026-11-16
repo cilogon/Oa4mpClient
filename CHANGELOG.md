@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Make the OA4MP-admin permission flag true only for users on the
+  `COMANAGE_REGISTRY_OA4MP_ADMIN_USERS` list (cilogon/Oa4mpClient#80). It
+  compared a session presence check, which is true or false, with the list,
+  and a loose comparison matched that against any name, so every logged-in
+  user counted as an OA4MP admin once the list was set. Nothing reads the flag
+  yet, so there was no visible effect.
 - Show the main-menu "OIDC Clients" link to platform admins in every CO, and
   to CO admins in their CO when it has an OIDC admin client
   (cilogon/Oa4mpClient#78). Admins could always open the page and find it

@@ -191,4 +191,38 @@ class Oa4mpClientAuthzComponentTest extends Oa4mpTestCase {
     $p = $this->permissions($this->strangerId, $this->openClientId);
     $this->assertFalse($p['oa4mp_admin'], 'no configured admin users means no OA4MP admin');
   }
+
+  /**
+   * With COMANAGE_REGISTRY_OA4MP_ADMIN_USERS configured, only the listed users
+   * are OA4MP admins. The flag used to compare the result of Session->check()
+   * (a boolean) with the list, and a loose in_array() matches true against any
+   * non-empty name, so every logged-in user came out as an OA4MP admin
+   * (cilogon/Oa4mpClient#80).
+   */
+  public function testOa4mpAdminOnlyForListedUsers() {
+    $previousList = getenv('COMANAGE_REGISTRY_OA4MP_ADMIN_USERS');
+    $previousUser = CakeSession::read('Auth.User.username');
+
+    putenv('COMANAGE_REGISTRY_OA4MP_ADMIN_USERS=oa4mp-admin@example.org,other-admin@example.org');
+
+    try {
+      CakeSession::write('Auth.User.username', 'someone-else@example.org');
+      $p = $this->permissions($this->strangerId, $this->openClientId);
+      $this->assertFalse($p['oa4mp_admin'], 'a logged-in user not on the list is not an OA4MP admin');
+
+      CakeSession::write('Auth.User.username', 'other-admin@example.org');
+      $p = $this->permissions($this->strangerId, $this->openClientId);
+      $this->assertTrue($p['oa4mp_admin'], 'a listed user is an OA4MP admin');
+    } finally {
+      putenv($previousList === false
+        ? 'COMANAGE_REGISTRY_OA4MP_ADMIN_USERS'
+        : 'COMANAGE_REGISTRY_OA4MP_ADMIN_USERS=' . $previousList);
+
+      if ($previousUser === null) {
+        CakeSession::delete('Auth.User.username');
+      } else {
+        CakeSession::write('Auth.User.username', $previousUser);
+      }
+    }
+  }
 }
