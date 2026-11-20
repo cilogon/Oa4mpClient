@@ -107,6 +107,24 @@ class Marshaller
   }
 
   /**
+   * Whether a value counts as present: emitted into a cfg, read back from
+   * one, and compared.
+   *
+   * The marshaller, the unmarshaller and the comparator all ask this one
+   * function, so "would this have been sent" has one answer. It is PHP's
+   * empty(), as Registry 4 applies it, so a string '0' is absent: it is
+   * never sent, and a comparator that kept it would report the client out
+   * of sync on every check.
+   *
+   * @param mixed $value The value a row or a cfg carries.
+   * @return bool
+   */
+  public static function countsAsPresent(mixed $value): bool
+  {
+    return !empty($value);
+  }
+
+  /**
    * Build the cfg for a client.
    *
    * @param array<string, mixed> $data Client data, in the Registry 4 shape.
@@ -348,8 +366,8 @@ class Marshaller
           // the contract does not declare arrives here already missing that
           // field, so this same guard drops it.
           if (
-            !empty($constraintMapping['constraint_field'])
-            && !empty($constraintMapping['constraint_value'])
+            self::countsAsPresent(value: $constraintMapping['constraint_field'] ?? null)
+            && self::countsAsPresent(value: $constraintMapping['constraint_value'] ?? null)
           ) {
             $claimConstraints[] = $constraintMapping;
           }
@@ -660,7 +678,7 @@ class Marshaller
         continue;
       }
 
-      if ($dropEmpty && empty($value)) {
+      if ($dropEmpty && !self::countsAsPresent(value: $value)) {
         continue;
       }
 
@@ -679,7 +697,7 @@ class Marshaller
       if (
         in_array($key, $declared, true)
         || in_array($key, $this->cfgNonEmittedRowKeys(), true)
-        || ($dropEmpty && empty($value))
+        || ($dropEmpty && !self::countsAsPresent(value: $value))
       ) {
         continue;
       }

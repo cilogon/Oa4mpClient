@@ -1,0 +1,35 @@
+{
+  "client_id": "cilogon:/client_id/older-format-qdlv2",
+  "client_name": "Older format QDLv2",
+  "client_uri": "https://app.example.org/",
+  "redirect_uris": ["https://app.example.org/callback"],
+  "grant_types": ["authorization_code"],
+  "response_types": ["code"],
+  "scope": ["openid", "profile"],
+  "token_endpoint_auth_method": "client_secret_basic",
+  "contacts": ["owner@example.org"],
+  "comment": "Created by COmanage Oa4mpClient Plugin: https://registry.example.org/registry/oa4mp_client/oa4mp_client_co_oidc_clients/index/co:2",
+  "cfg": {
+    "tokens": {
+      "identity": {
+        "type": "identity",
+        "qdl": [
+          {
+            "load": "COmanageRegistry/default/ldap_claims.qdl",
+            "xmd": {"exec_phase": ["post_auth", "post_refresh", "post_token", "post_user_info"]},
+            "args": {
+              "server_fqdn": "ldap.example.org",
+              "server_port": 636,
+              "bind_dn": "cn=service,dc=example,dc=org",
+              "bind_password": "not-a-real-password",
+              "search_base": "ou=people,dc=example,dc=org",
+              "search_attribute": "uid",
+              "list_attributes": ["isMemberOf"],
+              "ldap_to_claim_mappings": {"isMemberOf": "is_member_of", "gecos": "gecos"}
+            }
+          }
+        ]
+      }
+    }
+  }
+}
