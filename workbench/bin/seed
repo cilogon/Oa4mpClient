@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#
+# Create the workbench CO, its groups and the test people. Safe to run again:
+# it adds only what is missing.
+#
+# Usage: workbench/bin/seed
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+require_local_config
+
+export WORKBENCH_IMAGE="${WORKBENCH_IMAGE:-$(workbench_image_tag "$(workbench_pin)")}"
+# The container logs every query to the console at debug level; keep only
+# the command's own output and anything worse than info.
+"${WORKBENCH_COMPOSE[@]}" exec -T -u www-data registry \
+  bash -c 'cd "$COMANAGE_REGISTRY_DIR/app" && ./bin/cake workbench_seed' \
+  | grep -vE '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8} (debug|info): '

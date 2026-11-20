@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# Start the workbench (or apply changes to it) and wait until Registry answers.
+#
+# Uses the image built from workbench/registry.pin unless WORKBENCH_IMAGE names
+# another. The Registry container runs Registry's database and setup commands
+# on every start; on an existing database they change nothing.
+#
+# Usage: workbench/bin/up [docker compose up options]
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+require_local_config
+
+export WORKBENCH_IMAGE="${WORKBENCH_IMAGE:-$(workbench_image_tag "$(workbench_pin)")}"
+export WORKBENCH_CILOGON_PORT="$(local_value CILOGON_PORT)"
+export WORKBENCH_TESTLOGIN_PORT="$(local_value TESTLOGIN_PORT)"
+
+docker image inspect "$WORKBENCH_IMAGE" > /dev/null 2>&1 \
+  || die "image $WORKBENCH_IMAGE not found; run workbench/bin/build-image first"
+
+# Extra arguments go to `docker compose up`, for example --force-recreate
+# after make-local-config changed a mounted file.
+"${WORKBENCH_COMPOSE[@]}" up -d "$@"
+
+url="https://localhost:$WORKBENCH_TESTLOGIN_PORT/registry/"
+echo "==> Waiting for Registry at $url"
+for _ in $(seq 1 120); do
+  status="$(curl -ks -o /dev/null -w '%{http_code}' "$url" || true)"
+  if [ "$status" = "200" ] || [ "$status" = "302" ]; then
+    echo "==> Registry is up"
+    echo "    Maintainer (CILogon): https://localhost:$WORKBENCH_CILOGON_PORT/registry/"
+    echo "    Agents (test login):  $url"
+    exit 0
+  fi
+  sleep 2
+done
+
+"${WORKBENCH_COMPOSE[@]}" logs --tail 40 registry >&2
+die "Registry did not answer within four minutes"

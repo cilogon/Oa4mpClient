@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+#
+# Build the workbench's Registry 5 image from a COmanage Registry checkout.
+#
+# Builds the upstream base image and then the mod_auth_openidc image on top of
+# it, exactly as the checkout's own Dockerfiles describe, from a clean export
+# of one commit. Uncommitted or untracked files in the checkout never reach
+# the image.
+#
+# Usage: workbench/bin/build-image [--registry PATH] [--commit REF] [--no-cache]
+#
+#   --registry PATH  Registry checkout (default: REGISTRY_CHECKOUT from
+#                    workbench/local/workbench.env)
+#   --commit REF     commit to build (default: workbench/registry.pin)
+#   --no-cache       passed to docker build
+#
+# Prints the image tag on the last line.
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+registry=""
+commit=""
+build_flags=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --registry) registry="$2"; shift 2 ;;
+    --registry=*) registry="${1#*=}"; shift ;;
+    --commit) commit="$2"; shift 2 ;;
+    --commit=*) commit="${1#*=}"; shift ;;
+    --no-cache) build_flags+=(--no-cache); shift ;;
+    *) die "unknown option: $1" ;;
+  esac
+done
+
+if [ -z "$registry" ] && [ -f "$WORKBENCH_LOCAL/workbench.env" ]; then
+  registry="$(local_value REGISTRY_CHECKOUT)"
+fi
+[ -n "$registry" ] || die "give --registry PATH or set REGISTRY_CHECKOUT"
+[ -d "$registry/.git" ] || [ -f "$registry/.git" ] \
+  || die "$registry is not a git checkout"
+
+[ -n "$commit" ] || commit="$(workbench_pin)"
+sha="$(git -C "$registry" rev-parse --verify "${commit}^{commit}")" \
+  || die "commit $commit not found in $registry"
+
+context="$(mktemp -d)"
+trap 'rm -rf "$context"' EXIT
+
+echo "==> Exporting $sha from $registry"
+git -C "$registry" archive --format=tar "$sha" | tar -x -C "$context"
+
+label="wb-${sha:0:12}"
+suffix="1"
+base_tag="comanage-registry-base:${label}-${suffix}"
+image_tag="$(workbench_image_tag "$sha")"
+
+echo "==> Building $base_tag"
+docker build "${build_flags[@]}" \
+  --tag "$base_tag" \
+  --build-arg COMANAGE_REGISTRY_VERSION="$label" \
+  --label org.opencontainers.image.revision="$sha" \
+  --file "$context/container/registry/base/Dockerfile" \
+  "$context"
+
+echo "==> Building $image_tag"
+docker build "${build_flags[@]}" \
+  --tag "$image_tag" \
+  --build-arg COMANAGE_REGISTRY_VERSION="$label" \
+  --build-arg COMANAGE_REGISTRY_BASE_IMAGE_VERSION="$suffix" \
+  --label org.opencontainers.image.revision="$sha" \
+  --file "$context/container/registry/mod_auth_openidc/Dockerfile" \
+  "$context"
+
+echo "$image_tag"

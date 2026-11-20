@@ -1,0 +1,45 @@
+# Local Registry 5 workbench for developing the Oa4mpClient plugin.
+#
+# One Registry container serves two listeners, both published on the loopback
+# interface only:
+#   - WORKBENCH_CILOGON_PORT (default 8443): CILogon login, for the maintainer
+#   - WORKBENCH_TESTLOGIN_PORT (default 8444): basic-auth test login, for agents
+#
+# The virtual hosts, test-login accounts and secrets come from workbench/local/,
+# which make-local-config generates and git ignores. The image itself is the
+# unmodified upstream build from the pinned Registry commit; without the local
+# files mounted it offers no test login. Start it with workbench/bin/up.
+
+services:
+  database:
+    # Same digest-pinned image as the Registry 4 hermetic tests.
+    image: postgres@sha256:2fdfb9b432d4a73bd3eea3d989752c1e669b68d502347e0bfd2cc6d709f3d6b4
+    env_file: local/database.env
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry_user -d registry"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  registry:
+    image: ${WORKBENCH_IMAGE:?run workbench/bin/up, which sets the image}
+    depends_on:
+      database:
+        condition: service_healthy
+    env_file: local/registry.env
+    ports:
+      - "127.0.0.1:${WORKBENCH_CILOGON_PORT:-8443}:443"
+      - "127.0.0.1:${WORKBENCH_TESTLOGIN_PORT:-8444}:8444"
+    volumes:
+      - ./local/000-comanage.conf:/etc/apache2/sites-available/000-comanage.conf:ro
+      - ./local/htpasswd:/etc/apache2/workbench/htpasswd:ro
+      # The plugin under development, straight from the working copy.
+      # Read-only, so nothing in the container writes into the checkout.
+      - ..:/srv/comanage-registry/local/plugins/Oa4mpClient:ro
+      # Console command that seeds the test CO, groups and people.
+      - ./seed/WorkbenchSeedCommand.php:/srv/comanage-registry/app/src/Command/WorkbenchSeedCommand.php:ro
+
+volumes:
+  database:
