@@ -28,25 +28,16 @@ App::uses('Router', 'Routing');
 
 class Oa4mpParityExporter {
 
-  // The two addresses Registry 4 writes into what it sends depend on where the
-  // Registry runs: the client index address in the comment, and the Named
-  // configuration address in the cfg metadata. Router::url() builds both. The
-  // exporter fixes the base it builds them from, so the output does not depend
-  // on the container it runs in, and records the result per fixture in
-  // addresses.json. The Registry 5 side is handed those recorded values rather
-  // than building its own.
   const FULL_BASE_URL = 'https://registry.example.org';
   const BASE_PATH = '/registry';
 
-  // The files written per fixture.
   const REQUEST_BODY_FILE = 'request-body.json';
   const CFG_FILE = 'cfg.json';
   const ADDRESSES_FILE = 'addresses.json';
+  const FILES = array(self::REQUEST_BODY_FILE, self::CFG_FILE, self::ADDRESSES_FILE);
 
-  /** The OA4MP server model whose marshaller is exported. */
   protected $server = null;
 
-  /** Column names per table, read from Config/Schema/schema.xml. */
   protected $columns = null;
 
   /**
@@ -225,7 +216,7 @@ class Oa4mpParityExporter {
       throw new RuntimeException('Cannot create ' . $target);
     }
 
-    foreach (array(self::REQUEST_BODY_FILE, self::CFG_FILE, self::ADDRESSES_FILE) as $file) {
+    foreach (self::FILES as $file) {
       if (!isset($files[$file]) && file_exists($target . DS . $file)
          && !unlink($target . DS . $file)) {
         throw new RuntimeException('Cannot remove ' . $target . DS . $file);
@@ -276,8 +267,6 @@ class Oa4mpParityExporter {
     $signatureKey = 'pl.oa4mp_client_co_oidc_client.signature';
     $signature = _txt($signatureKey);
 
-    // Without the plugin texts _txt() returns its key, and the comment would
-    // carry the key instead of the signature Registry 4 sends.
     if ($signature === $signatureKey) {
       throw new RuntimeException('The plugin texts are not loaded, so the comment would carry '
         . $signatureKey . ' instead of the signature');
@@ -295,7 +284,6 @@ class Oa4mpParityExporter {
     );
   }
 
-  /** Pretty-printed JSON with a trailing newline, for files read in a diff. */
   protected function readableJson($value) {
     return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
   }
@@ -339,7 +327,6 @@ class Oa4mpParityExporter {
     }
   }
 
-  /** The columns schema.xml declares for a table. */
   protected function tableColumns($table) {
     if ($this->columns === null) {
       $path = App::pluginPath('Oa4mpClient') . 'Config' . DS . 'Schema' . DS . 'schema.xml';
@@ -463,8 +450,6 @@ class Oa4mpParityShell extends AppShell {
       $this->out(sprintf('  %s: %s', $name, implode(', ', array_keys($files))));
     }
 
-    // An expected directory whose fixture is gone is reported, not deleted:
-    // removing a fixture is a decision someone should see in the diff.
     foreach (glob($expectedDir . DS . '*', GLOB_ONLYDIR) ?: array() as $dir) {
       if (!isset($all[basename($dir)])) {
         $this->out('<warning>' . basename($dir) . ' has expected files but no fixture</warning>');
