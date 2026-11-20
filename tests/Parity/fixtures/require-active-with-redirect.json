@@ -1,0 +1,109 @@
+{
+  "description": "Require Active Status on, with a redirect URL for a person whose record is not active. Read as Oa4mpClientCoOidcClient::current() reads it.",
+  "adminClient": {
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null
+    },
+    "Oa4mpClientCoNamedConfig": [],
+    "DefaultDynamoConfig": {
+      "id": 5,
+      "client_id": null,
+      "admin_id": 1,
+      "aws_region": "us-east-2",
+      "aws_access_key_id": "AKIAEXAMPLE",
+      "aws_secret_access_key": "not-a-real-secret",
+      "table_name": "registry",
+      "partition_key": "sub",
+      "partition_key_template": "${sub}",
+      "partition_key_claim_name": "sub",
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  },
+  "data": {
+    "Oa4mpClientCoOidcClient": {
+      "id": 23,
+      "admin_id": 1,
+      "oa4mp_identifier": "cilogon:/client_id/parity-require-active-with-redirect",
+      "name": "Parity Require Active Status with redirect",
+      "home_url": "https://app.example.org/",
+      "error_url": null,
+      "proxy_limited": false,
+      "refresh_token_lifetime": null,
+      "public_client": false,
+      "named_config_id": null,
+      "oa4mp_server_extra": null
+    },
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null,
+      "Oa4mpClientCoNamedConfig": [],
+      "DefaultDynamoConfig": {
+        "id": 5,
+        "client_id": null,
+        "admin_id": 1,
+        "aws_region": "us-east-2",
+        "aws_access_key_id": "AKIAEXAMPLE",
+        "aws_secret_access_key": "not-a-real-secret",
+        "table_name": "registry",
+        "partition_key": "sub",
+        "partition_key_template": "${sub}",
+        "partition_key_claim_name": "sub",
+        "sort_key": null,
+        "sort_key_template": null
+      }
+    },
+    "Oa4mpClientAccessControl": {"id": null, "client_id": null, "co_group_id": null},
+    "Oa4mpClientAccessToken": {"id": null, "client_id": null, "is_jwt": null},
+    "Oa4mpClientAuthorization": {
+      "id": 23,
+      "client_id": 23,
+      "authz_co_group_id": null,
+      "require_active": true,
+      "authz_group_redirect_url": null,
+      "require_active_redirect_url": "https://app.example.org/inactive",
+      "no_record_redirect_url": null
+    },
+    "Oa4mpClientRefreshToken": {"id": null, "client_id": null, "token_lifetime": null},
+    "Oa4mpClientCoEmailAddress": [
+      {"id": 231, "client_id": 23, "admin_id": null, "mail": "owner@example.org"}
+    ],
+    "Oa4mpClientCoScope": [
+      {"id": 231, "client_id": 23, "named_config_id": null, "scope": "openid"}
+    ],
+    "Oa4mpClientCoCallback": [
+      {"id": 231, "client_id": 23, "url": "https://app.example.org/callback"}
+    ],
+    "Oa4mpClientClaim": [],
+    "Oa4mpClientCoNamedConfig": {"id": null, "admin_id": null, "config_name": null, "description": null, "config": null},
+    "Oa4mpClientDynamoConfig": {
+      "id": 23,
+      "client_id": 23,
+      "admin_id": null,
+      "aws_region": "us-east-2",
+      "aws_access_key_id": "AKIAEXAMPLE",
+      "aws_secret_access_key": "not-a-real-secret",
+      "table_name": "registry",
+      "partition_key": "sub",
+      "partition_key_template": "${sub}",
+      "partition_key_claim_name": "sub",
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "description": "A per-client DynamoDB configuration that differs from the admin client's Default in every value, so the cfg shows which one was sent. Read as Oa4mpClientCoOidcClient::current() reads it.",
+  "adminClient": {
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null
+    },
+    "Oa4mpClientCoNamedConfig": [],
+    "DefaultDynamoConfig": {
+      "id": 5,
+      "client_id": null,
+      "admin_id": 1,
+      "aws_region": "us-east-2",
+      "aws_access_key_id": "AKIAEXAMPLE",
+      "aws_secret_access_key": "not-a-real-secret",
+      "table_name": "registry",
+      "partition_key": "sub",
+      "partition_key_template": "${sub}",
+      "partition_key_claim_name": "sub",
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  },
+  "data": {
+    "Oa4mpClientCoOidcClient": {
+      "id": 27,
+      "admin_id": 1,
+      "oa4mp_identifier": "cilogon:/client_id/parity-dynamo-per-client",
+      "name": "Parity per-client DynamoDB configuration",
+      "home_url": "https://app.example.org/",
+      "error_url": null,
+      "proxy_limited": false,
+      "refresh_token_lifetime": null,
+      "public_client": false,
+      "named_config_id": null,
+      "oa4mp_server_extra": null
+    },
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null,
+      "Oa4mpClientCoNamedConfig": [],
+      "DefaultDynamoConfig": {
+        "id": 5,
+        "client_id": null,
+        "admin_id": 1,
+        "aws_region": "us-east-2",
+        "aws_access_key_id": "AKIAEXAMPLE",
+        "aws_secret_access_key": "not-a-real-secret",
+        "table_name": "registry",
+        "partition_key": "sub",
+        "partition_key_template": "${sub}",
+        "partition_key_claim_name": "sub",
+        "sort_key": null,
+        "sort_key_template": null
+      }
+    },
+    "Oa4mpClientAccessControl": {"id": null, "client_id": null, "co_group_id": null},
+    "Oa4mpClientAccessToken": {"id": null, "client_id": null, "is_jwt": null},
+    "Oa4mpClientAuthorization": {
+      "id": 27,
+      "client_id": 27,
+      "authz_co_group_id": null,
+      "require_active": true,
+      "authz_group_redirect_url": null,
+      "require_active_redirect_url": null,
+      "no_record_redirect_url": null
+    },
+    "Oa4mpClientRefreshToken": {"id": null, "client_id": null, "token_lifetime": null},
+    "Oa4mpClientCoEmailAddress": [
+      {"id": 271, "client_id": 27, "admin_id": null, "mail": "owner@example.org"}
+    ],
+    "Oa4mpClientCoScope": [
+      {"id": 271, "client_id": 27, "named_config_id": null, "scope": "openid"}
+    ],
+    "Oa4mpClientCoCallback": [
+      {"id": 271, "client_id": 27, "url": "https://app.example.org/callback"}
+    ],
+    "Oa4mpClientClaim": [
+      {
+        "id": 271,
+        "client_id": 27,
+        "claim_name": "uid",
+        "source_model": "Identifier",
+        "source_model_claim_value_field": "identifier",
+        "claim_value_selection": "first",
+        "claim_value_json_format": "string",
+        "claim_multiple_value_serialization": null,
+        "claim_value_string_serialization_delimiter": null,
+        "Oa4mpClientClaimConstraint": [
+          {"id": 271, "claim_id": 271, "constraint_field": "type", "constraint_value": "uid"}
+        ]
+      }
+    ],
+    "Oa4mpClientCoNamedConfig": {"id": null, "admin_id": null, "config_name": null, "description": null, "config": null},
+    "Oa4mpClientDynamoConfig": {
+      "id": 27,
+      "client_id": 27,
+      "admin_id": null,
+      "aws_region": "us-west-2",
+      "aws_access_key_id": "AKIAEXAMPLEROTATED",
+      "aws_secret_access_key": "not-a-real-rotated-secret",
+      "table_name": "registry-project",
+      "partition_key": "uid",
+      "partition_key_template": "${uid}",
+      "partition_key_claim_name": "uid",
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  }
+}
