@@ -1,181 +1,163 @@
 # AGENTS.md
 
 ## Project Overview
-This project is a plugin of type other for COmanage Registry version 4.x.
-The COmanage Registry code repository for version 4.x is at
-https://github.com/Internet2/comanage-registry and the technical manual is
-in the wiki at
-https://spaces.at.internet2.edu/spaces/COmanage/pages/17105978/COmanage+Registry+Technical+Manual
-Version 4.x of COmanage Registry uses the CakePHP version 2.x model view
-controller (MVC) framework.
+This branch, `registry-5`, holds the edition of the plugin for COmanage
+Registry 5 (also called Registry PE). The edition for Registry 4.x lives on
+`main` and stays in production; both editions send client configurations to
+the same OA4MP servers.
+
+- Registry 5 code: CILogon's branch `cilogon-develop` of
+  https://github.com/cilogon/registry (upstream
+  https://github.com/Internet2/registry). The plugin targets Registry 5.3.0;
+  the commit the workbench and CI build from is in `workbench/registry.pin`.
+- Registry 5 uses CakePHP 5. The technical manual is at
+  https://spaces.at.internet2.edu/spaces/COmanage/pages/190360385/COmanage+Registry+PE+Technical+Manual
+  and the coding guide at
+  https://spaces.at.internet2.edu/spaces/COmanage/pages/215714439/Registry+PE+Coding+Guide.
+  Both pages return an empty response to ordinary fetch tools; read them in a
+  real or headless browser.
 
 Registry users use the plugin to create and manage OpenID Connect (OIDC)
-client configurations for use with the OA4MP OAuth server from CILogon. The
-plugin enables users to manage OIDC client details like callback or redirect
-URIs, allowed scopes, refresh token lifetimes, and the mapping of values
-from Registry objects like Identifiers, Names, EmailAddresses, CoGroupMembers, 
-CoPersonRoles, UnixClusterAccounts, and CoTAndCAgreements to claim values.
+client configurations on CILogon's OA4MP server: callback URIs, scopes, token
+lifetimes, login gates, and the mapping of Registry values (Identifiers,
+Names, Email Addresses, group memberships, Person Roles, SSH keys, Terms and
+Conditions agreements) to claims. On Registry 5, claims come from DynamoDB
+only: LDAP claim sourcing, Search attributes and Claim migration are not part
+of this edition.
 
 ## Directory and File Structure & Key Details
-- `Config/Schema/schema.xml`: database table definitions in AdoDb XML format.
-- `Controller`: controllers used in the MVC framework, one per managed resource
-  (OIDC clients, admin clients, claims, scopes, callbacks, named configurations,
-  access controls, authorizations, and access and refresh tokens).
-- `Controller/Component/Oa4mpClientAuthzComponent.php`: centralizes the plugin's
-  permission model; `permissionSet()` computes per-action permissions for the
-  three effective roles (see Architecture & Key Concepts).
-- `Lib/lang.php`: text localization file for the plugin since COmanage Registry
-  does not use the standard CakePHP 2.x approach to text localization.
-- `Model`: models used in the MVC framework. `Oa4mpClientOa4mpServer.php`
-  contains the code that calls out to the OA4MP server to create, update, and
-  delete OIDC clients and that marshals the plugin's data model into the OA4MP
-  `cfg` JSON. Claim-source and configuration models
-  (`Oa4mpClientCoLdapConfig.php`, `Oa4mpClientDynamoConfig.php`,
-  `Oa4mpClientCoNamedConfig.php`) hold LDAP/DynamoDB and named configurations;
-  `Oa4mpClientCoSearchAttribute.php` migrates deprecated LDAP search attributes
-  into claims.
-- `View`: view files used in the MVC framework. The plugin uses the same
-  conventions as Registry for view files including using symlinks to standard
-  add.ctp and edit.ctp template pages and a single fields.inc file that is
-  used as a template for both add and edit actions. The plugin further uses the
-  file `View/Oa4mpClientCoOidcClients/tabs.inc` and symlinks to it as view
-  elements.
-- `webroot`: plugin front-end assets, including `css/oa4mpclient.css` and
-  `js/clipboard.min.js` (used for the Copy buttons in the views).
-- `Test`: the plugin's automated test suite -- a thin CakePHP-shell runner,
-  since CakePHP 2.x's PHPUnit-based `cake test` does not run on PHP 8.x. Run it
-  with `Test/run.sh` (Docker required); see Testing & Verification and
-  `Test/README.md`.
-- `Console/Command`: console shells, including `Oa4mpTestShell.php` (the
-  thin-runner that discovers and runs the tests under `Test/Case`) and
-  `Oa4mpSmokeShell.php` (a bootstrap smoke check).
-- `cfg_format.md`, `cfg_schema.json`, `cfg_example.json`: documentation, a JSON
-  schema, and an example of the OA4MP server `cfg` object the plugin marshals
-  for a client.
-- `cfg_contract.json`: the cfg capability contract -- the one declaration of
-  every name the plugin may emit into a `cfg`, read by the marshaller, by the
-  unmarshaller and the synchronization comparator, by the cfg-side half of the
-  log-redaction name list, and by the conformance check. See Architecture &
-  Key Concepts.
+- `config/plugin.json`: the plugin's entry points and database tables, in
+  Registry 5's schema format. Activating the plugin applies the schema.
+- `src/Oa4mpClientPlugin.php`: the plugin class; routes live under
+  `/oa4mp-client`.
+- `src/Model/Table`, `src/Model/Entity`, `src/Controller`: tables, entities
+  and controllers. The Admin client (`Oa4mpAdminClients`) is a Server-type
+  entry point; every other plugin table hangs below it.
+- `templates/`: page templates, using Registry's `fields.inc` and
+  `columns.inc` conventions.
+- `resources/locales/en_US/oa4mp_client.po`: user-facing text, used through
+  `__d('oa4mp_client', ...)`.
+- `webroot/`: plugin front-end assets.
+- `workbench/`: a local Registry 5 service for developing and checking the
+  plugin, with a CILogon login for the maintainer and a test login for
+  agents. See `workbench/README.md`.
+- `cfg_format.md`, `cfg_schema.json`, `cfg_example.json`: documentation, a
+  JSON schema, and an example of the OA4MP `cfg` object the plugin marshals.
+- `cfg_contract.json`: the cfg capability contract, shared with `main`. See
+  Architecture & Key Concepts.
 - `bin/qdl-conformance.php`: checks a named tier's QDL against
   `cfg_contract.json`. See Testing & Verification.
-- `docs/solutions/`: documented solutions to past problems (bugs,
-  best practices, workflow patterns), organized by category with
-  YAML frontmatter (`module`, `tags`, `problem_type`). Relevant
-  when implementing or debugging in documented areas.
-- `docs/plans/` and `docs/brainstorms/`: planning and requirements artifacts for
-  in-progress and completed work.
-- `docs/runbooks/`: operator procedures tied to a deploy, where a step has to be
-  taken by hand and at a particular moment.
-- `CHANGELOG.md`: release notes.
-- `CONCEPTS.md`: shared domain vocabulary (entities, named processes,
-  status concepts) with project-specific meaning — relevant when
-  orienting to the codebase or discussing domain concepts.
+- `docs/solutions/`: documented solutions to past problems, carried from
+  `main`. Many describe Registry 4 code, but the rule each one records about
+  OA4MP, the `cfg` or the write path still applies here.
+- `docs/plans/`, `docs/brainstorms/`, `docs/runbooks/`: planning artifacts and
+  operator procedures.
+- `CHANGELOG.md`: release notes. Releases on this line start at 8.0.0.
+- `CONCEPTS.md`: shared domain vocabulary.
 
 ## Architecture & Key Concepts
-- Two-sided state and sync. Each OIDC client exists both as rows in the plugin's
-  database and as a representation on the OA4MP server, and the plugin keeps the
-  two in step. Before applying an edit the plugin verifies that its stored copy
-  matches the server's current copy and blocks the edit when they have drifted
-  ("out of sync"), so a change made to the client outside the Registry is not
-  silently overwritten. Reliable verification depends on the value the plugin
-  sends (marshalling) and the value it compares against being derived the same
-  way.
-- cfg marshalling. The plugin builds the OA4MP `cfg` JSON for a client from its
-  associations. A `cfg` is permitted only on confidential clients: OA4MP rejects
-  a custom configuration on a public client, so the plugin must not marshal a
-  `cfg` for a public client, which releases only the standard `sub` claim.
-- Access control. `Controller/Component/Oa4mpClientAuthzComponent.php` computes
-  permissions for three effective roles: CO or platform administrators; managers
-  (members of an admin client's delegated management group, who may create and
-  manage OIDC clients); and editors (members of a client's per-client Editor
-  group, who may edit that one client but cannot create clients). Delegation is
-  configured through the administrator-only `delegate` action.
-- Claims and legacy migration. A claim maps a Registry value (Identifier, Name,
-  EmailAddress, group membership, role, and so on) to an output claim asserted
-  in the token, and may carry claim constraints. Deprecated LDAP search
-  attributes are migrated into claims when a client's edit page loads.
-- The cfg capability contract, and the QDL that consumes it. `cfg_contract.json`
-  declares every name the plugin may put into a `cfg`. The marshaller emits
-  nothing the contract does not declare, and every marshalled `cfg` carries the
-  `contract_version` it was built against. A change to what claim marshalling
-  emits therefore starts in `cfg_contract.json`, and a change to the declared
-  capability set raises `contract_version`.
-- Where that QDL lives. The script that reads those capabilities is
-  `dynamodb_claims.qdl` in the `cilogon-service-config-us` repository, at
-  `roles/oa4mp-server/files/qdl/COmanageRegistry/default/dynamodb_claims.qdl`.
-  It is absent from that repository's `main`; the live lines are the
-  `us-east-2-dev`, `us-east-2-test`, and `us-east-2-prod` branches, one per
-  tier. Read it with `git show <branch>:<path>` rather than by switching that
-  checkout, and do not conclude from `main` that the file does not exist. A
-  capability the plugin emits that a tier's QDL does not implement is a
-  silently ignored `cfg` key, not an error, which is why the coupling is
-  written down here instead of being met by accident.
-- Deployment ordering across the two repositories. A QDL change is deployed to a
-  tier BEFORE any plugin deployment that emits a capability introduced with it.
-  One QDL copy serves every subscriber on a tier while plugin deployments
-  advance per subscriber, so deploying the QDL early is always safe -- it is a
-  no-op for older `cfg` values -- and deploying the plugin early never is.
-- How a QDL change reaches the tiers. It lands on `us-east-2-dev` first and is
-  promoted to `us-east-2-test` and `us-east-2-prod` by hand, by the developer,
-  after manual testing on dev. So expect `bin/qdl-conformance.php` to report
-  `NOTHING_TO_COMPARE` for test and prod until that promotion happens; that is
-  the normal state between the two, not a defect. Run the check against the
-  tier you are actually about to deploy.
-- What the contract rule covers. The rule above is about `dynamodb_claims.qdl`
-  ONLY. The plugin's other claim consumer, the LDAP path, is outside it:
-  satisfying the contract and its conformance check says nothing about that
-  consumer, and a change there is not handled by having done this.
+- Two-sided state and sync. Each OIDC client exists both as rows in the
+  plugin's tables and as a representation on the OA4MP server. Before applying
+  an edit the plugin checks that its stored copy matches the server's copy and
+  blocks the edit when they have drifted ("out of sync"). Reliable checking
+  depends on the value sent (marshalling) and the value compared against being
+  derived the same way.
+- Parity with `main`. For the same client settings, this edition sends OA4MP
+  the same client representation, `cfg` included, as the Registry 4 edition at
+  7.0.0. The code that builds, reads and compares what goes to OA4MP is kept
+  free of framework calls and in Registry 4's array shapes, so it can be
+  compared with `main` line by line.
+- cfg marshalling. A `cfg` is permitted only on confidential clients: OA4MP
+  rejects a custom configuration on a public client, which releases only the
+  standard `sub` claim.
+- Ownership. Registry 5 gives plugin data no way to hang directly off a CO.
+  An Admin client is a Server-type entry point attached to a core Server row,
+  and Registry finds the CO of every plugin record through that row.
+- Access control. Three effective roles keep their Registry 4 meaning: CO or
+  platform administrators; managers (members of an Admin client's delegated
+  management group, who may create and manage OIDC clients); and editors
+  (members of a client's Editor group, who may edit that one client). Registry
+  5 has no group-membership role, so the plugin answers these questions
+  itself. When `COMANAGE_REGISTRY_OA4MP_ADMIN_USERS` is set, only the platform
+  administrators it names may configure Admin clients.
+- Saves never trust posted identifiers. Registry 5's standard edit accepts
+  every posted column, so plugin records are written by explicit actions that
+  take row ids and parent keys from the stored record, and entities close
+  mass assignment for ids, parent keys and server-owned fields.
+- The cfg capability contract, and the QDL that consumes it.
+  `cfg_contract.json` declares every name the plugin may put into a `cfg`. The
+  marshaller emits nothing the contract does not declare, and every `cfg`
+  carries the `contract_version` it was built against. A change to the
+  declared capability set raises `contract_version`, and is made on `main`
+  first, since both editions share the contract.
+- Where that QDL lives. The script is `dynamodb_claims.qdl` in the
+  `cilogon-service-config-us` repository, at
+  `roles/oa4mp-server/files/qdl/COmanageRegistry/default/dynamodb_claims.qdl`,
+  on the `us-east-2-dev`, `us-east-2-test`, and `us-east-2-prod` branches, one
+  per tier; it is absent from that repository's `main`. Read it with
+  `git show <branch>:<path>`. One QDL copy per tier serves clients from both
+  editions.
+- Deployment ordering across repositories. A QDL change is deployed to a tier
+  BEFORE any plugin deployment that emits a capability introduced with it.
+  Deploying the QDL early is a no-op for older `cfg` values; deploying the
+  plugin early never is safe.
+- DynamoDB records. The QDL reads person and group records that the
+  DynamoProvisioner plugin writes. On Registry 5 that is DynamoProvisioner's
+  `registry-5` branch. A DynamoDB table has one writing Registry at a time.
 - See `CONCEPTS.md` for the authoritative glossary of these terms.
 
 ## Coding Style & Conventions
-- Language: PHP version 8.3 is preferred.
-- Naming convention: Follow the convention used by COmanage Registry 4.x.
-- Use jQuery for dynamic HTML in view files. More but shorter lines of jQuery
-  are preferred over long lines of jQuery code.
-- Double slashes are preferred for comments.
-- Put user-facing strings in `Lib/lang.php` rather than hard-coding them in
-  controllers or views.
+- Follow the Registry PE Coding Guide: PSR-12 with 2-space indentation, an
+  80-character line target (120 soft limit), function opening braces on a new
+  line, camelCase method names, short type keywords, typed parameters and
+  return types, and named arguments at call sites. CakePHP conventions apply
+  where the guide is silent.
+- Registry core is partway through moving to that style; new plugin code
+  follows the guide, not the older code around it.
+- Style is checked, not rewritten: do not run an automatic fixer over the
+  tree.
+- Label application rules in comments as the guide describes, and do not use
+  `beforeDelete` or `afterDelete` on tables with the Changelog behavior.
+- Put user-facing strings in `resources/locales/en_US/oa4mp_client.po`. Log
+  messages are not translated.
 
 ## Testing & Verification
-- A hermetic automated test suite exists and gates every pull request via
-  `.github/workflows/hermetic-tests.yml`. Run it locally with `Test/run.sh`
-  (Docker required) before treating a change as complete.
-- A separate, non-gating live-server tier (`Test/run-live.sh`) exercises a real
-  OA4MP server with a dedicated test admin credential; it needs a real
-  credential and must not be run casually.
-- Every bug fix carries a regression test in the same pull request, linked to
-  its `docs/solutions/` learning; this is enforced by the pull request template
-  checklist. See `Test/README.md` for the detailed reference.
-- Lint changed PHP with `php -l <file>` to catch syntax errors before treating a
-  change as complete.
-- Behavior that creates, edits, or synchronizes OIDC clients, or that talks to
-  the OA4MP server or the database, cannot be verified from this repository
-  alone; validate such changes manually in a running COmanage Registry with a
-  reachable OA4MP server.
-- A change to what claim marshalling emits is checked against the target tier's
-  QDL before it is treated as complete:
+- Lint changed PHP with `php -l <file>` (inside the workbench container if PHP
+  is not installed locally).
+- Check pages and behavior in the workbench (`workbench/README.md`). Anything
+  that depends on who is logged in is checked in a browser as each role it
+  distinguishes, using `workbench/bin/browser-session`. Screenshots stay
+  outside the repository.
+- Behavior that creates, edits, or synchronizes OIDC clients cannot be
+  verified from this repository alone; check it in the workbench against the
+  development OA4MP tier, through an Admin client no other Registry uses.
+- A change to what claim marshalling emits is checked against the target
+  tier's QDL before it is treated as complete:
 
       php bin/qdl-conformance.php --tier us-east-2-dev \
         --config-repo <path to a cilogon-service-config-us checkout>
 
-  The check needs a local checkout of that repository, which this plugin's CI
-  does not have, so it is a local check and a review-time obligation rather
-  than a merge gate. A pull request that raises `contract_version` records the
-  check's verdict and the tier it ran against -- the verdict and the tier, not
-  pasted output -- and names the QDL change that satisfies it; the pull request
-  template carries the item. Without a checkout of that repository, ask a
-  maintainer who has one to run the check rather than attesting to it yourself.
+  Without a checkout of that repository, ask a maintainer who has one to run
+  the check rather than attesting to it yourself.
+- Every bug fix carries a regression test in the same pull request.
+
+## Keeping up with `main`
+`main` keeps changing while this edition is built and maintained. Every change
+merged to `main` after release 7.0.0 is recorded here as ported, not
+applicable to Registry 5, or pending, and nothing may be pending when a
+Registry 5 release is tagged. `git log 7.0.0..main` lists the changes to
+consider.
 
 ## Do's & Don'ts
 - Do: Respect existing code style and patterns but suggest alternatives
   that provide generally cleaner and more maintainable code.
-- Do: Lint changed PHP with `php -l` after changes.
-- Do: In a plan that changes claim marshalling, carry a QDL implementation unit
-  that names the target repository (`cilogon-service-config-us`) and the path
-  within it, so the cross-repository half of the change is planned rather than
-  remembered later.
+- Do: Base work for this edition on `registry-5`, and target pull requests
+  at it.
+- Do: In a plan that changes claim marshalling, carry a QDL implementation
+  unit that names `cilogon-service-config-us` and the path within it.
 - Don't: Introduce new dependencies without approval.
+- Don't: Commit anything from `workbench/local/`, or a screenshot of an Admin
+  client or DynamoDB configuration page.
 
 ## Git, Remotes, and Pushing
 This repository is set up for the GitHub machine account `skoranda-agent`.
@@ -188,49 +170,39 @@ It has three remotes (confirm with `git remote -v`; all HTTPS):
   personal fork. Agents do not push here.
 
 The machine account has read-only access to `cilogon/Oa4mpClient` and write
-access only to its own fork, and GitHub enforces that. The limit on agents
-writing upstream is therefore held by GitHub, not only by these instructions.
+access only to its own fork, and GitHub enforces that.
 
 Rules for agents:
-- **Never commit to `main`.** Create a branch first and commit there. If a
-  commit lands on `main` by mistake, move it onto a branch.
+- **Never commit to `registry-5` or `main` directly.** Create a branch from
+  `registry-5` first and commit there.
 - Before any push or pull request, verify both: `gh api user --jq .login`
   prints `skoranda-agent`, and `git remote get-url bot` is
   `https://github.com/skoranda-agent/Oa4mpClient.git`. If either check fails,
   stop and tell the developer; never log in or switch `gh` accounts.
 - **Shipping flow:** push the feature branch to `bot`, then open a
-  ready-for-review pull request on `upstream`:
-  `gh pr create --repo cilogon/Oa4mpClient --base main --head skoranda-agent:<branch>`.
-  The developer reviews and merges there. There is no `origin` pull request
-  step and no second pull request.
-- Agents may manage that pull request: edit its title and body, push follow-up
-  commits to its branch, reply to review comments, and read CI results.
-  Force-pushing a `bot` branch, closing a pull request, or deleting a `bot`
-  branch needs the developer's approval each time.
-- **Upstream CI on bot pull requests:** a pull request from a fork may wait for
-  the developer's approval before Actions run, and it gets no repository
+  ready-for-review pull request on `upstream` against `registry-5`:
+  `gh pr create --repo cilogon/Oa4mpClient --base registry-5 --head skoranda-agent:<branch>`.
+  The developer reviews and merges there.
+- Agents may manage that pull request: edit its title and body, push
+  follow-up commits to its branch, reply to review comments, and read CI
+  results. Force-pushing a `bot` branch, closing a pull request, or deleting a
+  `bot` branch needs the developer's approval each time.
+- **Upstream CI on bot pull requests:** a pull request from a fork may wait
+  for the developer's approval before Actions run, and it gets no repository
   secrets. A pull request showing no checks is not green.
 - **Never** push to `upstream` or `origin` (by remote name or by URL), push or
-  force-push `main` on any remote, or approve or merge any pull request. Those
-  stay with the developer.
+  force-push `main` or `registry-5` on any remote, or approve or merge any
+  pull request. Those stay with the developer.
 
 Recording where work landed:
-- When recording where work landed -- in a `docs/solutions/` learning, a
-  plan, or a commit message -- cite the **upstream** pull request,
-  owner-qualified (`cilogon/Oa4mpClient#5`), and only once it has merged.
-  While the work is still unmerged, name the branch or the pull request and
-  say the merge is pending. Recover merged numbers from
-  `git log --merges main`.
+- Cite the **upstream** pull request, owner-qualified
+  (`cilogon/Oa4mpClient#5`), and only once it has merged. While the work is
+  unmerged, name the branch or the pull request and say the merge is pending.
 - Exception: a change may cite the upstream pull request that carries it.
-  Text in a pull request reaches `main` only if that pull request merges, so
-  "fixed by cilogon/Oa4mpClient#N" committed in #N itself is true wherever it
-  can be read. After `gh pr create` returns the number, replace the "merge
-  pending" wording in that change's learning, CHANGELOG entry or plan with
-  the citation, and push it as a follow-up commit to the same branch. That
-  removes the docs-only pull request that would otherwise follow the merge.
-  If the pull request is replaced by a new one, update the number in the new
-  one.
-- Pull requests before the machine account went through the developer's
-  fork first; those fork pull requests were closed unmerged and are never
-  the landing record. See
+  After `gh pr create` returns the number, replace the "merge pending" wording
+  in that change's learning, CHANGELOG entry or plan with the citation, and
+  push it as a follow-up commit to the same branch.
+- Pull requests before the machine account went through the developer's fork
+  first; those fork pull requests were closed unmerged and are never the
+  landing record. See
   `docs/solutions/conventions/oa4mp-fork-pr-is-never-the-landing-record-2026-08-22.md`.

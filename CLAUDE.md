@@ -18,9 +18,12 @@ This repository is set up for the machine account `skoranda-agent`; the global
 
 Shipping flow: push the feature branch to `bot`, then open a ready-for-review
 pull request with
-`gh pr create --repo cilogon/Oa4mpClient --base main --head skoranda-agent:<branch>`.
+`gh pr create --repo cilogon/Oa4mpClient --base registry-5 --head skoranda-agent:<branch>`.
+On this branch line (the Registry 5 edition) feature branches start from
+`registry-5` and pull requests target it; `main` is the Registry 4 edition.
 Before any push, confirm `gh api user --jq .login` prints `skoranda-agent` and
 confirm the `bot` URL with `git remote -v`.
 
-Never push to `upstream` or `origin`, never push `main` anywhere, and never
+Never push to `upstream` or `origin`, never push `main` or `registry-5`
+anywhere, and never
 approve or merge a pull request.
