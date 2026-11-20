@@ -159,8 +159,7 @@ class WorkbenchSeedCommand extends BaseCommand
     string $status,
     array $groupIds,
     ConsoleIo $io
-  ): void
-  {
+  ): void {
     $cos = $this->getTableLocator()->get('Cos');
     $people = $cos->People;
 
