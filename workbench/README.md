@@ -51,6 +51,21 @@ CILogon listener as not configured and still passes.
 | `bin/reset` | Drops the workbench database and starts again from Registry's own setup. Run `seed` afterwards. |
 | `bin/smoke` | Checks the published ports, the image without local configuration, every test login, a wrong password, and the CILogon listener. |
 
+To mount another plugin, such as DynamoProvisioner, put a compose override in
+`workbench/local/compose.override.yaml` (git ignores it); every script picks it
+up. For example:
+
+```yaml
+services:
+  registry:
+    volumes:
+      - /path/to/DynamoProvisioner:/srv/comanage-registry/local/plugins/DynamoProvisioner:ro
+```
+
+Then run `bin/up --force-recreate` and activate the plugin with
+`bin/cake plugin --action activate --plugin DynamoProvisioner` inside the
+container.
+
 Changing the pinned Registry commit is a deliberate change: edit
 `registry.pin`, rebuild, and rerun the plugin's tests and browser checks.
 

@@ -5,6 +5,12 @@ WORKBENCH_LOCAL="$WORKBENCH_DIR/local"
 WORKBENCH_COMPOSE=(docker compose --project-name oa4mp-workbench
   --file "$WORKBENCH_DIR/compose.yaml")
 
+# A machine-local override, for example to mount another plugin under
+# local/plugins. It lives in the git-ignored local directory.
+if [ -f "$WORKBENCH_LOCAL/compose.override.yaml" ]; then
+  WORKBENCH_COMPOSE+=(--file "$WORKBENCH_LOCAL/compose.override.yaml")
+fi
+
 # The Registry commit the workbench image is built from unless overridden.
 workbench_pin() {
   tr -d '[:space:]' < "$WORKBENCH_DIR/registry.pin"
