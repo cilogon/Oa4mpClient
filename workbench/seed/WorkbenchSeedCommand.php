@@ -20,6 +20,7 @@ use App\Lib\Enum\SuspendableStatusEnum;
 use Cake\Console\Arguments;
 use Cake\Console\BaseCommand;
 use Cake\Console\ConsoleIo;
+use Cake\ORM\Query\SelectQuery;
 
 class WorkbenchSeedCommand extends BaseCommand
 {
@@ -172,7 +173,7 @@ class WorkbenchSeedCommand extends BaseCommand
                                       'Identifiers.identifier' => $login,
                                       'Identifiers.login' => true,
                                     ])
-                                    ->matching('People', function ($q) use ($coId) {
+                                    ->matching('People', function (SelectQuery $q) use ($coId): SelectQuery {
                                       return $q->where(['People.co_id' => $coId]);
                                     })
                                     ->first();

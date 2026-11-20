@@ -79,7 +79,8 @@ of this edition.
   (members of a client's Editor group, who may edit that one client). Registry
   5 has no group-membership role, so the plugin answers these questions
   itself. When `COMANAGE_REGISTRY_OA4MP_ADMIN_USERS` is set, only the platform
-  administrators it names may configure Admin clients.
+  administrators it names may configure Admin clients. That check arrives
+  with the Admin client pages; until then any platform administrator can.
 - Saves never trust posted identifiers. Registry 5's standard edit accepts
   every posted column, so plugin records are written by explicit actions that
   take row ids and parent keys from the stored record, and entities close

@@ -96,6 +96,7 @@ class Oa4mpAdminClientsTable extends Table
     $validator->add('server_id', [
       'content' => ['rule' => 'isInteger'],
     ]);
+    $validator->requirePresence('server_id', 'create');
     $validator->notEmptyString('server_id');
 
     return $validator;

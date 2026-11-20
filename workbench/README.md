@@ -93,7 +93,8 @@ the plugin itself.
 
 The allowlist (`COMANAGE_REGISTRY_OA4MP_ADMIN_USERS`) is set to
 `wb-platform-admin`, plus the maintainer's CILogon subject when one is
-configured.
+configured. The plugin does not enforce it yet: until the Admin client pages
+arrive, `wb-platform-admin-unlisted` can configure Admin clients too.
 
 ## Logging in as a test person
 

@@ -41,7 +41,7 @@ class Oa4mpAdminClientsController extends StandardPluginController
    * @param EventInterface $event Cake Event
    * @return \Cake\Http\Response|null
    */
-  public function beforeRender(EventInterface $event)
+  public function beforeRender(EventInterface $event): ?\Cake\Http\Response
   {
     $link = $this->getPrimaryLink(true);
 

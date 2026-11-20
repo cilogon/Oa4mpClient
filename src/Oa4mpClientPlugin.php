@@ -47,7 +47,7 @@ class Oa4mpClientPlugin extends BasePlugin
     $routes->plugin(
       'Oa4mpClient',
       ['path' => '/oa4mp-client'],
-      function (RouteBuilder $builder) {
+      function (RouteBuilder $builder): void {
         $builder->fallbacks();
       }
     );

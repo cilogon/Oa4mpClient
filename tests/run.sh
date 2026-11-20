@@ -35,7 +35,7 @@ COMPOSE=(docker compose --project-name oa4mp-r5-tests
 # in the change that adds tests; lower it only in a change that removes tests
 # on purpose, never to turn a red run green.
 min_unit_tests=4
-min_integration_tests=8
+min_integration_tests=14
 
 unit_only=false
 case "${1:-}" in
