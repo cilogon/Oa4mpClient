@@ -101,6 +101,32 @@ Cookies are per host, not per port, so one browser profile shares a single
 Registry session between the two listeners. Use a separate browser profile
 for each.
 
+## Browser sessions for agents
+
+`bin/browser-session <login>` opens a headless browser signed in as one test
+person, using [agent-browser](https://github.com/vercel-labs/agent-browser)
+(`CI=true npm install -g agent-browser && agent-browser install`). The session
+is named after the person, so several can run side by side:
+
+```bash
+workbench/bin/browser-session wb-editor
+agent-browser --session wb-editor open https://localhost:8444/registry/cos/select
+agent-browser --session wb-editor snapshot -i
+agent-browser --session wb-editor screenshot ~/claude-artifacts/oa4mp-workbench-screenshots/editor-clients.png
+agent-browser --session wb-editor close
+```
+
+`--list` prints the test logins; `--headed` shows the window. Each run closes
+any earlier session of the same name and logs in afresh. The browser answers
+only the login challenge, so the rest of Registry sees an ordinary web
+session.
+
+Screenshots go to `WORKBENCH_SCREENSHOT_DIR` (default
+`~/claude-artifacts/oa4mp-workbench-screenshots`). The script refuses a
+directory inside a git repository. A screenshot of an Admin client or DynamoDB
+configuration page shows secrets: never commit it or attach it to a pull
+request or issue.
+
 ## CILogon login for the maintainer
 
 1. Register a client at https://cilogon.org/oauth2/register with:
