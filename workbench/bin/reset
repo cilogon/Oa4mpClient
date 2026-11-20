@@ -11,6 +11,6 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 require_local_config
 
-export WORKBENCH_IMAGE="${WORKBENCH_IMAGE:-$(workbench_image_tag "$(workbench_pin)")}"
+workbench_export_image
 "${WORKBENCH_COMPOSE[@]}" down --volumes
 "$WORKBENCH_DIR/bin/up"

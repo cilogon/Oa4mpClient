@@ -52,7 +52,7 @@ git -C "$registry" archive --format=tar "$sha" | tar -x -C "$context"
 
 label="wb-${sha:0:12}"
 suffix="1"
-base_tag="comanage-registry-base:${label}-${suffix}"
+base_tag="$(workbench_base_image_tag "$sha")"
 image_tag="$(workbench_image_tag "$sha")"
 
 echo "==> Building $base_tag"

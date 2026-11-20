@@ -12,7 +12,6 @@
 
 services:
   database:
-    # Same digest-pinned image as the Registry 4 hermetic tests.
     image: postgres@sha256:2fdfb9b432d4a73bd3eea3d989752c1e669b68d502347e0bfd2cc6d709f3d6b4
     env_file: local/database.env
     volumes:
@@ -35,8 +34,6 @@ services:
     volumes:
       - ./local/000-comanage.conf:/etc/apache2/sites-available/000-comanage.conf:ro
       - ./local/htpasswd:/etc/apache2/workbench/htpasswd:ro
-      # The plugin under development, straight from the working copy.
-      # Read-only, so nothing in the container writes into the checkout.
       - ..:/srv/comanage-registry/local/plugins/Oa4mpClient:ro
       # Console command that seeds the test CO, groups and people.
       - ./seed/WorkbenchSeedCommand.php:/srv/comanage-registry/app/src/Command/WorkbenchSeedCommand.php:ro

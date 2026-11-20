@@ -19,6 +19,7 @@ set -euo pipefail
 
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$TESTS_DIR")"
+source "$REPO_DIR/workbench/bin/lib.sh"
 PLUGIN_DIR=/srv/comanage-registry/local/plugins/Oa4mpClient
 APP_DIR=/srv/comanage-registry/app
 COMPOSE=(docker compose --project-name oa4mp-r5-tests
@@ -48,9 +49,8 @@ fail() {
   exit 1
 }
 
-pin="$(tr -d '[:space:]' < "$REPO_DIR/workbench/registry.pin")"
-image="${OA4MP_TEST_REGISTRY_IMAGE:-comanage-registry-base:wb-${pin:0:12}-1}"
-# Every compose command needs it, removing the stack included.
+pin="$(workbench_pin)"
+image="${OA4MP_TEST_REGISTRY_IMAGE:-$(workbench_base_image_tag "$pin")}"
 export OA4MP_TEST_REGISTRY_IMAGE="$image"
 
 docker image inspect "$image" > /dev/null 2>&1 \
@@ -79,8 +79,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Run a command in a fresh container from the image, with no network and the
-# plugin mounted read-only. Arguments go to the container's command.
 run_offline() {
   docker run --rm --network none \
     --volume "$REPO_DIR:$PLUGIN_DIR:ro" \
@@ -122,8 +120,6 @@ integration_count=0
 
 if [ "$unit_only" = false ]; then
   echo "==> Checking style (phpcs, report only)..."
-  # Errors fail the run; warnings, such as a line past 120 characters, are
-  # shown and do not. Nothing is ever fixed automatically.
   style_status=0
   run_offline --entrypoint "$APP_DIR/vendor/bin/phpcs" "$image" \
     --standard="$PLUGIN_DIR/phpcs.xml" --basepath="$PLUGIN_DIR" \
@@ -148,8 +144,6 @@ if [ "$unit_only" = true ]; then
 fi
 
 echo "==> Starting Registry and an empty test database..."
-# Remove anything an interrupted earlier run left behind, so the plugin is
-# always activated on an empty database.
 "${COMPOSE[@]}" down --volumes --remove-orphans > /dev/null 2>&1 || true
 "${COMPOSE[@]}" up --detach --wait
 

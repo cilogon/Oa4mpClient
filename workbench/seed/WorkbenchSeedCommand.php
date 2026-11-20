@@ -53,7 +53,6 @@ class WorkbenchSeedCommand extends BaseCommand
     $platformAdmins = $cos->Groups->find('adminGroup', co_id: $platformCo->id)->firstOrFail();
     $coAdmins = $cos->Groups->find('adminGroup', co_id: $workbenchCoId)->firstOrFail();
 
-    // The setup command already created wb-platform-admin in the COmanage CO.
     $people = [
       ['wb-platform-admin-unlisted', $platformCo->id, StatusEnum::Active, [$platformAdmins->id]],
       ['wb-co-admin', $workbenchCoId, StatusEnum::Active, [$coAdmins->id]],
@@ -163,7 +162,6 @@ class WorkbenchSeedCommand extends BaseCommand
     $cos = $this->getTableLocator()->get('Cos');
     $people = $cos->People;
 
-    // Models validate against the current CO's settings.
     $people->Names->setCurCoId($coId);
     $people->Identifiers->setCurCoId($coId);
     $people->PersonRoles->setCurCoId($coId);

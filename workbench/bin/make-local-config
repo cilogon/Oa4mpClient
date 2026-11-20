@@ -29,19 +29,15 @@ mkdir -p "$WORKBENCH_LOCAL"
 env_file="$WORKBENCH_LOCAL/workbench.env"
 touch "$env_file"
 
-existing() {
-  sed -n "s/^$1=//p" "$env_file" | tail -n 1
-}
+platform_admin="wb-platform-admin"
 
 random_secret() {
   openssl rand -hex 24
 }
 
-# Precedence: a value given in the environment now, then the stored value,
-# then the default.
 pick() {
   local key="$1" from_env="$2" default="$3" stored
-  stored="$(existing "$key")"
+  stored="$(local_value "$key")"
   if [ -n "$from_env" ]; then
     echo "$from_env"
   elif [ -n "$stored" ]; then
@@ -77,7 +73,7 @@ OIDC_CRYPTO_PASSPHRASE=$oidc_passphrase
 SECURITY_SALT=$security_salt
 EOF
 
-allowlist="wb-platform-admin"
+allowlist="$platform_admin"
 if [ -n "$maintainer_login" ]; then
   allowlist="$allowlist,$maintainer_login"
 fi
@@ -97,7 +93,7 @@ COMANAGE_REGISTRY_HTTP_NO=1
 COMANAGE_REGISTRY_VIRTUAL_HOST_FQDN=localhost
 COMANAGE_REGISTRY_ADMIN_GIVEN_NAME=Workbench
 COMANAGE_REGISTRY_ADMIN_FAMILY_NAME=PlatformAdmin
-COMANAGE_REGISTRY_ADMIN_USERNAME=wb-platform-admin
+COMANAGE_REGISTRY_ADMIN_USERNAME=$platform_admin
 COMANAGE_REGISTRY_SECURITY_SALT=$security_salt
 COMANAGE_REGISTRY_OA4MP_ADMIN_USERS=$allowlist
 WORKBENCH_MAINTAINER_LOGIN=$maintainer_login

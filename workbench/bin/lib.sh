@@ -5,24 +5,26 @@ WORKBENCH_LOCAL="$WORKBENCH_DIR/local"
 WORKBENCH_COMPOSE=(docker compose --project-name oa4mp-workbench
   --file "$WORKBENCH_DIR/compose.yaml")
 
-# A machine-local override, for example to mount another plugin under
-# local/plugins. It lives in the git-ignored local directory.
 if [ -f "$WORKBENCH_LOCAL/compose.override.yaml" ]; then
   WORKBENCH_COMPOSE+=(--file "$WORKBENCH_LOCAL/compose.override.yaml")
 fi
 
-# The Registry commit the workbench image is built from unless overridden.
 workbench_pin() {
   tr -d '[:space:]' < "$WORKBENCH_DIR/registry.pin"
 }
 
-# The image tag for a given Registry commit.
 workbench_image_tag() {
   echo "oa4mp-workbench-registry:${1:0:12}"
 }
 
-# Test-login usernames, one for each kind of person the plugin treats
-# differently. Every one except the last has a Registry record after seeding.
+workbench_base_image_tag() {
+  echo "comanage-registry-base:wb-${1:0:12}-1"
+}
+
+workbench_export_image() {
+  export WORKBENCH_IMAGE="${WORKBENCH_IMAGE:-$(workbench_image_tag "$(workbench_pin)")}"
+}
+
 WORKBENCH_TEST_LOGINS=(
   wb-platform-admin
   wb-platform-admin-unlisted

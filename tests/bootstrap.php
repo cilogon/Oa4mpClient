@@ -45,11 +45,6 @@ if (!is_file($registryRoot . '/vendor/autoload.php')) {
   exit(1);
 }
 
-// OA4MP_TEST_SUITE says which suite this process runs. tests/run.sh sets it.
-//   unit         The fast suite: framework-free code, no Registry
-//                application and no database.
-//   integration  Tables, controllers and permissions, inside a bootstrapped
-//                Registry connected to the test database.
 $suite = getenv('OA4MP_TEST_SUITE');
 
 if ($suite !== 'unit' && $suite !== 'integration') {
@@ -76,10 +71,7 @@ chdir($registryRoot);
 // database connection from local/config/database.php.
 require $registryRoot . '/tests/bootstrap.php';
 
-// Registry ships a "test" datasource with no host or credentials. Point it at
-// the database the container is configured for, which in tests/docker is a
-// throwaway database created for this run, and send every table there the
-// way Cake's own test setup does.
+// Registry ships a "test" datasource with no host or credentials.
 \Cake\Datasource\ConnectionManager::drop('test');
 \Cake\Datasource\ConnectionManager::setConfig(
   'test',

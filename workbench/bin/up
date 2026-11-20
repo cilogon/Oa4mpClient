@@ -12,7 +12,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 require_local_config
 
-export WORKBENCH_IMAGE="${WORKBENCH_IMAGE:-$(workbench_image_tag "$(workbench_pin)")}"
+workbench_export_image
 export WORKBENCH_CILOGON_PORT="$(local_value CILOGON_PORT)"
 export WORKBENCH_TESTLOGIN_PORT="$(local_value TESTLOGIN_PORT)"
 

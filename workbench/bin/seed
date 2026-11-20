@@ -9,7 +9,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 require_local_config
 
-export WORKBENCH_IMAGE="${WORKBENCH_IMAGE:-$(workbench_image_tag "$(workbench_pin)")}"
+workbench_export_image
 # The container logs every query to the console at debug level; keep only
 # the command's own output and anything worse than info.
 "${WORKBENCH_COMPOSE[@]}" exec -T -u www-data registry \

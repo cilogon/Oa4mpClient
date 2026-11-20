@@ -25,8 +25,6 @@
  * @license       Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
  */
 
-// The Admin client's settings arrive with its pages; until then the form has
-// no fields of its own.
 $fields = [];
 
 $subnav = [

@@ -16,8 +16,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 require_local_config
 
-image="${WORKBENCH_IMAGE:-$(workbench_image_tag "$(workbench_pin)")}"
-export WORKBENCH_IMAGE="$image"
+workbench_export_image
 testlogin_port="$(local_value TESTLOGIN_PORT)"
 cilogon_port="$(local_value CILOGON_PORT)"
 password="$(local_value TEST_LOGIN_PASSWORD)"
@@ -43,9 +42,7 @@ else
 fi
 
 echo "==> Image without local configuration"
-# Write the virtual host the image's own entrypoint would write, then look for
-# any basic-authentication login or password file in its Apache configuration.
-image_auth="$(docker run --rm --entrypoint bash "$image" -c '
+image_auth="$(docker run --rm --entrypoint bash "$WORKBENCH_IMAGE" -c '
   source /usr/local/lib/comanage_utils.sh
   OUTPUT=/dev/null
   comanage_utils::prepare_virtual_host
@@ -56,9 +53,6 @@ else
   fail "the image alone configures basic authentication in: $image_auth"
 fi
 
-# Log in through the test listener the way a browser does: open a protected
-# page, send the credentials only to the login script, then follow Registry's
-# own redirects. Prints the final status and address, and keeps the page.
 login() {
   local user="$1" jar="$work/$1.jar"
   curl -ks -c "$jar" -b "$jar" -L -o /dev/null "$base/cos/select"

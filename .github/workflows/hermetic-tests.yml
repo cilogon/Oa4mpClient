@@ -1,11 +1,5 @@
 # Hermetic tests: the merge gate for every pull request to registry-5.
 #
-# Runs the same tests/run.sh a developer runs locally: the style check, the
-# fast suite with networking disabled, and the integration suite inside a
-# Registry 5 container against a throwaway test database. It needs no
-# repository secrets and contacts no OA4MP server, so it runs on pull requests
-# from forks, where GitHub withholds secrets.
-#
 # No public Registry 5 image exists, so the job builds Registry's own base
 # image from CILogon's public Registry repository at the commit in
 # workbench/registry.pin, the same image the workbench builds locally.
@@ -81,9 +75,6 @@ jobs:
           cache-to: type=gha,mode=max,scope=registry-base-${{ steps.pin.outputs.sha }}
 
       - name: Run the style check and both suites
-        # run.sh exits non-zero if the style check finds an error, if any test
-        # fails, or if either suite runs fewer tests than its floor. Any of
-        # those fails this job and blocks the merge.
         env:
           OA4MP_TEST_REGISTRY_IMAGE: ${{ steps.pin.outputs.image }}
         run: tests/run.sh
