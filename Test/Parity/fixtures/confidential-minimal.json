@@ -1,0 +1,89 @@
+{
+  "description": "A new confidential client as the add page marshals it: the data newClientData() builds, with only the openid scope, the per-client copy of the admin client's Default DynamoDB configuration, Require Active Status on, and no claims.",
+  "adminClient": {
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null
+    },
+    "Oa4mpClientCoNamedConfig": [],
+    "DefaultDynamoConfig": {
+      "id": 5,
+      "client_id": null,
+      "admin_id": 1,
+      "aws_region": "us-east-2",
+      "aws_access_key_id": "AKIAEXAMPLE",
+      "aws_secret_access_key": "not-a-real-secret",
+      "table_name": "registry",
+      "partition_key": "sub",
+      "partition_key_template": "${sub}",
+      "partition_key_claim_name": "sub",
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  },
+  "data": {
+    "Oa4mpClientCoOidcClient": {
+      "admin_id": 1,
+      "name": "Parity minimal confidential client",
+      "home_url": "https://app.example.org/",
+      "public_client": false
+    },
+    "Oa4mpClientCoCallback": [
+      {"url": "https://app.example.org/callback"}
+    ],
+    "Oa4mpClientCoEmailAddress": [
+      {"mail": "owner@example.org"}
+    ],
+    "Oa4mpClientCoScope": [
+      {"scope": "openid"}
+    ],
+    "Oa4mpClientDynamoConfig": {
+      "client_id": null,
+      "aws_region": "us-east-2",
+      "aws_access_key_id": "AKIAEXAMPLE",
+      "aws_secret_access_key": "not-a-real-secret",
+      "table_name": "registry",
+      "partition_key": "sub",
+      "partition_key_template": "${sub}",
+      "partition_key_claim_name": "sub",
+      "sort_key": null,
+      "sort_key_template": null
+    },
+    "Oa4mpClientAuthorization": {
+      "require_active": true
+    },
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null,
+      "DefaultDynamoConfig": {
+        "id": 5,
+        "client_id": null,
+        "admin_id": 1,
+        "aws_region": "us-east-2",
+        "aws_access_key_id": "AKIAEXAMPLE",
+        "aws_secret_access_key": "not-a-real-secret",
+        "table_name": "registry",
+        "partition_key": "sub",
+        "partition_key_template": "${sub}",
+        "partition_key_claim_name": "sub",
+        "sort_key": null,
+        "sort_key_template": null
+      }
+    },
+    "Oa4mpClientClaim": []
+  }
+}

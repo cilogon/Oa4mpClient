@@ -1,0 +1,163 @@
+{
+  "description": "A client using a Named configuration: the configuration's own cfg and scopes are sent in place of the client's, with the configuration's address added to the cfg metadata. The admin client has a second Named configuration that must not be picked. Read as Oa4mpClientCoOidcClient::current() reads it after a confirmed apply.",
+  "adminClient": {
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null
+    },
+    "Oa4mpClientCoNamedConfig": [
+      {
+        "id": 3,
+        "admin_id": 1,
+        "config_name": "Parity project configuration",
+        "description": "A project's own claims script",
+        "config": "{\"tokens\": {\"identity\": {\"type\": \"identity\", \"qdl\": {\"load\": \"COmanageRegistry/project/project_claims.qdl\", \"xmd\": {\"exec_phase\": [\"post_auth\", \"post_token\", \"post_user_info\"]}, \"args\": {\"project\": \"parity\", \"groups\": [\"alpha\", \"beta\"]}}}}}",
+        "Oa4mpClientCoScope": [
+          {"id": 301, "client_id": null, "named_config_id": 3, "scope": "openid"},
+          {"id": 302, "client_id": null, "named_config_id": 3, "scope": "email"},
+          {"id": 303, "client_id": null, "named_config_id": 3, "scope": "profile"},
+          {"id": 304, "client_id": null, "named_config_id": 3, "scope": "org.cilogon.userinfo"}
+        ]
+      },
+      {
+        "id": 4,
+        "admin_id": 1,
+        "config_name": "Parity other configuration",
+        "description": "Must not be picked",
+        "config": "{\"tokens\": {\"identity\": {\"type\": \"identity\", \"qdl\": {\"load\": \"COmanageRegistry/other/other_claims.qdl\"}}}}",
+        "Oa4mpClientCoScope": [
+          {"id": 401, "client_id": null, "named_config_id": 4, "scope": "openid"}
+        ]
+      }
+    ],
+    "DefaultDynamoConfig": {
+      "id": 5,
+      "client_id": null,
+      "admin_id": 1,
+      "aws_region": "us-east-2",
+      "aws_access_key_id": "AKIAEXAMPLE",
+      "aws_secret_access_key": "not-a-real-secret",
+      "table_name": "registry",
+      "partition_key": "sub",
+      "partition_key_template": "${sub}",
+      "partition_key_claim_name": "sub",
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  },
+  "data": {
+    "Oa4mpClientCoOidcClient": {
+      "id": 29,
+      "admin_id": 1,
+      "oa4mp_identifier": "cilogon:/client_id/parity-named-config",
+      "name": "Parity Named configuration",
+      "home_url": "https://app.example.org/",
+      "error_url": null,
+      "proxy_limited": false,
+      "refresh_token_lifetime": null,
+      "public_client": false,
+      "named_config_id": 3,
+      "oa4mp_server_extra": null
+    },
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null,
+      "Oa4mpClientCoNamedConfig": [
+        {
+          "id": 3,
+          "admin_id": 1,
+          "config_name": "Parity project configuration",
+          "description": "A project's own claims script",
+          "config": "{\"tokens\": {\"identity\": {\"type\": \"identity\", \"qdl\": {\"load\": \"COmanageRegistry/project/project_claims.qdl\", \"xmd\": {\"exec_phase\": [\"post_auth\", \"post_token\", \"post_user_info\"]}, \"args\": {\"project\": \"parity\", \"groups\": [\"alpha\", \"beta\"]}}}}}",
+          "Oa4mpClientCoScope": [
+            {"id": 301, "client_id": null, "named_config_id": 3, "scope": "openid"},
+            {"id": 302, "client_id": null, "named_config_id": 3, "scope": "email"},
+            {"id": 303, "client_id": null, "named_config_id": 3, "scope": "profile"},
+            {"id": 304, "client_id": null, "named_config_id": 3, "scope": "org.cilogon.userinfo"}
+          ]
+        },
+        {
+          "id": 4,
+          "admin_id": 1,
+          "config_name": "Parity other configuration",
+          "description": "Must not be picked",
+          "config": "{\"tokens\": {\"identity\": {\"type\": \"identity\", \"qdl\": {\"load\": \"COmanageRegistry/other/other_claims.qdl\"}}}}",
+          "Oa4mpClientCoScope": [
+            {"id": 401, "client_id": null, "named_config_id": 4, "scope": "openid"}
+          ]
+        }
+      ],
+      "DefaultDynamoConfig": {
+        "id": 5,
+        "client_id": null,
+        "admin_id": 1,
+        "aws_region": "us-east-2",
+        "aws_access_key_id": "AKIAEXAMPLE",
+        "aws_secret_access_key": "not-a-real-secret",
+        "table_name": "registry",
+        "partition_key": "sub",
+        "partition_key_template": "${sub}",
+        "partition_key_claim_name": "sub",
+        "sort_key": null,
+        "sort_key_template": null
+      }
+    },
+    "Oa4mpClientAccessControl": {"id": null, "client_id": null, "co_group_id": null},
+    "Oa4mpClientAccessToken": {"id": null, "client_id": null, "is_jwt": null},
+    "Oa4mpClientAuthorization": {
+      "id": null,
+      "client_id": null,
+      "authz_co_group_id": null,
+      "require_active": null,
+      "authz_group_redirect_url": null,
+      "require_active_redirect_url": null,
+      "no_record_redirect_url": null
+    },
+    "Oa4mpClientRefreshToken": {"id": null, "client_id": null, "token_lifetime": null},
+    "Oa4mpClientCoEmailAddress": [
+      {"id": 291, "client_id": 29, "admin_id": null, "mail": "owner@example.org"}
+    ],
+    "Oa4mpClientCoScope": [
+      {"id": 291, "client_id": 29, "named_config_id": null, "scope": "openid"}
+    ],
+    "Oa4mpClientCoCallback": [
+      {"id": 291, "client_id": 29, "url": "https://app.example.org/callback"}
+    ],
+    "Oa4mpClientClaim": [],
+    "Oa4mpClientCoNamedConfig": {
+      "id": 3,
+      "admin_id": 1,
+      "config_name": "Parity project configuration",
+      "description": "A project's own claims script",
+      "config": "{\"tokens\": {\"identity\": {\"type\": \"identity\", \"qdl\": {\"load\": \"COmanageRegistry/project/project_claims.qdl\", \"xmd\": {\"exec_phase\": [\"post_auth\", \"post_token\", \"post_user_info\"]}, \"args\": {\"project\": \"parity\", \"groups\": [\"alpha\", \"beta\"]}}}}}"
+    },
+    "Oa4mpClientDynamoConfig": {
+      "id": null,
+      "client_id": null,
+      "admin_id": null,
+      "aws_region": null,
+      "aws_access_key_id": null,
+      "aws_secret_access_key": null,
+      "table_name": null,
+      "partition_key": null,
+      "partition_key_template": null,
+      "partition_key_claim_name": null,
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  }
+}
