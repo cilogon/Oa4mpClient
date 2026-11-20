@@ -1,0 +1,45 @@
+{
+    "tokens": {
+        "identity": {
+            "qdl": {
+                "args": {
+                    "require_active_status": true,
+                    "dynamo_module_config": {
+                        "region": "us-east-2",
+                        "access_key_id": "AKIAEXAMPLE",
+                        "secret_access_key": "not-a-real-secret",
+                        "table_name": "registry",
+                        "partition_key": "sub"
+                    },
+                    "partition_key_template": "${sub}",
+                    "partition_key_claim_name": "sub",
+                    "claim_mappings": [
+                        {
+                            "claim_name": "terms_agreed",
+                            "source_model": "CoTAndCAgreement",
+                            "source_model_claim_value_field": "all",
+                            "claim_value_selection": "all",
+                            "claim_value_json_format": "string",
+                            "claim_multiple_value_serialization": "json_array"
+                        }
+                    ]
+                },
+                "load": "COmanageRegistry/default/dynamodb_claims.qdl",
+                "xmd": {
+                    "exec_phase": [
+                        "post_auth",
+                        "post_refresh",
+                        "post_token",
+                        "post_user_info"
+                    ]
+                }
+            },
+            "type": "identity"
+        }
+    },
+    "metadata": {
+        "Oa4mpClient": {
+            "contract_version": 2
+        }
+    }
+}

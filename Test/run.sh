@@ -157,6 +157,14 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # smallest. Raise it deliberately as the suite grows; lower it only together
 # with a deliberate removal, never to make a red run green.
 #
+# Raised from 550 to 559 on 2026-11-20 for the Parity fixtures and exporter
+# that the Registry 5 port is checked against, which brought the suite to 562
+# with the new Test/Case/Parity/ParityExporterTest.php: stable bytes across two
+# exports, every export equal to its committed expected files, fixtures and
+# expected directories matching one to one, no cfg for a public client, an
+# unknown key refused, no request built for the OA4MP server, and the Router
+# left as it was found.
+#
 # Raised from 538 to 550 on 2026-11-16 for showing the main-menu OIDC Clients
 # link to platform and CO admins (cilogon/Oa4mpClient#78), which added twelve
 # (541 -> 553) in the new Test/Case/Model/MenuVisibilityTest.php: a CO admin
@@ -586,7 +594,7 @@ echo "==> Verifying the suite ran a plausible number of tests..."
 # testRunShRequiresAPlausibleTestCount now counts the tree independently and
 # reddens when the floor falls materially behind, so a stale floor is caught
 # even when a stale comment is not. Update both together.
-min_tests_run=550
+min_tests_run=559
 tests_run="$(sed -n 's/^\([0-9][0-9]*\) tests run, [0-9][0-9]* failed\.$/\1/p' \
   <<< "$suite_tail" | head -n 1)"
 if [ -z "$tests_run" ]; then
