@@ -122,6 +122,22 @@ of this edition.
   messages are not translated.
 
 ## Testing & Verification
+- `tests/run.sh` runs the style check, the fast suite and the integration
+  suite, and is the pull request gate: CI runs the same script, and a pull
+  request to `registry-5` cannot merge unless it passes. A passing run ends
+  with `==> PASSED: ...`. `tests/run.sh --unit` runs the fast suite alone,
+  with networking disabled. Both need Docker and the Registry image from
+  `workbench/bin/build-image`. See `tests/README.md`.
+- The fast suite (`tests/Unit/`) holds framework-free code, the Parity check
+  included, and runs with no Registry application and no database. The
+  integration suite (`tests/TestCase/`) runs tables, controllers and
+  permissions inside a Registry 5 container against a throwaway test
+  database, with the plugin activated from this checkout.
+- Each suite has a floor under its test count in `tests/run.sh`. Raise it in
+  the change that adds tests; lower it only with a deliberate removal.
+- The style check runs `phpcs` with `phpcs.xml`, the checkable parts of the
+  coding guide. Errors fail the gate; warnings do not. It only reports: fix
+  violations by hand, never with `phpcbf` or another fixer.
 - Lint changed PHP with `php -l <file>` (inside the workbench container if PHP
   is not installed locally).
 - Check pages and behavior in the workbench (`workbench/README.md`). Anything

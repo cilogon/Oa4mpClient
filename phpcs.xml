@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<!--
+  The checkable parts of the Registry PE Coding Guide: PSR-12 with 2-space
+  indentation, a warning past 120 characters and no hard line limit, and
+  whitespace allowed on blank lines (the guide aligns it with the line above).
+  The 80-character target, named arguments at call sites and the labelling of
+  application rules are left to review.
+
+  Report only: tests/run.sh and CI run phpcs with this file. Never run phpcbf
+  or another fixer over the tree.
+-->
+<ruleset name="Oa4mpClient">
+  <description>Registry PE Coding Guide, as far as phpcs can check it</description>
+
+  <file>src</file>
+  <file>tests</file>
+  <file>bin</file>
+  <file>workbench</file>
+
+  <!-- Carried from the Registry 4 edition unchanged, in that edition's style. -->
+  <exclude-pattern>bin/qdl-conformance\.php$</exclude-pattern>
+  <!-- Generated on the developer's machine and ignored by git. -->
+  <exclude-pattern>workbench/local/*</exclude-pattern>
+
+  <arg name="extensions" value="php"/>
+  <arg name="colors"/>
+  <arg value="sp"/>
+
+  <rule ref="PSR12">
+    <!--
+      Registry's license header follows the opening tag directly, in core and
+      in every plugin, including code written to the guide; it is not
+      separated by a blank line.
+    -->
+    <exclude name="PSR12.Files.FileHeader.SpacingAfterTagBlock"/>
+    <!--
+      CakePHP fixes the names of the properties a plugin overrides, such as
+      an entity's $_accessible and $_hidden.
+    -->
+    <exclude name="PSR2.Classes.PropertyDeclaration.Underscore"/>
+  </rule>
+
+  <!--
+    Blank lines may carry whitespace aligned to the line above. Trailing
+    whitespace after code is still an error.
+  -->
+  <rule ref="Squiz.WhiteSpace.SuperfluousWhitespace">
+    <properties>
+      <property name="ignoreBlankLines" value="true"/>
+    </properties>
+  </rule>
+
+  <rule ref="Generic.Files.LineLength">
+    <properties>
+      <property name="lineLimit" value="120"/>
+      <property name="absoluteLineLimit" value="0"/>
+    </properties>
+  </rule>
+
+  <!-- Two-space indentation everywhere PSR-12 measures an indent. -->
+  <rule ref="Generic.WhiteSpace.ScopeIndent">
+    <properties>
+      <property name="indent" value="2"/>
+    </properties>
+  </rule>
+  <rule ref="PSR2.Classes.ClassDeclaration">
+    <properties>
+      <property name="indent" value="2"/>
+    </properties>
+  </rule>
+  <rule ref="PSR2.ControlStructures.SwitchDeclaration">
+    <properties>
+      <property name="indent" value="2"/>
+    </properties>
+  </rule>
+  <rule ref="PSR2.Methods.FunctionCallSignature">
+    <properties>
+      <property name="indent" value="2"/>
+    </properties>
+  </rule>
+  <rule ref="PSR12.Classes.AnonClassDeclaration">
+    <properties>
+      <property name="indent" value="2"/>
+    </properties>
+  </rule>
+  <rule ref="PSR12.ControlStructures.ControlStructureSpacing">
+    <properties>
+      <property name="indent" value="2"/>
+    </properties>
+  </rule>
+  <rule ref="Squiz.Functions.MultiLineFunctionDeclaration">
+    <properties>
+      <property name="indent" value="2"/>
+    </properties>
+  </rule>
+</ruleset>
