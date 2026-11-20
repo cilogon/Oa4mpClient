@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#
+# Open a browser session signed in to the workbench as one test person, for an
+# agent to drive with agent-browser.
+#
+# The session is named after the test person, so later commands address it
+# with `agent-browser --session <login> ...`. Any session of that name is closed
+# first, so every run starts from a fresh login. The browser answers the test
+# listener's login challenge only; it sends no credentials to other pages.
+#
+# Screenshots go to WORKBENCH_SCREENSHOT_DIR (default
+# ~/claude-artifacts/oa4mp-workbench-screenshots), which must not be inside a
+# git repository. A screenshot of an Admin client or DynamoDB configuration
+# page is never committed or attached to a pull request or issue.
+#
+# Usage: workbench/bin/browser-session <login> [--headed]
+#        workbench/bin/browser-session --list
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+if [ "${1:-}" = "--list" ]; then
+  printf '%s\n' "${WORKBENCH_TEST_LOGINS[@]}"
+  exit 0
+fi
+
+login="${1:-}"
+[ -n "$login" ] || die "usage: browser-session <login> [--headed]; --list shows the logins"
+shift
+headed=()
+if [ "${1:-}" = "--headed" ]; then
+  headed=(--headed)
+fi
+
+known=0
+for candidate in "${WORKBENCH_TEST_LOGINS[@]}"; do
+  [ "$candidate" = "$login" ] && known=1
+done
+[ "$known" -eq 1 ] || die "unknown test login $login; --list shows the logins"
+
+command -v agent-browser > /dev/null 2>&1 \
+  || die "agent-browser is not installed"
+require_local_config
+
+shots="${WORKBENCH_SCREENSHOT_DIR:-$HOME/claude-artifacts/oa4mp-workbench-screenshots}"
+mkdir -p "$shots"
+if git -C "$shots" rev-parse --show-toplevel > /dev/null 2>&1; then
+  die "screenshot directory $shots is inside a git repository; choose another"
+fi
+
+port="$(local_value TESTLOGIN_PORT)"
+password="$(local_value TEST_LOGIN_PASSWORD)"
+browser=(agent-browser --session "$login" --ignore-https-errors "${headed[@]}")
+
+agent-browser --session "$login" close > /dev/null 2>&1 || true
+"${browser[@]}" set credentials "$login" "$password" > /dev/null
+"${browser[@]}" open "https://localhost:$port/registry/cos/select" > /dev/null
+
+echo "Session:     $login"
+echo "Landed on:   $(agent-browser --session "$login" get url)"
+echo "Title:       $(agent-browser --session "$login" get title)"
+echo "Screenshots: $shots"
+echo
+echo "Drive it with:  agent-browser --session $login <command>"
+echo "Screenshot:     agent-browser --session $login screenshot $shots/<name>.png"
+echo "Finish with:    agent-browser --session $login close"

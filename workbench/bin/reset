@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# Drop the workbench database and start again from Registry's own setup.
+# Every CO, person, plugin record and setting in the workbench is lost; the
+# local configuration in workbench/local/ is kept. Run workbench/bin/seed
+# afterwards for the test CO and people.
+#
+# Usage: workbench/bin/reset
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+require_local_config
+
+workbench_export_image
+"${WORKBENCH_COMPOSE[@]}" down --volumes
+"$WORKBENCH_DIR/bin/up"

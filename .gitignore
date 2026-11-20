@@ -3,3 +3,7 @@ Oa4mpClient.code-workspace
 
 # Live-server tier credentials (U9). Never commit a real secret.
 Test/.env
+
+# Registry 5 workbench: generated on the developer's machine, holds the test
+# login, database password and any CILogon client secret. Never commit it.
+workbench/local/
