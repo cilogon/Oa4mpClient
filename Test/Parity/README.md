@@ -106,7 +106,9 @@ byte. The running Registry 5 plugin supplies its own addresses.
 | `confidential-minimal` | A new confidential client, as the add page marshals it |
 | `public-client` | A public client: no `cfg`, although it carries a claim |
 | `refresh-tokens-on` | A refresh token lifetime: the `refresh_token` grant and `rt_lifetime` |
+| `refresh-tokens-posted` | The same lifetime as the Refresh Tokens tab posts it: a string, which is sent as a string |
 | `refresh-tokens-off` | No refresh token row |
+| `server-extras` | Settings stored from the OA4MP server that the plugin does not manage, merged into the request without overriding the plugin's own keys |
 | `claims-email-address` | EmailAddress claims, without and with constraints |
 | `claims-co-group-member` | CoGroupMember claims, without and with constraints |
 | `claims-identifier` | Identifier claims, without and with constraints |
