@@ -1,0 +1,137 @@
+{
+  "description": "Claims from the SshKey source: all keys without constraints, and the key material of ssh-ed25519 keys only. Read as Oa4mpClientCoOidcClient::current() reads it.",
+  "adminClient": {
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null
+    },
+    "Oa4mpClientCoNamedConfig": [],
+    "DefaultDynamoConfig": {
+      "id": 5,
+      "client_id": null,
+      "admin_id": 1,
+      "aws_region": "us-east-2",
+      "aws_access_key_id": "AKIAEXAMPLE",
+      "aws_secret_access_key": "not-a-real-secret",
+      "table_name": "registry",
+      "partition_key": "sub",
+      "partition_key_template": "${sub}",
+      "partition_key_claim_name": "sub",
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  },
+  "data": {
+    "Oa4mpClientCoOidcClient": {
+      "id": 19,
+      "admin_id": 1,
+      "oa4mp_identifier": "cilogon:/client_id/parity-claims-ssh-key",
+      "name": "Parity claims SshKey",
+      "home_url": "https://app.example.org/",
+      "error_url": null,
+      "proxy_limited": false,
+      "refresh_token_lifetime": null,
+      "public_client": false,
+      "named_config_id": null,
+      "oa4mp_server_extra": null
+    },
+    "Oa4mpClientCoAdminClient": {
+      "id": 1,
+      "co_id": 2,
+      "manage_co_group_id": null,
+      "serverurl": "https://oa4mp.example.org/oauth2/oidc-cm",
+      "name": "Parity admin client",
+      "issuer": "https://oa4mp.example.org/oauth2",
+      "admin_identifier": "admin-client-parity",
+      "qdl_claim_source": "COmanageRegistry/default/dynamodb_claims.qdl",
+      "qdl_claim_process": null,
+      "Oa4mpClientCoNamedConfig": [],
+      "DefaultDynamoConfig": {
+        "id": 5,
+        "client_id": null,
+        "admin_id": 1,
+        "aws_region": "us-east-2",
+        "aws_access_key_id": "AKIAEXAMPLE",
+        "aws_secret_access_key": "not-a-real-secret",
+        "table_name": "registry",
+        "partition_key": "sub",
+        "partition_key_template": "${sub}",
+        "partition_key_claim_name": "sub",
+        "sort_key": null,
+        "sort_key_template": null
+      }
+    },
+    "Oa4mpClientAccessControl": {"id": null, "client_id": null, "co_group_id": null},
+    "Oa4mpClientAccessToken": {"id": null, "client_id": null, "is_jwt": null},
+    "Oa4mpClientAuthorization": {
+      "id": 19,
+      "client_id": 19,
+      "authz_co_group_id": null,
+      "require_active": true,
+      "authz_group_redirect_url": null,
+      "require_active_redirect_url": null,
+      "no_record_redirect_url": null
+    },
+    "Oa4mpClientRefreshToken": {"id": null, "client_id": null, "token_lifetime": null},
+    "Oa4mpClientCoEmailAddress": [
+      {"id": 191, "client_id": 19, "admin_id": null, "mail": "owner@example.org"}
+    ],
+    "Oa4mpClientCoScope": [
+      {"id": 191, "client_id": 19, "named_config_id": null, "scope": "openid"},
+      {"id": 192, "client_id": 19, "named_config_id": null, "scope": "org.cilogon.userinfo"}
+    ],
+    "Oa4mpClientCoCallback": [
+      {"id": 191, "client_id": 19, "url": "https://app.example.org/callback"}
+    ],
+    "Oa4mpClientClaim": [
+      {
+        "id": 191,
+        "client_id": 19,
+        "claim_name": "ssh_keys",
+        "source_model": "SshKey",
+        "source_model_claim_value_field": "all",
+        "claim_value_selection": "all",
+        "claim_value_json_format": "string",
+        "claim_multiple_value_serialization": "json_array",
+        "claim_value_string_serialization_delimiter": null,
+        "Oa4mpClientClaimConstraint": []
+      },
+      {
+        "id": 192,
+        "client_id": 19,
+        "claim_name": "ssh_ed25519_keys",
+        "source_model": "SshKey",
+        "source_model_claim_value_field": "skey",
+        "claim_value_selection": "all",
+        "claim_value_json_format": "string",
+        "claim_multiple_value_serialization": "delimited_string",
+        "claim_value_string_serialization_delimiter": ";",
+        "Oa4mpClientClaimConstraint": [
+          {"id": 191, "claim_id": 192, "constraint_field": "type", "constraint_value": "ssh-ed25519"}
+        ]
+      }
+    ],
+    "Oa4mpClientCoNamedConfig": {"id": null, "admin_id": null, "config_name": null, "description": null, "config": null},
+    "Oa4mpClientDynamoConfig": {
+      "id": 19,
+      "client_id": 19,
+      "admin_id": null,
+      "aws_region": "us-east-2",
+      "aws_access_key_id": "AKIAEXAMPLE",
+      "aws_secret_access_key": "not-a-real-secret",
+      "table_name": "registry",
+      "partition_key": "sub",
+      "partition_key_template": "${sub}",
+      "partition_key_claim_name": "sub",
+      "sort_key": null,
+      "sort_key_template": null
+    }
+  }
+}

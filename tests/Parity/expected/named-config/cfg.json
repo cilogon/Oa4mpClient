@@ -1,0 +1,30 @@
+{
+    "tokens": {
+        "identity": {
+            "type": "identity",
+            "qdl": {
+                "load": "COmanageRegistry/project/project_claims.qdl",
+                "xmd": {
+                    "exec_phase": [
+                        "post_auth",
+                        "post_token",
+                        "post_user_info"
+                    ]
+                },
+                "args": {
+                    "project": "parity",
+                    "groups": [
+                        "alpha",
+                        "beta"
+                    ]
+                }
+            }
+        }
+    },
+    "metadata": {
+        "Oa4mpClient": {
+            "Oa4mpClientCoNamedConfig": "https://registry.example.org/registry/oa4mp_client/oa4mp_client_co_named_configs/edit/3",
+            "contract_version": 2
+        }
+    }
+}

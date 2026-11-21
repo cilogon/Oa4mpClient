@@ -1,0 +1,35 @@
+{
+  "client_id": "cilogon:/client_id/older-format-deprecated",
+  "client_name": "Older format deprecated",
+  "client_uri": "https://app.example.org/",
+  "redirect_uris": ["https://app.example.org/callback"],
+  "grant_types": ["authorization_code"],
+  "response_types": ["code"],
+  "scope": ["openid", "profile"],
+  "token_endpoint_auth_method": "client_secret_basic",
+  "contacts": ["owner@example.org"],
+  "comment": "Created by COmanage Oa4mpClient Plugin: https://registry.example.org/registry/oa4mp_client/oa4mp_client_co_oidc_clients/index/co:2",
+  "cfg": {
+    "config": "Created by COmanage Oa4mpClient Plugin",
+    "claims": {
+      "sourceConfig": [
+        {
+          "ldap": {
+            "id": "4c2d8a1f",
+            "authorizationType": "simple",
+            "enabled": "true",
+            "address": "ldap.example.org",
+            "port": 636,
+            "principal": "cn=service,dc=example,dc=org",
+            "password": "not-a-real-password",
+            "searchBase": "ou=people,dc=example,dc=org",
+            "searchName": "uid",
+            "searchAttributes": [
+              {"name": "isMemberOf", "returnName": "is_member_of", "returnAsList": "true"}
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
