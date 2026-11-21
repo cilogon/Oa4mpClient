@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+#
+# Check that the running workbench is usable and safe:
+#   - both listeners are published on the loopback address only
+#   - the image on its own, without workbench/local/, offers no test login
+#   - each seeded test person can log in and lands where Registry sends them
+#   - a wrong test-login password is refused
+#   - the CILogon listener either sends logins to CILogon or says it is not
+#     configured
+#
+# Run workbench/bin/up and workbench/bin/seed first.
+#
+# Usage: workbench/bin/smoke
+set -euo pipefail
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+require_local_config
+
+workbench_export_image
+testlogin_port="$(local_value TESTLOGIN_PORT)"
+cilogon_port="$(local_value CILOGON_PORT)"
+password="$(local_value TEST_LOGIN_PASSWORD)"
+base="https://localhost:$testlogin_port/registry"
+
+failures=0
+pass() { echo "  ok    $*"; }
+fail() { echo "  FAIL  $*"; failures=$((failures + 1)); }
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+echo "==> Published ports"
+container="$("${WORKBENCH_COMPOSE[@]}" ps -q registry)"
+[ -n "$container" ] || die "the registry container is not running; run workbench/bin/up"
+bindings="$(docker port "$container")"
+if [ -z "$bindings" ]; then
+  fail "the registry container publishes no ports"
+elif grep -vqE ' -> 127\.0\.0\.1:[0-9]+$' <<< "$bindings"; then
+  fail "a port is published beyond the loopback address: $(tr '\n' ' ' <<< "$bindings")"
+else
+  pass "loopback only: $(tr '\n' ' ' <<< "$bindings")"
+fi
+
+echo "==> Image without local configuration"
+image_auth="$(docker run --rm --entrypoint bash "$WORKBENCH_IMAGE" -c '
+  source /usr/local/lib/comanage_utils.sh
+  OUTPUT=/dev/null
+  comanage_utils::prepare_virtual_host
+  grep -rilE "AuthType +Basic|AuthUserFile" /etc/apache2 || true')"
+if [ -z "$image_auth" ]; then
+  pass "the image alone configures no basic-authentication login"
+else
+  fail "the image alone configures basic authentication in: $image_auth"
+fi
+
+login() {
+  local user="$1" jar="$work/$1.jar"
+  curl -ks -c "$jar" -b "$jar" -L -o /dev/null "$base/cos/select"
+  curl -ks -c "$jar" -b "$jar" -u "$user:$password" -o /dev/null \
+    "$base/auth/login/login.php"
+  curl -ks -c "$jar" -b "$jar" -L -o "$work/$user.html" \
+    -w '%{http_code} %{url_effective}' "$base/traffic/process-login"
+}
+
+expect_landing() {
+  local user="$1" want_url="$2" want_text="$3" got
+  got="$(login "$user")"
+  if [ "${got%% *}" != "200" ]; then
+    fail "$user: status ${got%% *} at ${got#* }"
+  elif [[ "${got#* }" != *"$want_url"* ]]; then
+    fail "$user: landed on ${got#* }, expected $want_url"
+  elif ! grep -q "$want_text" "$work/$user.html"; then
+    fail "$user: page lacks \"$want_text\""
+  else
+    pass "$user lands on $want_url"
+  fi
+}
+
+echo "==> Test logins"
+expect_landing wb-platform-admin /cos/select 'Workbench CO'
+expect_landing wb-platform-admin-unlisted /cos/select 'Workbench CO'
+for user in wb-co-admin wb-manager wb-editor wb-member; do
+  expect_landing "$user" /dashboards/dashboard 'Logout'
+done
+for user in wb-inactive wb-no-record; do
+  expect_landing "$user" /cos/select 'not an active member'
+done
+
+status="$(curl -ks -o /dev/null -w '%{http_code}' -u "wb-member:not-the-password" \
+  "$base/auth/login/login.php")"
+if [ "$status" = "401" ]; then
+  pass "a wrong password is refused"
+else
+  fail "a wrong password got status $status, expected 401"
+fi
+
+echo "==> CILogon listener"
+cilogon_login="https://localhost:$cilogon_port/registry/auth/login/login.php"
+if [ -z "$(local_value CILOGON_CLIENT_ID)" ]; then
+  body="$(curl -ks -w '\n%{http_code}' "$cilogon_login")"
+  if [ "$(tail -n 1 <<< "$body")" = "403" ] && grep -q 'not configured' <<< "$body"; then
+    pass "not configured: the listener refuses login and says so"
+  else
+    fail "unconfigured listener answered $(tail -n 1 <<< "$body") without the notice"
+  fi
+else
+  location="$(curl -ks -o /dev/null -w '%{redirect_url}' "$cilogon_login")"
+  if [[ "$location" == https://cilogon.org/* ]]; then
+    pass "login is sent to CILogon"
+  else
+    fail "login was sent to '$location', not CILogon"
+  fi
+fi
+
+echo
+if [ "$failures" -eq 0 ]; then
+  echo "==> Smoke passed"
+else
+  echo "==> Smoke FAILED: $failures check(s)"
+  exit 1
+fi

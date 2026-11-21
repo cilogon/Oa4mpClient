@@ -7,7 +7,7 @@
 # (c8d29ad and its ancestors); it is documentation, its paired secret_access_key
 # is a literal "dummy/..." string, and it cannot be edited out of history.
 #
-# Locked by Test/Case/CiWorkflowTest.php, which runs inside the hermetic gate.
+# Locked by tests/Unit/GateSafeguardsTest.php, which runs inside the gate.
 
 # Add to the built-in ruleset rather than replacing it. Without this block the
 # scanner keeps exiting zero while detecting nothing: a green gate guarding

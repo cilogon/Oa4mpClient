@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+Releases from 8.0.0 on are the Registry 5 edition, from the `registry-5`
+branch. Releases before 8.0.0 are the Registry 4 edition, maintained on
+`main`, and are listed below for reference.
+
+## Unreleased (8.0.0)
+
+- Start the Registry 5 edition from release 7.0.0. The plugin loads from
+  Registry 5's `local/plugins`, activates, and offers an Admin client as a
+  Server type. The Registry 4 code is removed from this branch.
+- Add a local Registry 5 workbench for developing and checking the plugin, with
+  a CILogon login for the maintainer and a test login for agents.
 
 ## 7.0.0 (2026-11-16)
 

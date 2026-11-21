@@ -1,0 +1,20 @@
+{
+  "types": {
+    "server": [
+      "Oa4mpAdminClients"
+    ]
+  },
+  "schema": {
+    "tables": {
+      "oa4mp_admin_clients": {
+        "columns": {
+          "id": {},
+          "server_id": {}
+        },
+        "indexes": {
+          "oa4mp_admin_clients_i1": { "columns": [ "server_id" ] }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+# Integration test environment for the Oa4mpClient plugin: a Registry 5
+# container and a throwaway Postgres test database. Start it only through
+# tests/run.sh, which picks the Registry image, sets up Registry, activates
+# the plugin, runs the integration suite and removes everything afterwards.
+#
+# Nothing here is published on the host, and the network is internal, so the
+# suite cannot reach an OA4MP server or anything else outside this stack.
+
+services:
+  database:
+    image: postgres@sha256:2fdfb9b432d4a73bd3eea3d989752c1e669b68d502347e0bfd2cc6d709f3d6b4
+    environment:
+      POSTGRES_DB: registry_test
+      POSTGRES_USER: registry_test
+      POSTGRES_PASSWORD: registry_test
+    networks:
+      - tests
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry_test -d registry_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  registry:
+    # No public Registry 5 image exists. tests/run.sh sets this to an image
+    # built from the commit in workbench/registry.pin.
+    image: ${OA4MP_TEST_REGISTRY_IMAGE:?run tests/run.sh, which sets the image}
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      COMANAGE_REGISTRY_DATABASE_HOST: database
+      COMANAGE_REGISTRY_DATABASE: registry_test
+      COMANAGE_REGISTRY_DATABASE_USER: registry_test
+      COMANAGE_REGISTRY_DATABASE_USER_PASSWORD: registry_test
+    networks:
+      - tests
+    volumes:
+      - ../..:/srv/comanage-registry/local/plugins/Oa4mpClient:ro
+    entrypoint: ["sleep", "infinity"]
+    init: true
+
+networks:
+  tests:
+    internal: true
