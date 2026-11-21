@@ -450,10 +450,19 @@ class Comparator
     $curAuthz = $curData['Oa4mpClientAuthorization'] ?? [];
     $oa4mpAuthz = $oa4mpServerData['Oa4mpClientAuthorization'] ?? [];
 
+    // Any gate setting the marshaller would send counts, not only
+    // require_active: Registry 4 at 7.0.0 checked require_active alone, so a
+    // group-only gate removed on the server read as in sync.
+    $curAuthzSent = ClientState::requiresActiveStatus(data: $curData)
+      || !empty($curAuthz['authz_co_group_id'])
+      || !empty($curAuthz['authz_group_redirect_url'])
+      || !empty($curAuthz['require_active_redirect_url'])
+      || !empty($curAuthz['no_record_redirect_url']);
+
     if (
       !empty($curAuthz['id'])
       && empty($oa4mpAuthz)
-      && (($curAuthz['require_active'] ?? null) == true)
+      && $curAuthzSent
     ) {
       $this->noteDifference(
         message: "Oa4mpClientAuthorization plugin has authorization configuration but Oa4mp server does not"

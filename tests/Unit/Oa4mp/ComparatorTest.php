@@ -164,6 +164,26 @@ class ComparatorTest extends TestCase
   }
 
   /**
+   * A client gated only by an Authorized User Group, whose gate is gone from
+   * the server, is out of sync: users the Registry shows as gated out would
+   * get past the login.
+   */
+  public function testAGroupGateRemovedOnTheServerIsDrift(): void
+  {
+    $fixture = MarshallerParityTest::fixture(name: 'authorization-group');
+    $this->assertEmpty($fixture['data']['Oa4mpClientAuthorization']['require_active']);
+    $this->assertNotEmpty($fixture['data']['Oa4mpClientAuthorization']['authz_co_group_id']);
+
+    $serverCopy = RoundTripTest::serverCopy(name: 'authorization-group', fixture: $fixture);
+    $this->assertTrue(RoundTripTest::verdict(stored: $fixture['data'], serverCopy: $serverCopy)->isInSync());
+
+    unset($serverCopy['cfg']['tokens']['identity']['qdl']['args']['authorization_group_id']);
+    $verdict = RoundTripTest::verdict(stored: $fixture['data'], serverCopy: $serverCopy);
+    $this->assertTrue($verdict->isOutOfSync());
+    $this->assertStringContainsString('Oa4mpClientAuthorization', (string)$verdict->reason);
+  }
+
+  /**
    * The two older cfg formats.
    *
    * @return array<string, array<int, string>>
